@@ -167,8 +167,8 @@ R"html(<!DOCTYPE html>
 
 :root
 {
-  --table-width: 1320px;
-  --details-width: 720px;
+  --table-width: 1440px;
+  --details-width: 820px;
 }
 
 @media (prefers-color-scheme : light)
@@ -191,6 +191,22 @@ R"html(<!DOCTYPE html>
     --cpu-grid-active-text-color: #404040;
     --cycle-grid-active-text-color: #000000;
   }
+
+  span[title='A']      { color: LightSeaGreen; }
+  span[title='D']      { color: Olive; }
+  span[title='i']      { color: AntiqueWhite; }
+  span[title='m']      { color: Aquamarine; }
+  span[title='n']      { color: BlueViolet; }
+  span[title='d']      { color: Coral; }
+  span[title='e']      { color: Cyan; }
+  span[title='f']      { color: Chartreuse; }
+  span[title='g']      { color: DarkCyan; }
+  span[title='u']      { color: DarkMagenta; }
+  span[title='x']      { color: DarkOrange; }
+  span[title='y']      { color: DeepPink; }
+  span[title='z']      { color: ForestGreen; }
+  span[title='star']   { color: Gold; }
+  span[title='binary'] { color: LightBlue; }
 }
 
 @media (prefers-color-scheme : dark)
@@ -235,7 +251,7 @@ body
 {
   background-color: var(--system-background-color);
   color: var(--system-text-color);
-  font-size: 13px;
+  font-size: 15px;
   padding-left: calc(50% - var(--table-width) / 2); /* center everything */
   height: 10000px; /* for sticky header */
   margin: 0px;
@@ -307,7 +323,7 @@ label.summary > div:not(.details)
   border-top-width: 1px;
   border-top-style: dotted;
   font-family: monospace;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .summary > div:not(.details):nth-child(2)
@@ -332,7 +348,7 @@ label.summary:hover > *,
 .summary
 {
   display: inline-grid;
-  grid-template-columns: 150px 240px 350px 150px 80px 120px 120px 110px;
+  grid-template-columns: 150px 240px 470px 150px 80px 120px 120px 110px;
   grid-template-rows: 50px auto;
 }
 
@@ -350,7 +366,7 @@ label.summary:hover > *,
   grid-template-columns: 33px 33px 33px;
   grid-template-rows: 13px 13px 13px;
   font-family: monospace;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: unset;
   font-style: unset;
 }
@@ -424,7 +440,7 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > p:nth-of-type(9)
 .summary > .details > span[title="code"]
 {
   display: block;
-  font-size: 11px;
+  font-size: 13px;
   font-family: monospace;
   white-space: pre;
   margin: 1em 0;
