@@ -1,10 +1,11 @@
 #pragma once
 
 #include <cstdint>
-#include <string_view>
-#include <vector>
+#include <string>
+#include <list>
 #include <array>
 #include <tuple>
+#include <functional>
 
 
 #if __cplusplus < 202002L
@@ -33,12 +34,15 @@ enum isa : uint16_t
   SH4A    = 0x0080,
   SH_DSP  = 0x0100,
 
-  SH_ANY  = SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH_ALL  = SH1 | SH2 | SH2E | SH2A | SH3 | SH3E | SH4 | SH4A | SH_DSP,
 };
 
-struct isa_property : std::array<std::string_view, 9>
+constexpr isa operator |(isa a, isa b)
+  { return isa(uint16_t(a) | uint16_t(b)); }
+
+struct isa_property : std::array<std::string, 9>
 {
-  using parent = std::array<std::string_view, 9>;
+  using parent = std::array<std::string, 9>;
   isa_property (void) { }
 
   template <typename... Args>
@@ -50,7 +54,7 @@ struct isa_property : std::array<std::string_view, 9>
         parent::operator[](pos) = val;
   }
 
-  std::string_view operator[] (isa i) const
+  std::string operator[] (isa i) const
     { return parent::operator[](countr_zero(i)); }
 };
 
@@ -69,20 +73,72 @@ struct property_class
   T value;
 };
 
-using string_class = property_class<const char*, nullptr>;
+enum document
+{
+  SH7750_PROG_DOC, // "SuperH™ (SH) 32-Bit RISC MCU/MPU Series\nSH7750\nHigh-Performance RISC Engine\nProgramming Manual",identifier:"ADE-602-156A\nRev. 2.0",date:"1999/03/04"
+                   // location:"https://ia802500.us.archive.org/9/items/manuallib-id-2595799/2595799.pdf"
 
-struct dc_bit       : std::string_view {};
-struct t_bit        : std::string_view {};
-struct format       : std::string_view {};
-struct abstract     : std::string_view {};
-struct code         : std::string_view {};
-struct description  : std::string_view {};
-struct note         : std::string_view {};
-struct operation    : std::string_view {};
-struct example      : std::string_view {};
-struct exceptions   : std::string_view {};
-using privilege = property_class<bool, false>;
-constexpr privilege privileged = { true };
+  SH1_2_PROG_DOC, // name:"SuperH RISC Engine\nSH-1/SH-2\nProgramming Manual",date:"1996/09/03"
+                  // location:"https://antime.kapsi.fi/sega/files/h12p0.pdf"
+
+  SH1_2_DSP_DOC, // name:"Hitachi SuperH™ RISC Engine\nSH-1/SH-2/SH-DSP\nProgramming Manual",identifier:"ADE-602-063C\nRev. 4.0",date:"1999/13/05"
+                 // location:"https://retrocdn.net/images/3/35/Hitachi_SuperH_Programming_Manual.pdf"
+
+  SHA4_CORE_DOC, // name:"SH-4 CPU Core Architecture",identifier:"ADCS 7182230F",date:"2002/09/12"
+                 // location:"https://www.st.com/resource/en/user_manual/cd00147165-sh-4-32-bit-cpu-core-architecture-stmicroelectronics.pdf"
+
+  SH4A_DOC,      // name:"SH-4A\nExtended Functions\nSoftware Manual"\nidentifier:"Rev.2.00",date:"2013/01/18"
+                 // location:"https://www.renesas.com/us/en/document/mat/sh-4a-extended-functions-software-manual?language=en"
+};
+
+struct citation_t
+{
+  document source;
+  int page;
+};
+
+struct environment_t
+{
+  isa cpus;
+  std::string property;
+};
+
+struct environments     : std::list<environment_t> {};
+struct citations        : std::list<citation_t> {};
+
+struct format           : std::string {};
+struct abstract         : std::string {};
+struct brief            : std::string {};
+struct name             : std::string {};
+struct restriction      : std::string {};
+struct classification   : std::string {};
+struct mnemonic         : std::string {};
+struct mnemonic_origin  : std::string {};
+struct code             : std::string {};
+struct flags            : std::string {};
+struct description      : std::string {};
+struct note             : std::string {};
+struct operation        : std::string {};
+struct example          : std::string {};
+struct exceptions       : std::string {};
+
+/*
+ TODO:
+ compile list of documents
+ add: BRK instruction
+ add: FIPR,FTRV brief
+
+  mnemonic { "FMOV.D" }, // ??
+
+  name { "Load to FPU System register" },
+
+  restriction { "
+" },
+  brief
+{R"(
+
+)"},
+*/
 
 struct insn
 {
@@ -105,24 +161,26 @@ struct insn
   template <typename T>
   const T& data(void) const { return std::get<T>(details); }
 
-  bool is_isa (isa i) const { return std::get<isa>(details) & i; }
-  bool privileged() const { return std::get<privilege>(details); }
+  template <typename T>
+  T& data(void) { return std::get<T>(details); }
 
-  std::tuple<format, abstract, code, description, note,
-             operation, example, exceptions, group, issue,
-             latency, privilege, t_bit, dc_bit, isa> details =
+  bool is_isa (isa i) const { return std::get<isa>(details) & i; }
+
+  std::tuple<format, abstract, name, brief, restriction, mnemonic, mnemonic_origin,
+             citations, code, description, note, operation, example, exceptions,
+             group, issue, latency, environments, flags, isa> details =
   {
-    format(), abstract(), code(), description(), note(),
-    operation(), example(), exceptions(), group(), issue(),
-    latency(), privilege(), t_bit(), dc_bit(), SH_NONE,
+    format(), abstract(), name(), brief(), restriction(), mnemonic(), mnemonic_origin(),
+    citations(), code(), description(), note(), operation(), example(), exceptions(),
+    group(), issue(), latency(), environments(), flags(), SH_NONE,
   };
 };
 
-struct insns : public std::vector<insn>
+struct insns : public std::list<insn>
 {
   template <typename... Args>
   insns (const char* title, const Args&... args)
-    : std::vector<insn>({ args... })
+    : std::list<insn>({ args... })
   { section_title = title; }
 
   const char* section_title;
@@ -130,4 +188,4 @@ struct insns : public std::vector<insn>
 
 // ----------------------------------------------------------------------------
 
-std::vector<insns> build_insn_blocks(void);
+std::list<insns> build_insn_blocks(void);

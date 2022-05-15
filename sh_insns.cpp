@@ -20,13 +20,15 @@ along with this software; see the file LICENSE.  If not see
 */
 
 #include <iostream>
-#include <string>
+#include <iomanip>
 #include <string_view>
-#include <vector>
-#include <array>
+#include <cstring>
 #include <regex>
+#include <algorithm>
 
 #include "build_instructions.h"
+
+using namespace std::literals;
 
 // ----------------------------------------------------------------------------
 
@@ -45,29 +47,145 @@ static isa_property isa_name = isa_property
 
 // ----------------------------------------------------------------------------
 
+std::string fix_id(std::string id)
+{
+  std::replace_if(id.begin(), id.end(),[](unsigned char c) -> bool { return c == ' '; }, '_');
+  return id;
+}
+
+std::string fix_html(std::string html)
+{
+  std::size_t pos = std::string::npos;
+  while(pos = html.find('<'), pos != std::string::npos)
+    html.replace(pos, 1, "&lt;");
+  while(pos = html.find('>'), pos != std::string::npos)
+    html.replace(pos, 1, "&gt;");
+  return html;
+}
+
+void print_section_title(std::string_view title)
+{
+  std::cout << "<span title=\"section\">" << title << "</span>" << std::endl
+            << "<br />" << std::endl;
+}
+
+bool skip_endlines(std::string& val)
+{
+  auto is_endline = [](unsigned char c) -> bool { return c == '\n'; };
+  auto pos = std::find_if_not(val.begin(), val.end(), is_endline); // move past initial line break
+  bool end = pos != val.end();
+  if(end)
+    val.erase(val.begin(), pos);
+  return end;
+}
 
 // ----------------------------------------------------------------------------
 
-enum note_type
+void print_list_section (std::string_view title, std::string val)
 {
-  note_normal,
-  note_code
-};
-
-void print_note (std::string_view name, std::string_view val, note_type t)
-{
-  // skip leading line breaks in the input string.
-  std::size_t pos = val.find_first_not_of('\n');
-
-  if(pos != std::string_view::npos)
+  if(skip_endlines(val))
   {
-    std::cout << "<span title=\"section\">" << name << "</span>" << std::endl << "<br />" << std::endl;
-    switch(t)
+    val.erase(val.find_last_of('\n')); // remove trailing newline
+    val.insert(0, "  <var>").append("</var>");
+    for(auto pos = val.find('\n'); pos != std::string::npos; pos = val.find('\n', pos + sizeof("</var>\n  <var>")))
+      val.replace(pos, 1, "</var>\n  <var>");
+    print_section_title(title);
+    std::cout << "<span title=\"list\">" << std::endl
+              << val << std::endl
+              << "</span>" << std::endl;
+  }
+}
+
+void print_code_section (std::string_view title, std::string val)
+{
+  if(skip_endlines(val))
+  {
+    print_section_title(title);
+    std::cout << "<span title=\"code\">" << fix_html(val) << "</span>"<< std::endl;
+  }
+}
+
+void print_note_section (std::string title, std::string val)
+{
+  if(skip_endlines(val))
+  {
+    print_section_title(title);
+    std::cout << "<br />";
+    auto target = "<img src="sv;
+    if (auto it = std::search(val.begin(), val.end(), std::default_searcher(target.begin(), target.end()));
+        it != val.end())
+      std::cout << std::string(val.begin(), it) << "<img alt=\"" << title << "\" class=\"image_filter\" src=" << std::string(it + target.size(), val.end());
+    else
+      std::cout << val;
+    std::cout << "<br /><br />" << std::endl;
+  }
+}
+
+void print_assembly_section (std::string_view title, std::string val)
+{
+  static_assert ("#NOREFORMAT"sv.size() == 11, "oh snap");
+
+  if(skip_endlines(val))
+  {
+    print_section_title(title);
+    auto noreformat = "#NOREFORMAT"sv;
+
+    if(!val.compare(0, noreformat.size(), noreformat))
+      std::cout << "<span title=\"assembly\">"
+                << fix_html(val.substr(noreformat.size()))
+                << "</span>" << std::endl;
+    else
     {
-      case note_normal: std::cout << val.substr(pos) << "<br /><br />"; break;
-      case note_code: std::cout << "<span title=\"code\">" << val.substr(pos) << "</span>"; break;
+
+      auto is_endline = [](unsigned char c) -> bool { return c == '\n'; };
+      auto to_lowercase = [](unsigned char c) -> unsigned char { return std::tolower(c); };
+
+      std::cout << std::setfill(' ') << std::left;
+      std::cout << "<span title=\"assembly\">";
+      std::regex_replace(val.begin(), val.begin(), val.end(), std::regex("H'([[:xdigit:]]+)", std::regex_constants::extended), "0x\\1", std::regex_constants::format_sed);
+      std::regex_replace(val.begin(), val.begin(), val.end(), std::regex("R([[:digit:]]{1,2})", std::regex_constants::extended), "r\\1", std::regex_constants::format_sed);
+      auto pos = val.begin(); // chopped off part of the string, so start from the beginning
+
+      auto is_mnemonic = [](unsigned char c) -> unsigned char{ return std::isalpha(c) || c == '.' ; };
+      auto is_comment_or_EOL = [](unsigned char c) -> unsigned char{ return c == ';' || c == '\n' ; };
+      do
+      {
+        if(*pos == '\n')
+        {
+          std::cout << std::endl;
+        }
+        else
+        {
+          auto next = std::find_if_not(pos, val.end(), is_mnemonic);
+          std::transform(pos, next, pos, to_lowercase);
+          std::cout << std::setw(6) << std::string(pos, next);
+
+          pos = next;
+
+          if(*pos != ';' && *pos != '\n')
+          {
+            next = std::find_if(pos, val.end(), is_comment_or_EOL);
+            std::transform(pos, next, pos, to_lowercase);
+            if(*next == ';')
+              std::cout << std::setw(9) << std::string(pos, next) << "! ";
+            else
+              std::cout << std::string(pos, next);
+            pos = next;
+          }
+          if(*pos == ';' && *pos != '\n')
+          {
+            ++pos;
+            next = std::find_if(pos, val.end(), is_endline); // move past initial line break
+            std::cout << std::string(pos, next);
+
+            pos = next;
+          }
+          if(*pos == '\n')
+            std::cout << std::endl;
+        }
+      } while(++pos != val.end());
+      std::cout << "</span>" << std::endl;
     }
-    std::cout << std::endl;
   }
 }
 
@@ -77,7 +195,7 @@ std::string print_list(const isa_property& prop, const std::string& newtext)
   std::string r;
   for(const auto& val : prop)
     if(!val.empty())
-      r += std::regex_replace(std::string(val), std::regex(std::string(val)), newtext);
+      r += std::regex_replace(std::string(val), std::regex(val.begin(), val.end(), std::regex_constants::basic), newtext, std::regex_constants::format_sed);
   return r;
 }
 
@@ -110,77 +228,151 @@ std::string print_isa_props (const insn& i, const isa_property& p)
   [](bool match, const std::string_view& prop) -> std::string
   {
     if(match && !prop.empty())
-      return std::string("<p>").append(prop).append("</p>");
-    return "<p></p>";
+      return std::string("<var>").append(prop).append("</var>");
+    return "<var></var>";
   });
 }
 
 std::string print_isa_compatibility (const insn& i)
 {
   std::string r = print_isa_props(i, isa_name);
-  if (i.privileged())
-    r += "<br />Privileged";
+  for(auto g : i.data<environments>())
+  {
+
+  }
+//  if (i.privileged())
+//    r += "<br />Privileged";
   return r;
+}
+
+constexpr char operand_type(char c)
+{
+  if(c == '1') // make binary match
+    return '0';
+  return c;
 }
 
 std::string colorize_code(std::string_view code)
 {
-  char prev = '\0';
   std::string r;
-  for(auto& current : code)
+  uint8_t count = 0, spaces = 0;
+  char current = '\0';
+
+  for(auto pos = code.begin(); pos != code.end(); ++pos)
   {
-    if(current == prev ||
-       ((prev == '0' || prev == '1') &&
-        (current == '0' || current == '0')))
-      r.push_back(current);
-    else
+    r.push_back(*pos);
+    ++count;
+
+    if(*pos == ' ' && pos + 1 != code.end())
     {
-      if(!r.empty() && prev != ' ')
-        r.append("</span>");
-      if(current != ' ')
-        r.append("<span title=\"");
+      ++spaces;
+      continue;
+    }
+    current = *pos;
+
+    if(pos + 1 == code.end() ||
+       operand_type(current) != operand_type(*(pos + 1)))
+    {
+      auto total = std::count(code.begin(), code.end(), current); // find the total number of occurances in the whole string
+      std::string tag = "<span title=\"";
+      switch(operand_type(current))
+      {
+        case '0': tag.append("Opcode Identifier"); break;
+        case '*': tag.append("Ignored"); break;
+        case 'm': tag.append("Source Register"); break;
+        case 'n': tag.append("Destination Register"); break;
+        case 'i': tag.append("Unsigned Immediate Data"); break;
+        case 's': tag.append("Signed Immediate Data"); break;
+        case 'd': tag.append("Displacement"); break;
+
+        case 'A': tag.append("A"); break;
+        case 'D': tag.append("D"); break;
+        case 'e': tag.append("Multiplier Source Register 1 (A1, X0, X1, Y0)"); break;
+        case 'f': tag.append("Multiplier Source Register 2 (A1, X0, Y0, Y1)"); break;
+        case 'g': tag.append("Multiplier Destination Register (A0, A1, M0, M1)"); break;
+        case 'x': tag.append("ALU Source Register 1 (A0, A1, X0, X1)"); break;
+        case 'y': tag.append("ALU Source Register 2 (M0, M1, Y0, Y1)"); break;
+        case 'u': tag.append("ALU Destination Register (A0, A1, X0, Y0)"); break;
+        case 'z': tag.append("ALU Destination Register (A0, A1, M0, M1, X0, X1, Y0, Y1)"); break;
+
+        default: throw("unknown operand type: '"s + current + "'");
+      }
+
       switch(current)
       {
-        case '1':
-        case '0': r.append("binary"); break;
-        case '*': r.append("star"); break;
-        default: r.push_back(current); break;
+        case 'm':
+        case 'n':
+          tag.append(" (R0 - R")
+           .append(std::to_string((1 << total) - 1))
+           .push_back(')');
+          break;
+        case 'i':
+        case 's':
+        case 'd':
+          tag.append(" (")
+           .append(std::to_string(total))
+           .append(" bits)");
+          break;
+        case 'e':
+        case 'f':
+        case 'g':
+        case 'x':
+        case 'y':
+        case 'u':
+          if(total != 2)
+            throw("Expected two bits for '"s + current + "' register type. Found: " + std::to_string(total));
+          break;
+
+        case 'z':
+          if(total != 4)
+            throw("Expected four bits for 'z' register type. Found: "s + std::to_string(total));
+          break;
       }
-      if(current != ' ')
-        r.append("\">").push_back(current);
+      tag.append("\">");
+
+      r.insert(r.end() - count + spaces, tag.begin(), tag.end());
+      r.append("</span>");
+      count = 0;
+      spaces = 0;
     }
-    prev = current;
   }
-  if(!r.empty())
-    r.append("</span>");
+
   return r;
 }
 
 int main (void)
 {
+  std::cout << std::unitbuf; // enable automatic flushing
+  std::cerr << std::unitbuf; // enable automatic flushing
+
   std::cout <<
 R"html(<!DOCTYPE html>
 <html lang="en">
-<head><title>Renesas SH Instruction Set Summary</title>
+<head>
+<meta charset="utf-8"/>
+<title>Renesas SH Instruction Set Summary</title>
 
-<style type="text/css">
+<style>
 
 :root
 {
-  --table-width: 1440px;
+  --table-width: 1490px;
   --details-width: 820px;
 }
 
 @media (prefers-color-scheme : light)
 {
+  .image_filter {} /* no filtering needed */
+
   :root
   {
-    --system-background-color: #000000;
-    --system-text-color: #FFFFFF;
+    --system-background-color: #FFFFFF;
+    --system-text-color: #000000;
 
     --table-background-color: #FFFFFF;
     --table-text-color: #000000;
     --table-background-hover-color: #F0F0F0;
+    --table-image-hover-color: #F0F0F0;
 
     --header-background-color: #D0D0D0;
     --header-text-color: #000000;
@@ -192,25 +384,31 @@ R"html(<!DOCTYPE html>
     --cycle-grid-active-text-color: #000000;
   }
 
-  span[title='A']      { color: LightSeaGreen; }
-  span[title='D']      { color: Olive; }
-  span[title='i']      { color: AntiqueWhite; }
-  span[title='m']      { color: Aquamarine; }
-  span[title='n']      { color: BlueViolet; }
-  span[title='d']      { color: Coral; }
-  span[title='e']      { color: Cyan; }
-  span[title='f']      { color: Chartreuse; }
-  span[title='g']      { color: DarkCyan; }
-  span[title='u']      { color: DarkMagenta; }
-  span[title='x']      { color: DarkOrange; }
-  span[title='y']      { color: DeepPink; }
-  span[title='z']      { color: ForestGreen; }
-  span[title='star']   { color: Gold; }
-  span[title='binary'] { color: LightBlue; }
+  span[title='Ignored']                          { color: goldenrod; }
+  span[title='Opcode Identifier']                { color: dodgerblue; }
+  span[title='A']                                { color: darkgreen; }
+  span[title='D']                                { color: darkmagenta; }
+  span[title^='Unsigned Immediate Data']         { color: darkturquoise; }
+  span[title^='Signed Immediate Data']           { color: darkturquoise; }
+  span[title^='Source Register']                 { color: aquamarine; }
+  span[title^='Destination Register']            { color: blueViolet; }
+  span[title^='Displacement']                    { color: indigo; }
+  span[title^='Multiplier Source Register 1']    { color: cyan; }
+  span[title^='Multiplier Source Register 2']    { color: chartreuse; }
+  span[title^='Multiplier Destination Register'] { color: darkcyan; }
+  span[title^='ALU Source Register 1']           { color: darkmagenta; }
+  span[title^='ALU Source Register 2']           { color: darkorange; }
+  span[title^='ALU Destination Register']        { color: indianred; }
+  span[title^='ALU Destination Register']        { color: forestgreen; }
 }
 
 @media (prefers-color-scheme : dark)
 {
+  .image_filter /* invert colors */
+  {
+    filter: invert(100%);
+  }
+
   :root
   {
     --system-background-color: #000000;
@@ -219,6 +417,7 @@ R"html(<!DOCTYPE html>
     --table-background-color: #000000;
     --table-text-color: #FFFFFF;
     --table-background-hover-color: #404040;
+    --table-image-hover-color: #C0C0C0;
 
     --header-background-color: #606060;
     --header-text-color: #FFFFFF;
@@ -230,22 +429,88 @@ R"html(<!DOCTYPE html>
     --cycle-grid-active-text-color: #FFFFFF;
   }
 
-  span[title='A']      { color: LightSeaGreen; }
-  span[title='D']      { color: Olive; }
-  span[title='i']      { color: AntiqueWhite; }
-  span[title='m']      { color: Aquamarine; }
-  span[title='n']      { color: BlueViolet; }
-  span[title='d']      { color: Coral; }
-  span[title='e']      { color: Cyan; }
-  span[title='f']      { color: Chartreuse; }
-  span[title='g']      { color: DarkCyan; }
-  span[title='u']      { color: DarkMagenta; }
-  span[title='x']      { color: DarkOrange; }
-  span[title='y']      { color: DeepPink; }
-  span[title='z']      { color: ForestGreen; }
-  span[title='star']   { color: Gold; }
-  span[title='binary'] { color: LightBlue; }
+  span[title='Ignored']                          { color: gold; }
+  span[title='Opcode Identifier']                { color: #55ff55; }
+  span[title='A']                                { color: lightseagreen; }
+  span[title='D']                                { color: olive; }
+  span[title^='Unsigned Immediate Data']         { color: #aaaaff; }
+  span[title^='Signed Immediate Data']           { color: #aaaaff; }
+  span[title^='Source Register']                 { color: #ffff55; }
+  span[title^='Destination Register']            { color: #f92672; }
+  span[title^='Displacement']                    { color: coral; }
+  span[title^='Multiplier Source Register 1']    { color: cyan; }
+  span[title^='Multiplier Source Register 2']    { color: chartreuse; }
+  span[title^='Multiplier Destination Register'] { color: darkcyan; }
+  span[title^='ALU Source Register 1']           { color: darkorange; }
+  span[title^='ALU Source Register 2']           { color: deeppink; }
+  span[title^='ALU Destination Register']        { color: darkmagenta; }
+  span[title^='ALU Destination Register']        { color: forestgreen; }
 }
+
+/*
+ALU Arithmetic Logic Unit
+ASID Address Space Identifier
+CPU Central Processing Unit
+FPU Floating Point Unit
+ITLB Instruction Translation Look aside Buffer
+LRU Least Recently Used
+LSB Least Significant Bit
+MMU Memory Management Unit
+MSB Most Significant Bit
+PC Program Counter
+PMB Privileged space Mapping Buffer
+RISC Reduced Instruction Set Computer
+TLB Translation Lookaside Buffer
+UBC User Break Controller
+UTLB Unified Translation Look aside Buffer
+
+
+
+9 8 7 6 5 4 3 2 1 0
+M Q I3 I2 I1 I0 S T
+
+
+S bit: Used by the multiply/accumulate instruction.
+
+Reserved bits: Always reads as 0, and should always be written with 0.
+
+Bits I3–I0: Interrupt mask bits.
+
+M and Q bits: Used by the DIV0U/S and DIV1 instructions.
+
+Global base register (GBR):
+Indicates the base address of the indirect
+GBR addressing mode. The indirect GBR
+addressing mode is used in data transfer
+for on-chip peripheral module register
+areas and in logic operations.
+
+Vector base register (VBR):
+Indicates the base address of the exception
+processing vector area.
+
+SR: Status register
+
+T bit: The MOVT, CMP/cond, TAS, TST, BT (BT/S), BF (BF/S), SETT, and CLRT instructions use
+       the T bit to indicate true (1) or false (0). The ADDV/C, SUBV/C, DIV0U/S, DIV1, NEGC,
+       SHAR/L, SHLR/L, ROTR/L, and ROTCR/L instructions also use bit T to indicate carry/borrow
+       or overflow/underflow
+
+
+
+
+DSP status register (DSR)
+
+GT = Signed greater than bit
+Z = Zero value bit
+N = Negative value bit
+V = Overflow bit
+CS = Condition select bits
+DC = DSP condition bit
+
+
+
+*/
 
 body
 {
@@ -253,7 +518,7 @@ body
   color: var(--system-text-color);
   font-size: 15px;
   padding-left: calc(50% - var(--table-width) / 2); /* center everything */
-  height: 10000px; /* for sticky header */
+  height: 25000px; /* for sticky header */
   margin: 0px;
 }
 
@@ -281,6 +546,7 @@ body
 input[id="cb_SH1"  ]:checked ~ label.SH1,
 input[id="cb_SH2"  ]:checked ~ label.SH2,
 input[id="cb_SH2E" ]:checked ~ label.SH2E,
+input[id="cb_SH3"  ]:checked ~ label.SH3,
 input[id="cb_SH3E" ]:checked ~ label.SH3E,
 input[id="cb_DSP"  ]:checked ~ label.DSP,
 input[id="cb_SH4"  ]:checked ~ label.SH4,
@@ -311,13 +577,13 @@ input[type='checkbox'][id^="row"]:checked + label > .details
   clear: both;
 }
 
-label.summary > .colorized > div
+label.summary > .colorized > span
 {
   font-family: monospace;
-  display: content;
+  display: contents;
 }
 
-label.summary > div:not(.details)
+label.summary > span:not(.details)
 {
   padding-right: 20px;
   border-top-width: 1px;
@@ -326,13 +592,13 @@ label.summary > div:not(.details)
   font-size: 13px;
 }
 
-.summary > div:not(.details):nth-child(2)
+.summary > span:not(.details):nth-child(2)
 {
   white-space: pre-wrap;
 }
 
-.summary > div:not(.details):nth-child(1) { padding-left: 10px; }
-.summary > div:not(.details):nth-child(3)
+.summary > span:not(.details):nth-child(1) { padding-left: 10px; }
+.summary > span:not(.details):nth-child(3)
 {
   white-space: pre-wrap;
   padding-right: 30px;
@@ -345,15 +611,19 @@ label.summary:hover > *,
 .details:hover + .summary
 { background-color: var(--table-background-hover-color); }
 
+/* keep images readable */
+.details:hover img
+{ background-color: var(--table-image-hover-color) !important; }
+
 .summary
 {
   display: inline-grid;
-  grid-template-columns: 150px 240px 470px 150px 80px 120px 120px 110px;
+  grid-template-columns: 150px 240px 470px 150px 130px 120px 120px 110px;
   grid-template-rows: 50px auto;
 }
 
 /* all columns */
-.summary > div
+.summary > span
 {
   vertical-align: middle;
   display: inline-block;
@@ -371,7 +641,7 @@ label.summary:hover > *,
   font-style: unset;
 }
 
-.cpu_grid > p, .cycle_grid > p
+.cpu_grid > var, .cycle_grid > var
 {
   color: var(--grid-inactive-text-color);
   background-color: var(--grid-cell-background-color);
@@ -382,50 +652,50 @@ label.summary:hover > *,
   height: 13px;
 }
 
-.cpu_grid > p:nth-of-type(1):before { content:"SH1"  ; }
-.cpu_grid > p:nth-of-type(2):before { content:"SH2"  ; }
-.cpu_grid > p:nth-of-type(3):before { content:"SH2E" ; }
-.cpu_grid > p:nth-of-type(4):before { content:"SH3"  ; }
-.cpu_grid > p:nth-of-type(5):before { content:"SH3E" ; }
-.cpu_grid > p:nth-of-type(6):before { content:"DSP"  ; }
-.cpu_grid > p:nth-of-type(7):before { content:"SH4"  ; }
-.cpu_grid > p:nth-of-type(8):before { content:"SH4A" ; }
-.cpu_grid > p:nth-of-type(9):before { content:"SH2A" ; }
+.cpu_grid > var:nth-of-type(1):before { content:"SH1"  ; }
+.cpu_grid > var:nth-of-type(2):before { content:"SH2"  ; }
+.cpu_grid > var:nth-of-type(3):before { content:"SH2E" ; }
+.cpu_grid > var:nth-of-type(4):before { content:"SH3"  ; }
+.cpu_grid > var:nth-of-type(5):before { content:"SH3E" ; }
+.cpu_grid > var:nth-of-type(6):before { content:"DSP"  ; }
+.cpu_grid > var:nth-of-type(7):before { content:"SH4"  ; }
+.cpu_grid > var:nth-of-type(8):before { content:"SH4A" ; }
+.cpu_grid > var:nth-of-type(9):before { content:"SH2A" ; }
 
-.summary .cpu_grid > p,
-.summary .cycle_grid > p { color: transparent; }
+.summary .cpu_grid > var,
+.summary .cycle_grid > var { color: transparent; }
 
-input[id="cb_SH1"  ]:checked ~ .summary .cpu_grid > p:nth-of-type(1),
-input[id="cb_SH2"  ]:checked ~ .summary .cpu_grid > p:nth-of-type(2),
-input[id="cb_SH2E" ]:checked ~ .summary .cpu_grid > p:nth-of-type(3),
-input[id="cb_SH3"  ]:checked ~ .summary .cpu_grid > p:nth-of-type(4),
-input[id="cb_SH3E" ]:checked ~ .summary .cpu_grid > p:nth-of-type(5),
-input[id="cb_DSP"  ]:checked ~ .summary .cpu_grid > p:nth-of-type(6),
-input[id="cb_SH4"  ]:checked ~ .summary .cpu_grid > p:nth-of-type(7),
-input[id="cb_SH4A" ]:checked ~ .summary .cpu_grid > p:nth-of-type(8),
-input[id="cb_SH2A" ]:checked ~ .summary .cpu_grid > p:nth-of-type(9)
+input[id="cb_SH1"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(1),
+input[id="cb_SH2"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(2),
+input[id="cb_SH2E" ]:checked ~ .summary .cpu_grid > var:nth-of-type(3),
+input[id="cb_SH3"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(4),
+input[id="cb_SH3E" ]:checked ~ .summary .cpu_grid > var:nth-of-type(5),
+input[id="cb_DSP"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(6),
+input[id="cb_SH4"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(7),
+input[id="cb_SH4A" ]:checked ~ .summary .cpu_grid > var:nth-of-type(8),
+input[id="cb_SH2A" ]:checked ~ .summary .cpu_grid > var:nth-of-type(9)
 { color: var(--grid-inactive-text-color); }
 
-input[id="cb_SH1"  ]:checked ~ .summary.SH1  .cpu_grid > p:nth-of-type(1),
-input[id="cb_SH2"  ]:checked ~ .summary.SH2  .cpu_grid > p:nth-of-type(2),
-input[id="cb_SH2E" ]:checked ~ .summary.SH2E .cpu_grid > p:nth-of-type(3),
-input[id="cb_SH3"  ]:checked ~ .summary.SH3  .cpu_grid > p:nth-of-type(4),
-input[id="cb_SH3E" ]:checked ~ .summary.SH3E .cpu_grid > p:nth-of-type(5),
-input[id="cb_DSP"  ]:checked ~ .summary.DSP  .cpu_grid > p:nth-of-type(6),
-input[id="cb_SH4"  ]:checked ~ .summary.SH4  .cpu_grid > p:nth-of-type(7),
-input[id="cb_SH4A" ]:checked ~ .summary.SH4A .cpu_grid > p:nth-of-type(8),
-input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cpu_grid > p:nth-of-type(9)
+input[id="cb_SH1"  ]:checked ~ .summary.SH1  .cpu_grid > var:nth-of-type(1),
+input[id="cb_SH2"  ]:checked ~ .summary.SH2  .cpu_grid > var:nth-of-type(2),
+input[id="cb_SH2E" ]:checked ~ .summary.SH2E .cpu_grid > var:nth-of-type(3),
+input[id="cb_SH3"  ]:checked ~ .summary.SH3  .cpu_grid > var:nth-of-type(4),
+input[id="cb_SH3E" ]:checked ~ .summary.SH3E .cpu_grid > var:nth-of-type(5),
+input[id="cb_DSP"  ]:checked ~ .summary.DSP  .cpu_grid > var:nth-of-type(6),
+input[id="cb_SH4"  ]:checked ~ .summary.SH4  .cpu_grid > var:nth-of-type(7),
+input[id="cb_SH4A" ]:checked ~ .summary.SH4A .cpu_grid > var:nth-of-type(8),
+input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cpu_grid > var:nth-of-type(9)
 { color: var(--cpu-grid-active-text-color); }
 
-input[id="cb_SH1"  ]:checked ~ .summary.SH1  .cycle_grid > p:nth-of-type(1),
-input[id="cb_SH2"  ]:checked ~ .summary.SH2  .cycle_grid > p:nth-of-type(2),
-input[id="cb_SH2E" ]:checked ~ .summary.SH2E .cycle_grid > p:nth-of-type(3),
-input[id="cb_SH3"  ]:checked ~ .summary.SH3  .cycle_grid > p:nth-of-type(4),
-input[id="cb_SH3E" ]:checked ~ .summary.SH3E .cycle_grid > p:nth-of-type(5),
-input[id="cb_DSP"  ]:checked ~ .summary.DSP  .cycle_grid > p:nth-of-type(6),
-input[id="cb_SH4"  ]:checked ~ .summary.SH4  .cycle_grid > p:nth-of-type(7),
-input[id="cb_SH4A" ]:checked ~ .summary.SH4A .cycle_grid > p:nth-of-type(8),
-input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > p:nth-of-type(9)
+input[id="cb_SH1"  ]:checked ~ .summary.SH1  .cycle_grid > var:nth-of-type(1),
+input[id="cb_SH2"  ]:checked ~ .summary.SH2  .cycle_grid > var:nth-of-type(2),
+input[id="cb_SH2E" ]:checked ~ .summary.SH2E .cycle_grid > var:nth-of-type(3),
+input[id="cb_SH3"  ]:checked ~ .summary.SH3  .cycle_grid > var:nth-of-type(4),
+input[id="cb_SH3E" ]:checked ~ .summary.SH3E .cycle_grid > var:nth-of-type(5),
+input[id="cb_DSP"  ]:checked ~ .summary.DSP  .cycle_grid > var:nth-of-type(6),
+input[id="cb_SH4"  ]:checked ~ .summary.SH4  .cycle_grid > var:nth-of-type(7),
+input[id="cb_SH4A" ]:checked ~ .summary.SH4A .cycle_grid > var:nth-of-type(8),
+input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > var:nth-of-type(9)
 { color: var(--cycle-grid-active-text-color); }
 
 /* styling for details section */
@@ -437,7 +707,8 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > p:nth-of-type(9)
   width: var(--details-width);
 }
 
-.summary > .details > span[title="code"]
+.summary > .details > span[title="code"],
+.summary > .details > span[title="assembly"]
 {
   display: block;
   font-size: 13px;
@@ -452,9 +723,14 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > p:nth-of-type(9)
   font-weight: bold;
 }
 
-.summary > .details li
+span[title='list']
 {
-  margin-left: 15px;
+  list-style-type: circle;
+}
+span[title='list'] > var
+{
+  font-style: unset;
+  display: list-item;
 }
 
 </style>
@@ -470,28 +746,27 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > p:nth-of-type(9)
     </div>
   </div>)html"
 
-  << print_list(isa_name, "\n  <input type=\"checkbox\" id=\"cb_$&\" name=\"$&\" checked /><label for=\"cb_$&\">$&</label>")
+  << print_list(isa_name, "\n  <input type=\"checkbox\" id=\"cb_&\" name=\"&\" checked /><label for=\"cb_&\">&</label>")
 
-  << R"html(<div id="table_header" class="summary)html"
-  << print_list(isa_name, " $&")
-  << R"html(">
-    <div>Compatibilty</div>
-    <div>Format</div>
-    <div>Abstract</div>
-    <div>Code</div>
-    <div>T Bit<br />DC Bit</div>
-    <div>Instruction Group
-      <div class="cpu_grid"><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p></div>
-    </div>
-    <div>Issue Cycles
-      <div class="cpu_grid"><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p></div>
-    </div>
-    <div>Latency Cycles
-      <div class="cpu_grid"><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p></div>
-    </div>
-  </div>)html";
+  << R"html(
+    <span id="table_header" class="summary)html" << print_list(isa_name, " &") << R"html(">
+    <span>Compatibilty</span>
+    <span>Format</span>
+    <span>Abstract</span>
+    <span>Code</span>
+    <span>Bit Flags</span>
+    <span>Instruction Group
+      <span class="cpu_grid"><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var></span>
+    </span>
+    <span>Issue Cycles
+      <span class="cpu_grid"><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var></span>
+    </span>
+    <span>Latency Cycles
+      <span class="cpu_grid"><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var></span>
+    </span>
+  </span>)html";
 
-  std::vector<insns> insn_blocks = build_insn_blocks ();
+  std::list<insns> insn_blocks = build_insn_blocks ();
 
   try
   {
@@ -505,34 +780,39 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > p:nth-of-type(9)
         std::cout << "<input type=\"checkbox\" id=\"row" << id << "\" />" << std::endl;
         std::cout
             << "<label class=\"summary" << print_isa_list(i) << "\" for=\"row" << id << "\">" << std::endl
-            << "<div class=\"cpu_grid\"><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p><p></p></div>" << std::endl
-            << "<div>" << i.data<format>() << "</div>" << std::endl
-            << "<div>" << i.data<abstract>() << "</div>" << std::endl
-            << "<div class=\"colorized\">" << colorize_code(i.data<code>()) << "</div>" << std::endl
-            << "<div>" << i.data<t_bit>() << "<br />" << i.data<dc_bit>() << "</div>" << std::endl
-            << "<div class=\"cycle_grid\">" << print_isa_props (i, i.data<group>()) << "</div>" << std::endl
-            << "<div class=\"cycle_grid\">" << print_isa_props (i, i.data<issue>()) << "</div>" << std::endl
-            << "<div class=\"cycle_grid\">" << print_isa_props (i, i.data<latency>()) << "</div>" << std::endl
-            << "<div class=\"details\">" << std::endl;
+            << "<span class=\"cpu_grid\"><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var></span>" << std::endl
+            << "<span>" << fix_html(i.data<format>()) << "</span>" << std::endl
+            << "<span>" << fix_html(i.data<abstract>()) << "</span>" << std::endl
+            << "<span id=\"" << fix_id(i.data<code>()) << "\" class=\"colorized\">" << colorize_code(i.data<code>()) << "</span>" << std::endl
+            << "<span>" << i.data<flags>() << "</span>" << std::endl
+            << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<group>()) << "</span>" << std::endl
+            << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<issue>()) << "</span>" << std::endl
+            << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<latency>()) << "</span>" << std::endl
+            << "<span class=\"details\">" << std::endl;
 
-        print_note ("Description", i.data<description>(), note_normal);
-        print_note ("Note", i.data<note>(), note_normal);
-        print_note ("Operation", i.data<operation>(), note_code);
-        print_note ("Example", i.data<example>(), note_code);
-        print_note ("Possible Exceptions", i.data<exceptions>(), note_normal);
+        print_note_section (i.data<name>(), i.data<description>());
+        print_note_section ("Note", i.data<note>());
+        print_code_section("Operation", i.data<operation>());
+        print_assembly_section ("Example", i.data<example>());
+        print_list_section ("Possible Exceptions", i.data<exceptions>());
 
-        std::cout << "</div>" << std::endl
+        std::cout << "</span>" << std::endl // close "details"
                   << "</label>" << std::endl;
         ++id;
       }
+//      break;
     }
 
     std::cout << "</body>" << std::endl
               << "</html>" << std::endl;
   }
+  catch (std::string message)
+  {
+    std::cerr << "exception caught: " << message << std::endl;
+  }
   catch (...)
   {
-    std::cerr << "exception encountered" << std::endl;
+    std::cerr << "uncaught exception!" << std::endl;
   }
 
 

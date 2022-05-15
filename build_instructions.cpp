@@ -1,23 +1,215 @@
 #include "build_instructions.h"
 
+#include <list>
+#include <string>
+#include <algorithm>
+#include <regex>
 
-std::vector<insns> build_insn_blocks (void)
+using namespace std::literals::string_literals;
+
+constexpr bool operator ==(const environment_t& a, const environment_t& b)
+  { return a.cpus == b.cpus && a.property == b.property; }
+
+
+std::list<insns> build_insn_blocks (void)
 {
-  std::vector<insns> insn_blocks;
+
+  struct instruction_info_t
+  {
+    std::string mnemonic;
+    std::string name;
+    std::string classification;
+    std::list<environment_t> environments;
+    std::list<citation_t> citations;
+  };
+
+  std::list<instruction_info_t> name_data =
+  {
+    { "STS", "Store System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 231 }, { SH4A_DOC, 425 } } },
+    { "STS", "Store from FPU System Register", "System Control Instruction", {}, { { SH4A_DOC, 453 } } },
+
+    { "FMOV", "Floating-point Move", "Floating-Point Instruction", {}, { { SH4A_DOC, 497 } } },
+    { "FMOV", "Floating-point Move Extension", "Floating-Point Instruction", {}, { { SH4A_DOC, 501 } } },
+
+    { "LDC", "Load to Control Register", "System Control Instruction", {}, { { SH4A_DOC, 337 } } },
+    { "LDC", "Load to Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 165 }, { SH4A_DOC, 449 } } },
+
+    { "LDS", "Load to System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 172 }, { SH4A_DOC, 342 } } },
+    { "LDS", "Load to FPU System register", "System Control Instruction", {}, { { SH4A_DOC, 450 } } },
+
+    { "BRAF", "Branch Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 133 }, { SH4A_DOC, 307 } } },
+    { "BRA", "Branch", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 131 }, { SH4A_DOC, 305 } } },
+    { "BSRF", "Branch to Subroutine Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 137 }, { SH4A_DOC, 445 } } },
+    { "BSR", "Branch to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 135 }, { SH4A_DOC, 443 } } },
+    { "JMP", "Jump", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 162 }, { SH4A_DOC, 336 } } },
+    { "JSR", "Jump to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 163 }, { SH4A_DOC, 447 } } },
+    { "RTE", "Return from Exception", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 212 }, { SH4A_DOC, 401 } } },
+    { "RTS", "Return from Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 214 }, { SH4A_DOC, 403 } } },
+    { "STC", "Store Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 228 }, { SH4A_DOC, 420 }, { SH4A_DOC, 452 } } },
+    { "SLEEP", "Sleep", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 227 }, { SH4A_DOC, 419 } } },
+    { "LDTLB", "Load PTEH/PTEL to TLB", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH4A_DOC, 344 } } },
+
+    { "MOV", "Move Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 183 }, { SH4A_DOC, 353 } } },
+    { "MOV", "Move Constant Value", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 189 }, { SH4A_DOC, 359 } } },
+    { "MOV", "Move Global Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 191 }, { SH4A_DOC, 362 } } },
+    { "MOV", "Move Structure Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 194 }, { SH4A_DOC, 365 } } },
+    { "ADDC", "Add with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 124 }, { SH4A_DOC, 296 } } },
+    { "ADDV", "ADD with `V Flag` Overflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 125 }, { SH4A_DOC, 297 } } },
+    { "ADD", "Add binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 123 }, { SH4A_DOC, 294 } } },
+    { "AND", "AND Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 126 }, { SH4A_DOC, 299 } } },
+    { "BF/S", "Branch if False with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 129 }, { SH4A_DOC, 303 } } },
+    { "BF", "Branch if False", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 128 }, { SH4A_DOC, 301 } } },
+    { "BT/S", "Branch if True with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 140 }, { SH4A_DOC, 310 } } },
+    { "BT", "Branch if True", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 139 }, { SH4A_DOC, 308 } } },
+    { "CLRMAC", "Clear MAC Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 142 }, { SH4A_DOC, 312 } } },
+    { "CLRS", "Clear S Bit", "System Control Instruction", {}, { { SH4A_DOC, 313 } } },
+    { "CLRT", "Clear T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 143 }, { SH4A_DOC, 314 } } },
+    { "CMP/EQ", "Compare If Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/GE", "Compare If Signed Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/GT", "Compare If Signed Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/HI", "Compare If Unsigned Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/HS", "Compare If Unsigned Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/PL", "Compare If Signed Greater Than Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/PZ", "Compare If Signed Greater Than or Equal To Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/STR", "Compare If Strings Equal", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "DIV0S", "Divide `Step 0` as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 148 }, { SH4A_DOC, 319 } } },
+    { "DIV0U", "Divide `Step 0` as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 149 }, { SH4A_DOC, 320 } } },
+    { "DIV1", "Divide 1 Step", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 150 }, { SH4A_DOC, 321 } } },
+    { "DMULS\\.L", "Double-length Multiply as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 155 }, { SH4A_DOC, 326 } } },
+    { "DMULU\\.L", "Double-length Multiply as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 157 }, { SH4A_DOC, 328 } } },
+    { "DT", "Decrement and Test", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 159 }, { SH4A_DOC, 330 } } },
+    { "EXTS", "Extend as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 160 }, { SH4A_DOC, 331 } } },
+    { "EXTU", "Extend as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 161 }, { SH4A_DOC, 333 } } },
+    { "ICBI", "Instruction Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 335 } } },
+    { "LDRE", "Load Effective Address to RE Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 168 } } },
+    { "LDRS", "Load Effective Address to RS Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 170 } } },
+    { "MAC\\.L", "Multiply and Accumulate Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 177 }, { SH4A_DOC, 346 } } },
+    { "MAC\\.W", "Multiply and Accumulate Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 180 }, { SH4A_DOC, 350 } } },
+    { "MOVA", "Move Effective Address", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 197 }, { SH4A_DOC, 369 } } },
+    { "MOVT", "Move T Bit", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 198 }, { SH4A_DOC, 376 } } },
+    { "MUL\\.L", "Multiply Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 199 }, { SH4A_DOC, 379 } } },
+    { "MULS\\.W", "Multiply as Signed Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 200 }, { SH4A_DOC, 380 } } },
+    { "MULU\\.W", "Multiply as Unsigned Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 201 }, { SH4A_DOC, 381 } } },
+    { "MOVCA\\.L", "Move with Cache Block Allocation", "Data Transfer Instruction", {}, { { SH4A_DOC, 371 } } },
+    { "MOVCO", "Move Conditional", "Data Transfer Instruction", {}, { { SH4A_DOC, 372 } } },
+    { "MOVLI", "Move Linked", "Data Transfer Instruction", {}, { { SH4A_DOC, 374 } } },
+    { "MOVUA", "Move Unaligned", "Data Transfer Instruction", {}, { { SH4A_DOC, 377 } } },
+    { "NEGC", "Negate with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 203 }, { SH4A_DOC, 383 } } },
+    { "NEG", "Negate", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 202 }, { SH4A_DOC, 382 } } },
+    { "NOP", "No Operation", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 204 }, { SH4A_DOC, 384 } } },
+    { "NOT", "NOT-Logical Complement", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 205 }, { SH4A_DOC, 385 } } },
+    { "OR", "OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 206 }, { SH4A_DOC, 389 } } },
+    { "PREFI", "Prefetch Instruction Cache Block", "Data Transfer Instruction", {}, { { SH4A_DOC, 394 } } },
+    { "PREF", "Prefetch Data to Cache", "Data Transfer Instruction", {}, { { SH4A_DOC, 391 } } },
+    { "ROTCL", "Rotate with Carry Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 208 }, { SH4A_DOC, 397 } } },
+    { "ROTCR", "Rotate with Carry Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 209 }, { SH4A_DOC, 398 } } },
+    { "ROTL", "Rotate Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 210 }, { SH4A_DOC, 399 } } },
+    { "ROTR", "Rotate Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 211 }, { SH4A_DOC, 400 } } },
+    { "SETRC", "Set Repeat Count to RC", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 216 } } },
+    { "SETS", "Set S Bit", "System Control Instruction", {}, { { SH4A_DOC, 405 } } },
+    { "SETT", "Set T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 218 }, { SH4A_DOC, 406 } } },
+    { "SHAD", "Shift Arithmetic Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 407 } } },
+    { "SHAL", "Shift Arithmetic Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 219 }, { SH4A_DOC, 409 } } },
+    { "SHAR", "Shift Arithmetic Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 220 }, { SH4A_DOC, 410 } } },
+    { "SHLD", "Shift Logical Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 411 } } },
+    { "SHLL([281][6]?)", "Shift Logical Left \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 222 }, { SH4A_DOC, 414 } } },
+    { "SHLL", "Shift Logical Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 221 }, { SH4A_DOC, 413 } } },
+    { "SHLR([281][6]?)", "Shift Logical Right \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 225 }, { SH4A_DOC, 417 } } },
+    { "SHLR", "Shift Logical Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 224 }, { SH4A_DOC, 416 } } },
+    { "SUBC", "Subtract with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 237 }, { SH4A_DOC, 428 } } },
+    { "SUBV", "Subtract with `V Flag` Underflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 238 }, { SH4A_DOC, 429 } } },
+    { "SUB", "Subtract Binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 236 }, { SH4A_DOC, 427 } } },
+    { "SWAP", "Swap Register Halves", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 239 }, { SH4A_DOC, 431 } } },
+    { "SYNCO", "Synchronize Data Operation", "Data Transfer Instruction", {}, { { SH4A_DOC, 433 } } },
+    { "TAS", "Test and Set", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 241 }, { SH4A_DOC, 434 } } },
+    { "TRAPA", "Trap Always", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 242 }, { SH4A_DOC, 436 } } },
+    { "TST", "Test Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 243 }, { SH4A_DOC, 438 } } },
+    { "XOR", "Exclusive OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 245 }, { SH4A_DOC, 440 } } },
+    { "XTRCT", "Extract", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 247 }, { SH4A_DOC, 442 } } },
+    { "MOVS", "Move Single Data between Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 255 } } },
+    { "MOVX", "Move between X Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 257 } } },
+    { "MOVY", "Move between Y Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 258 } } },
+    { "NOPX", "No Access Operation for X Memory", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 260 } } },
+    { "PABS", "Absolute", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 278 } } },
+    { "DC[TF] PADD", "Addition with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 282 } } },
+    { "PADDC", "Addition with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 291 } } },
+    { "PADD PMULS", "Addition & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 286 } } },
+    { "DC[TF] PAND", "Logical AND", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 294 } } },
+    { "DC[TF] PCLR", "Clear", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 298 } } },
+    { "PCMP", "Compare Two Data", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 301 } } },
+    { "DC[TF] PCOPY", "Copy with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 303 } } },
+    { "DC[TF] PDEC", "Decrement by 1", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 307 } } },
+    { "DC[TF] PDMSB", "Detect MSB with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 312 } } },
+    { "DC[TF] PINC", "Increment by 1 with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 317 } } },
+    { "DC[TF] PLDS", "Load System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 322 } } },
+    { "PMULS", "Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 326 } } },
+    { "DC[TF] PNEG", "Negate", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 329 } } },
+    { "DC[TF] POR", "Logical OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 334 } } },
+    { "PRND", "Rounding", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 338 } } },
+    { "DC[TF] PSHA", "Shift Arithmetically with Condition", "DSP Arithmetic Shift Instruction", {}, { { SH1_2_DSP_DOC, 342 } } },
+    { "DC[TF] PSHL", "Shift Logically with Condition", "DSP Logical Shift Instruction", {}, { { SH1_2_DSP_DOC, 350 } } },
+    { "DC[TF] PSTS", "Store System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 357 } } },
+    { "DC[TF] PSUB", "Subtract with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 362 } } },
+    { "PSUB PMULS", "Subtraction & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 367 } } },
+    { "PSUBC", "Subtraction with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 372 } } },
+    { "DC[TF] PXOR", "Logical Exclusive OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 375 } } },
+    { "OCBI", "Operand Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 386 } } },
+    { "OCBP", "Operand Cache Block Purge", "Data Transfer Instruction", {}, { { SH4A_DOC, 387 } } },
+    { "OCBWB", "Operand Cache Block Write Back", "Data Transfer Instruction", {}, { { SH4A_DOC, 388 } } },
+    { "FABS", "Floating-point Absolute Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 467 } } },
+    { "FADD", "Floating-point ADD", "Floating-Point Instruction", {}, { { SH4A_DOC, 468 } } },
+    { "FCMP", "Floating-point Compare", "Floating-Point Instruction", {}, { { SH4A_DOC, 471 } } },
+    { "FCNVDS", "Floating-point Convert Double to Single Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 475 } } },
+    { "FCNVSD", "Floating-point Convert Single to Double Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 478 } } },
+    { "FDIV", "Floating-point Divide", "Floating-Point Instruction", {}, { { SH4A_DOC, 480 } } },
+    { "FIPR", "Floating-point Inner Product", "Floating-Point Instruction", {}, { { SH4A_DOC, 484 } } },
+    { "FLDI0", "Floating-point Load Immediate 0.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 486 } } },
+    { "FLDI1", "Floating-point Load Immediate 1.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 487 } } },
+    { "FLDS", "Floating-point Load to System register", "Floating-Point Instruction", {}, { { SH4A_DOC, 488 } } },
+    { "FLOAT", "Floating-point Convert from Integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 489 } } },
+    { "FMAC", "Floating-point Multiply and Accumulate", "Floating-Point Instruction", {}, { { SH4A_DOC, 491 } } },
+    { "FMUL", "Floating-point Multiply", "Floating-Point Instruction", {}, { { SH4A_DOC, 504 } } },
+    { "FNEG", "Floating-point Negate Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 507 } } },
+    { "FPCHG", "Pr-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 508 } } },
+    { "FRCHG", "FR-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 509 } } },
+    { "FSCA", "Floating Point Sine And Cosine Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 510 } } },
+    { "FSCHG", "Sz-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 512 } } },
+    { "FSQRT", "Floating-point Square Root", "Floating-Point Instruction", {}, { { SH4A_DOC, 513 } } },
+    { "FSRRA", "Floating Point Square Reciprocal Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 516 } } },
+    { "FSTS", "Floating-point Store System Register", "Floating-Point Instruction", {}, { { SH4A_DOC, 518 } } },
+    { "FSUB", "Floating-point Subtract", "Floating-Point Instruction", {}, { { SH4A_DOC, 519 } } },
+    { "FTRC", "Floating-point Truncate and Convert to integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 522 } } },
+    { "FTRV", "Floating-point Transform Vector", "Floating-Point Instruction", {}, { { SH4A_DOC, 525 } } },
+  };
+
+  auto to_lowercase = [](unsigned char c) -> unsigned char { return std::tolower(c); };
+  for(instruction_info_t& info : name_data)
+  {
+    info.mnemonic.insert(0, 1, '$'); // add regex string start
+    std::transform(info.mnemonic.begin(), info.mnemonic.begin(), info.mnemonic.end(), to_lowercase); // convert to lowercase
+  }
+
+  std::list<insns> insn_blocks;
 
 insn_blocks.push_back
 (insns { "Data Transfer Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → Rn" },
   code { "0110nnnnmmmm0011" },
 
   group { SH4, "MT", SH4A, "MT" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH2A, "0", SH4, "0", SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← op1;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -39,7 +231,8 @@ void MOV (int m, int n)
 
   example
 {R"(
-
+MOV R0,R1 ;Before execution: R0 = H'FFFFFFFF, R1 = H'00000000
+;After execution: R1 = H'FFFFFFFF
 )"},
 
   exceptions
@@ -50,14 +243,21 @@ void MOV (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov	#imm,Rn",
-  SH_ANY,
-  abstract { "imm -> sign extension -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "imm → sign extension → Rn" },
   code { "1110nnnniiiiiiii" },
 
   group { SH4, "EX", SH4A, "MT" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  name { "Move Constant Value" },
+  brief
+{R"(
+imm ← SignExtend 8(s);
+op2 ← imm;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Stores immediate data, sign-extended to longword, in general register Rn.
@@ -83,7 +283,24 @@ void MOVI (int i, int n)
 
   example
 {R"(
-
+1000 MOV #H'80,R1 ;R1 = H'FFFFFF80
+1002 MOV.W IMM,R2 ;R2 = H'FFFF9ABC, IMM means @(H'08,PC)
+1004 ADD #–1,R0 ;
+1006 TST R0,R0 ;← PC location used for address calculation for the
+MOV.W instruction
+1008 MOVT R13 ;
+100A BRA NEXT ;Delayed branch instruction
+100C MOV.L @(4,PC),R3 ;R3 = H'12345678
+100E IMM
+.data.w H'9ABC ;
+1010
+.data.w H'1234 ;
+1012 NEXT JMP @R3 ;Branch destination of the BRA instruction
+1014 CMP/EQ #0,R0 ;← PC location used for address calculation for the
+;MOV.L instruction
+.align 4 ;
+1018
+.data.l H'12345678 ;
 )"},
 
   exceptions
@@ -95,7 +312,7 @@ void MOVI (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movi20	#imm20,Rn",
   SH2A,
-  abstract { "imm -> sign extension -> Rn" },
+  abstract { "imm → sign extension → Rn" },
   code { "0000nnnniiii0000 iiiiiiiiiiiiiiii" },
 
   issue { SH2A, "1" },
@@ -105,7 +322,7 @@ insn { "movi20	#imm20,Rn",
 {R"(
 Stores immediate data that has been sign-extended to longword in general
 register Rn.
-<br/><img src="movi20.svg" height="140"/>
+<br /><img alt="Move Immediate Data operation" src="movi20.svg" height="140" />
 )"},
 
   note
@@ -141,7 +358,7 @@ void MOVI20 (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movi20s	#imm20,Rn",
   SH2A,
-  abstract { "imm << 8 -> sign extension -> Rn" },
+  abstract { "imm << 8 → sign extension → Rn" },
   code { "0000nnnniiii0001 iiiiiiiiiiiiiiii" },
 
   issue { SH2A, "1" },
@@ -153,7 +370,7 @@ Shifts immediate data 8 bits to the left and performs sign extension to
 longword, then stores the resulting data in general register Rn. Using an OR or
 ADD instruction as the next instruction enables a 28-bit absolute address to be
 generated.
-<br/><img src="movi20s.svg" height="150"/>
+<br /><img alt="Move Immediate Data operation" src="movi20s.svg" height="150" />
 )"},
 
   note
@@ -188,14 +405,23 @@ void MOVI20S (int i, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mova	@(disp,PC),R0",
-  SH_ANY,
-  abstract { "(disp*4) + (PC & 0xFFFFFFFC) + 4 -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp × 4) + (PC & 0xFFFFFFFC) + 4 → R0" },
   code { "11000111dddddddd" },
 
   group { SH4, "EX", SH4A, "LS" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+disp ← ZeroExtend 8(i) << 2;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+r0 ← disp + ((pc + 4) ∧ (~ 0x3));
+R 0 ← Register(r0);
+)"},
   description
 {R"(
 Stores the effective address of the source operand into general
@@ -207,12 +433,12 @@ PC are fixed at 00.
 
   note
 {R"(
-SH1*, SH2*, SH3*:<br/>
+SH1*, SH2*, SH3*:<br />
 If this instruction is placed immediately after a delayed branch instruction,
 the PC must point to an address specified by (the starting address of the branch
-destination) + 2.<br/><br/>
+destination) + 2.<br /><br />
 
-SH4*:<br/>
+SH4*:<br />
 If this instruction is executed in a delay slot, a slot illegal instruction
 exception will be generated.
 )"},
@@ -230,29 +456,50 @@ void MOVA (int d)
 
   example
 {R"(
-
+.org H'1006
+1006 MOVA STR,R0 ;Address of STR → R0
+1008 MOV.B @R0,R1 ;R1 = “X” ← PC location after correcting the lowest two bits
+100A ADD R4,R5 ;← Original PC location for address calculation for the MOVA instruction
+.align 4
+100C STR:
+.sdata “XYZP12”
+...............
+2002 BRA TRGET ;Delayed branch instruction
+2004 MOVA @(0,PC),R0 ;Address of TRGET + 2 → R0
+2006 NOP ;
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction</li>
+Slot illegal instruction
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@(disp,PC),Rn",
-  SH_ANY,
-  abstract { "(disp*2 + PC + 4) -> sign extension -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp × 2 + PC + 4) → sign extension → Rn" },
   code { "1001nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Constant Value" },
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+disp ← ZeroExtend 8(i) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+address ← ZeroExtend 32(disp + (pc + 4));
+op2 ← SignExtend 16 (ReadMemory 16(address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Stores immediate data, sign-extended to longword, in general register Rn.
-The data is stored from memory address (PC + 4 + displacement * 2).
+The data is stored from memory address (PC + 4 + displacement × 2).
 The 8-bit displacement is multiplied by two after zero-extension, and so the
 relative distance from the table is in the range up to PC + 4 + 510 bytes. The
 PC value is the address of this instruction.
@@ -286,27 +533,38 @@ void MOVWI (int d, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Slot illegal instruction exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
+Data TLB multiple-hit exception
+Slot illegal instruction exception
+Data TLB miss exception
+Data TLB protection violation exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@(disp,PC),Rn",
-  SH_ANY,
-  abstract { "(disp*4 + (PC & 0xFFFFFFFC) + 4) -> sign extension -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp × 4 + (PC & 0xFFFFFFFC) + 4) → sign extension → Rn" },
   code { "1101nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Constant Value" },
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+disp ← ZeroExtend 8(i) << 2;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+address ← ZeroExtend 32(disp + ((pc + 4) ∧ (~ 0x3)));
+op2 ← SignExtend 32 (ReadMemory 32(address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Stores immediate data, sign-extended to longword, in general register Rn.
-The data is stored from memory address (PC + 4 + displacement * 4).
+The data is stored from memory address (PC + 4 + displacement × 4).
 The 8-bit displacement is multiplied by four after zero-extension, and so the
 relative distance from the operand is in the range up to PC + 4 + 1020 bytes.
 The PC value is the address of this instruction. A value with the lower 2 bits
@@ -336,23 +594,30 @@ void MOVLI (int d, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Slot illegal instruction exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
+Data TLB multiple-hit exception
+Slot illegal instruction exception
+Data TLB miss exception
+Data TLB protection violation exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	@Rm,Rn",
-  SH_ANY,
-  abstract { "(Rm) -> sign extension -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → sign extension → Rn" },
   code { "0110nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+op2 ← SignExtend 8(ReadMemory8 (address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -362,7 +627,8 @@ destination register.
 
   note
 {R"(
-
+MOV.B @R0,R1 ;Before execution: @R0 = H'80, R1 = H'00000000
+;After execution: R1 = H'FFFFFF80
 )"},
 
   operation
@@ -386,23 +652,30 @@ void MOVBL (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@Rm,Rn",
-  SH_ANY,
-  abstract { "(Rm) -> sign extension -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → sign extension → Rn" },
   code { "0110nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+op2 ← SignExtend 16 (ReadMemory 16(address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -436,23 +709,30 @@ void MOVWL (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@Rm,Rn",
-  SH_ANY,
-  abstract { "(Rm) -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → Rn" },
   code { "0110nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+op2 ← SignExtend 32 (ReadMemory 32(address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -479,23 +759,30 @@ void MOVLL (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	Rm,@Rn",
-  SH_ANY,
-  abstract { "Rm -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → (Rn)" },
   code { "0010nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op2);
+WriteMemory 8(address, op1);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -522,24 +809,31 @@ void MOVBS (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	Rm,@Rn",
-  SH_ANY,
-  abstract { "Rm -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → (Rn)" },
   code { "0010nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op2);
+WriteMemory 16(address, op1);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -561,29 +855,37 @@ void MOVWS (int m, int n)
 
   example
 {R"(
-
+MOV.W R0,@R1 ;Before execution: R0 = H'FFFF7F80
+;After execution: @R1 = H'7F80
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	Rm,@Rn",
-  SH_ANY,
-  abstract { "Rm -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → (Rn)" },
   code { "0010nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op2);
+WriteMemory 32(address, op1);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -610,24 +912,38 @@ void MOVLS (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	@Rm+,Rn",
-  SH_ANY,
-  abstract { "(Rm) -> sign extension -> Rn, Rm+1 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → sign extension → Rn, Rm+1 → Rm" },
   code { "0110nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
+  brief
+{R"(
+m_field ← ZeroExtend 4(m);
+n_field ← ZeroExtend 4(n);
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+op2 ← SignExtend 8(ReadMemory8 (address));
+IF (m_field = n_field)
+op1 ← op2;
+ELSE
+op1 ← op1 + 1;
+R m ← Register(op1);
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -664,23 +980,37 @@ void MOVBP (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@Rm+,Rn",
-  SH_ANY,
-  abstract { "(Rm) -> sign extension -> Rn, Rm+2 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → sign extension → Rn, Rm+2 → Rm" },
   code { "0110nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
+  brief
+{R"(
+m_field ← ZeroExtend 4(m);
+n_field ← ZeroExtend 4(n);
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+op2 ← SignExtend 16 (ReadMemory 16(address));
+IF (m_field = n_field)
+op1 ← op2;
+ELSE
+op1 ← op1 + 2;
+R m ← Register(op1);
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -717,23 +1047,37 @@ void MOVWP (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@Rm+,Rn",
-  SH_ANY,
-  abstract { "(Rm) -> Rn, Rm+4 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → Rn, Rm+4 → Rm" },
   code { "0110nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
+  brief
+{R"(
+m_field ← ZeroExtend 4(m);
+n_field ← ZeroExtend 4(n);
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+op2 ← SignExtend 32 (ReadMemory 32(address));
+IF (m_field = n_field)
+op1 ← op2;
+ELSE
+op1 ← op1 + 4;
+R m ← Register(op1);
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -741,7 +1085,8 @@ Transfers the source operand to the destination.
 
   note
 {R"(
-
+MOV.L @R0+,R1 ;Before execution: R0 = H'12345670
+;After execution: R0 = H'12345674, R1 = @H'12345670
 )"},
 
   operation
@@ -765,23 +1110,32 @@ void MOVLP (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	Rm,@-Rn",
-  SH_ANY,
-  abstract { "Rn-1 -> Rn, Rm -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn-1 → Rn, Rm → (Rn)" },
   code { "0010nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op2 - 1);
+WriteMemory 8(address, op1);
+op2 ← address;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -809,24 +1163,33 @@ void MOVBM (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	Rm,@-Rn",
-  SH_ANY,
-  abstract { "Rn-2 -> Rn, Rm -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn-2 → Rn, Rm → (Rn)" },
   code { "0010nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op2 - 2);
+WriteMemory 16(address, op1);
+op2 ← address;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -849,29 +1212,39 @@ void MOVWM (int m, int n)
 
   example
 {R"(
-
+MOV.W R0,@–R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'FFFF7F80
+;After execution: R1 = H'FFFF7F7E, @R1 = H'AAAA
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	Rm,@-Rn",
-  SH_ANY,
-  abstract { "Rn-4 -> Rn, Rm -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn-4 → Rn, Rm → (Rn)" },
   code { "0010nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op2 - 4);
+WriteMemory 32(address, op1);
+op2 ← address;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -899,22 +1272,24 @@ void MOVLM (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	@-Rm,R0",
   SH2A,
-  abstract { "Rm-1 -> Rm, (Rm) -> sign extension -> R0" },
+  abstract { "Rm-1 → Rm, (Rm) → sign extension → R0" },
   code { "0100mmmm11001011" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -951,18 +1326,20 @@ void MOVRSBM (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@-Rm,R0",
   SH2A,
-  abstract { "Rm-2 -> Rm, (Rm) -> sign extension -> R0" },
+  abstract { "Rm-2 → Rm, (Rm) → sign extension → R0" },
   code { "0100mmmm11011011" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -999,18 +1376,20 @@ void MOVRSWM (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@-Rm,R0",
   SH2A,
-  abstract { "Rm-4 -> Rm, (Rm) -> R0" },
+  abstract { "Rm-4 → Rm, (Rm) → R0" },
   code { "0100mmmm11101011" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -1039,18 +1418,20 @@ void MOVRSLM (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	R0,@Rn+",
   SH2A,
-  abstract { "R0 -> (Rn), Rn+1 -> Rn" },
+  abstract { "R0 → (Rn), Rn+1 → Rn" },
   code { "0100nnnn10001011" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -1079,18 +1460,20 @@ void MOVRSBP (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	R0,@Rn+",
   SH2A,
-  abstract { "R0 -> (Rn), Rn+2 -> Rn" },
+  abstract { "R0 → (Rn), Rn+2 → Rn" },
   code { "0100nnnn10011011" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -1119,18 +1502,20 @@ void MOVRSWP (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	R0,@Rn+",
   SH2A,
-  abstract { "R0 -> (Rn), Rn+4 -> Rn" },
+  abstract { "R0 → (Rn), Rn+4 → Rn" },
   code { "0100nnnn10101011" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -1159,20 +1544,29 @@ void MOVRSLP (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	@(disp,Rm),R0",
-  SH_ANY,
-  abstract { "(disp + Rm) -> sign extension -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp + Rm) → sign extension → R0" },
   code { "10000100mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Structure Data" },
+  brief
+{R"(
+disp ← ZeroExtend 4(i);
+op2 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(disp + op2);
+r0 ← SignExtend 8(ReadMemory 8 (address));
+R 0 ← Register(r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1211,21 +1605,23 @@ void MOVBL4 (int m, int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp + Rm) -> sign extension -> Rn" },
+  abstract { "(disp + Rm) → sign extension → Rn" },
   code { "0011nnnnmmmm0001 0100dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -1264,18 +1660,20 @@ void MOVBL12 (int d, int m, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movu.b	@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp + Rm) -> zero extension -> Rn" },
+  abstract { "(disp + Rm) → zero extension → Rn" },
   code { "0011nnnnmmmm0001 1000dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -1314,14 +1712,23 @@ void MOVBUL12 (int d, int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@(disp,Rm),R0",
-  SH_ANY,
-  abstract { "(disp*2 + Rm) -> sign extension -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp × 2 + Rm) → sign extension → R0" },
   code { "10000101mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Structure Data" },
+  brief
+{R"(
+disp ← ZeroExtend 4(i) << 1;
+op2 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(disp + op2);
+r0 ← SignExtend 16 (ReadMemory 16(address));
+R 0 ← Register(r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1360,21 +1767,23 @@ void MOVWL4 (int m, int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp*2 + Rm) -> sign extension -> Rn" },
+  abstract { "(disp × 2 + Rm) → sign extension → Rn" },
   code { "0011nnnnmmmm0001 0101dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -1412,18 +1821,20 @@ void MOVWL12 (int d, int m, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movu.w	@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp*2 + Rm) -> zero extension -> Rn" },
+  abstract { "(disp × 2 + Rm) → zero extension → Rn" },
   code { "0011nnnnmmmm0001 1001dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -1462,14 +1873,23 @@ void MOVWUL12 (int d, int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@(disp,Rm),Rn",
-  SH_ANY,
-  abstract { "(disp*4 + Rm) -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp × 4 + Rm) → Rn" },
   code { "0101nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Structure Data" },
+  brief
+{R"(
+disp ← ZeroExtend 4(i) << 2;
+op2 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(disp + op2);
+op3 ← SignExtend 32 (ReadMemory 32(address));
+R n ← Register(op3);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1495,26 +1915,29 @@ void MOVLL4 (int m, int d, int n)
 
   example
 {R"(
-
+MOV.L @(2,R0),R1 ;Before execution: @(R0 + 8) = H'12345670
+;After execution: R1 = H'12345670
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp*4 + Rm) -> Rn" },
+  abstract { "(disp × 4 + Rm) → Rn" },
   code { "0011nnnnmmmm0001 0110dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -1544,20 +1967,29 @@ void MOVLL12 (int d, int m, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	R0,@(disp,Rn)",
-  SH_ANY,
-  abstract { "R0 -> (disp + Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 → (disp + Rn)" },
   code { "10000000nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  name { "Move Structure Data" },
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+disp ← ZeroExtend 4(i);
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(disp + op2);
+WriteMemory 8(address, r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1588,22 +2020,24 @@ void MOVBS4 (int d, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	Rm,@(disp12,Rn)",
   SH2A,
-  abstract { "Rm -> (disp + Rn)" },
+  abstract { "Rm → (disp + Rn)" },
   code { "0011nnnnmmmm0001 0000dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "0" },
+
+
 
   description
 {R"(
@@ -1633,20 +2067,29 @@ void MOVBS12 (int d, int m, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	R0,@(disp,Rn)",
-  SH_ANY,
-  abstract { "R0 -> (disp*2 + Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 → (disp × 2 + Rn)" },
   code { "10000001nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  name { "Move Structure Data" },
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+disp ← ZeroExtend 4(i) << 1;
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(disp + op2);
+WriteMemory 16(address, r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1677,22 +2120,24 @@ void MOVWS4 (int d, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	Rm,@(disp12,Rn)",
   SH2A,
-  abstract { "Rm -> (disp*2 + Rn)" },
+  abstract { "Rm → (disp × 2 + Rn)" },
   code { "0011nnnnmmmm0001 0001dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "0" },
+
+
 
   description
 {R"(
@@ -1722,20 +2167,29 @@ void MOVWS12 (int d, int m, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	Rm,@(disp,Rn)",
-  SH_ANY,
-  abstract { "Rm -> (disp*4 + Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → (disp × 4 + Rn)" },
   code { "0001nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  name { "Move Structure Data" },
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+disp ← ZeroExtend 4(i) << 2;
+op3 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(disp + op3);
+WriteMemory 32(address, op1);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1761,27 +2215,30 @@ void MOVLS4 (int m, int d, int n)
 
   example
 {R"(
-
+MOV.L R0,@(H'F,R1) ;Before execution: R0 = H'FFFF7F80
+;After execution: @(R1 + 60) = H'FFFF7F80
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	Rm,@(disp12,Rn)",
   SH2A,
-  abstract { "Rm -> (disp*4 + Rn)" },
+  abstract { "Rm → (disp × 4 + Rn)" },
   code { "0011nnnnmmmm0001 0010dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "0" },
+
+
 
   description
 {R"(
@@ -1811,20 +2268,28 @@ void MOVLS12 (int d, int m, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	@(R0,Rm),Rn",
-  SH_ANY,
-  abstract { "(R0 + Rm) -> sign extension -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(R0 + Rm) → sign extension → Rn" },
   code { "0000nnnnmmmm1100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(r0 + op1);
+op2 ← SignExtend 8(ReadMemory8 (address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1858,23 +2323,31 @@ void MOVBL0 (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@(R0,Rm),Rn",
-  SH_ANY,
-  abstract { "(R0 + Rm) -> sign extension -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(R0 + Rm) → sign extension → Rn" },
   code { "0000nnnnmmmm1101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(r0 + op1);
+op2 ← SignExtend 16 (ReadMemory 16(address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1904,28 +2377,37 @@ void MOVWL0 (int m, int n)
 
   example
 {R"(
-
+MOV.W @(R0,R2),R1 ;Before execution: R2 = H'00000004, R0 = H'10000000
+;After execution: R1 = @H'10000004
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@(R0,Rm),Rn",
-  SH_ANY,
-  abstract { "(R0 + Rm) -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(R0 + Rm) → Rn" },
   code { "0000nnnnmmmm1110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(r0 + op1);
+op2 ← SignExtend 32 (ReadMemory 32(address));
+R n ← Register(op2);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1953,23 +2435,31 @@ void MOVLL0 (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	Rm,@(R0,Rn)",
-  SH_ANY,
-  abstract { "Rm -> (R0 + Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → (R0 + Rn)" },
   code { "0000nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(r0 + op2);
+WriteMemory 8(address, op1);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -1991,29 +2481,38 @@ void MOVBS0 (int m, int n)
 
   example
 {R"(
-
+MOV.B R1,@(R0,R2) ;Before execution: R2 = H'00000004, R0 = H'10000000
+;After execution: R1 = @H'10000004
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	Rm,@(R0,Rn)",
-  SH_ANY,
-  abstract { "Rm -> (R0 + Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → (R0 + Rn)" },
   code { "0000nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(r0 + op2);
+WriteMemory 16(address, op1);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2040,24 +2539,32 @@ void MOVWS0 (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	Rm,@(R0,Rn)",
-  SH_ANY,
-  abstract { "Rm -> (R0 + Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → (R0 + Rn)" },
   code { "0000nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(r0 + op2);
+WriteMemory 32(address, op1);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2084,24 +2591,33 @@ void MOVLS0 (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	@(disp,GBR),R0",
-  SH_ANY,
-  abstract { "(disp + GBR) -> sign extension -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp + GBR) → sign extension → R0" },
   code { "11000100dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Global Data" },
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+disp ← ZeroExtend 8(i);
+address ← ZeroExtend 32(disp + gbr);
+r0 ← SignExtend 8(ReadMemory 8 (address));
+R 0 ← Register(r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2139,23 +2655,32 @@ void MOVBLG (int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	@(disp,GBR),R0",
-  SH_ANY,
-  abstract { "(disp*2 + GBR) -> sign extension -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp × 2 + GBR) → sign extension → R0" },
   code { "11000101dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Global Data" },
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+disp ← ZeroExtend 8(i) << 1;
+address ← ZeroExtend 32(disp + gbr);
+r0 ← SignExtend 16 (ReadMemory 16(address));
+R 0 ← Register(r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2193,23 +2718,32 @@ void MOVWLG (int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	@(disp,GBR),R0",
-  SH_ANY,
-  abstract { "(disp*4 + GBR) -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(disp × 4 + GBR) → R0" },
   code { "11000110dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  name { "Move Global Data" },
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+disp ← ZeroExtend 8(i) << 2;
+address ← ZeroExtend 32(disp + gbr);
+r0 ← SignExtend 32 (ReadMemory 32(address));
+R 0 ← Register(r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2239,23 +2773,32 @@ void MOVLLG (int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b	R0,@(disp,GBR)",
-  SH_ANY,
-  abstract { "R0 -> (disp + GBR)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 → (disp + GBR)" },
   code { "11000000dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  name { "Move Global Data" },
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+r0 ← SignExtend 32 (R0);
+disp ← ZeroExtend 8(i);
+address ← ZeroExtend 32(disp + gbr);
+WriteMemory 8(address, r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2285,24 +2828,33 @@ void MOVBSG (int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w	R0,@(disp,GBR)",
-  SH_ANY,
-  abstract { "R0 -> (disp*2 + GBR)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 → (disp × 2 + GBR)" },
   code { "11000001dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  name { "Move Global Data" },
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+r0 ← SignExtend 32 (R0);
+disp ← ZeroExtend 8(i) << 1;
+address ← ZeroExtend 32(disp + gbr);
+WriteMemory 16(address, r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2332,24 +2884,33 @@ void MOVWSG (int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l	R0,@(disp,GBR)",
-  SH_ANY,
-  abstract { "R0 -> (disp*4 + GBR)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 → (disp × 4 + GBR)" },
   code { "11000010dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  name { "Move Global Data" },
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+r0 ← SignExtend 32 (R0);
+disp ← ZeroExtend 8(i) << 2;
+address ← ZeroExtend 32(disp + gbr);
+WriteMemory 32(address, r0);
+)"},
   description
 {R"(
 Transfers the source operand to the destination.
@@ -2379,20 +2940,20 @@ void MOVLSG (int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movco.l	R0,@Rn",
   SH4A,
-  abstract { "LDST -> T\nIf (T == 1): R0 -> Rn\n0 -> LDST" },
+  abstract { "LDST → T\nIf (T == 1): R0 → Rn\n0 → LDST" },
   code { "0000nnnn01110011" },
-  t_bit { "LDST" },
+  flags { "LDST → T" },
 
   group { SH4A, "CO" },
   issue { SH4A, "1" },
@@ -2401,7 +2962,7 @@ insn { "movco.l	R0,@Rn",
   description
 {R"(
 MOVCO is used in combination with MOVLI to realize an atomic read-modify-write
-operation in a single processor.<br/><br/>
+operation in a single processor.<br /><br />
 This instruction copies the value of the LDST flag to the T bit. When the T bit
 is set to 1, the value of R0 is stored at the address in Rm. If the T bit is
 cleared to 0, the value is not stored at the address in Rm. Finally, the LDST
@@ -2435,28 +2996,30 @@ void MOVCO (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movli.l	@Rm,R0",
   SH4A,
-  abstract { "1 -> LDST\n(Rm) -> R0\nWhen interrupt/exception occured: 0 -> LDST" },
+  abstract { "1 → LDST\n(Rm) → R0\nWhen interrupt/exception occured: 0 → LDST" },
   code { "0000mmmm01100011" },
 
   group { SH4A, "CO" },
   issue { SH4A, "1" },
   latency { SH4A, "1" },
 
+
+
   description
 {R"(
 MOVLI is used in combination with MOVCO to realize an atomic read-modify-write
-operation in a single processor.<br/><br/>
+operation in a single processor.<br /><br />
 This instruction sets the LDST flag to 1 and reads the four bytes of data
 indicated by Rm into R0. If, however, an interrupt or exception occurs, LDST is
 cleared to 0. Storage by the MOVCO instruction only proceeds when the
@@ -2487,22 +3050,24 @@ void MOVLINK (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movua.l	@Rm,R0",
   SH4A,
-  abstract { "(Rm) -> R0\nLoad non-boundary alignment data" },
+  abstract { "(Rm) → R0\nLoad non-boundary alignment data" },
   code { "0100mmmm10101001" },
 
   group { SH4A, "LS" },
   issue { SH4A, "2" },
   latency { SH4A, "2" },
+
+
 
   description
 {R"(
@@ -2535,22 +3100,24 @@ void MOVUAL (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error (when the privileged area is accessed from user mode)</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error (when the privileged area is accessed from user mode)
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movua.l	@Rm+,R0",
   SH4A,
-  abstract { "(Rm) -> R0, Rm + 4 -> Rm\nLoad non-boundary alignment data" },
+  abstract { "(Rm) → R0, Rm + 4 → Rm\nLoad non-boundary alignment data" },
   code { "0100mmmm11101001" },
 
   group { SH4A, "LS" },
   issue { SH4A, "2" },
   latency { SH4A, "2" },
+
+
 
   description
 {R"(
@@ -2587,10 +3154,10 @@ void MOVUALP (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error (when the privileged area is accessed from user mode)</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error (when the privileged area is accessed from user mode)
 )"},
 },
 
@@ -2598,23 +3165,25 @@ void MOVUALP (int m)
 insn { "movml.l	Rm,@-R15",
   SH2A,
   abstract
-{ R"(R15-4 -> R15, Rm -> (R15)
-R15-4 -> R15, Rm-1 -> (R15)
+{ R"(R15-4 → R15, Rm → (R15)
+R15-4 → R15, Rm-1 → (R15)
 ...
 ...
-R15 - 4 -> R15, R0 -> (R15)
+R15 - 4 → R15, R0 → (R15)
 Note: When Rm = R15, read Rm as PR)"},
 
   code { "0100mmmm11110001" },
   issue { SH2A, "1-16" },
   latency { SH2A, "1-16" },
 
+
+
   description
 {R"(
 Transfers a source operand to a destination. This instruction performs transfer
 between a number of general registers (R0 to Rn/Rm) not exceeding the specified
 register number and memory with the contents of R15 as its address.
-<br/><br/>
+<br /><br />
 If R15 is specified, PR is transferred instead of R15. That is, when
 nnnn(mmmm) = 1111 is specified, R0 to R14 and PR are the general registers
 subject to transfer.
@@ -2650,7 +3219,7 @@ void MOVLMML (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -2658,23 +3227,25 @@ void MOVLMML (int m)
 insn { "movml.l	@R15+,Rn",
   SH2A,
   abstract
-{R"((R15) -> R0, R15+4 -> R15
-(R15) -> R1, R15+4 -> R15
+{R"((R15) → R0, R15+4 → R15
+(R15) → R1, R15+4 → R15
 ...
 ...
-(R15) -> Rn
+(R15) → Rn
 Note: When Rn = R15, read Rn as PR)"},
 
   code { "0100nnnn11110101" },
   issue { SH2A, "1-16" },
   latency { SH2A, "2-17" },
 
+
+
   description
 {R"(
 Transfers a source operand to a destination. This instruction performs transfer
 between a number of general registers (R0 to Rn/Rm) not exceeding the specified
 register number and memory with the contents of R15 as its address.
-<br/><br/>
+<br /><br />
 If R15 is specified, PR is transferred instead of R15. That is, when
 nnnn(mmmm) = 1111 is specified, R0 to R14 and PR are the general registers
 subject to transfer.
@@ -2710,7 +3281,7 @@ void MOVLPML (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -2718,23 +3289,25 @@ void MOVLPML (int n)
 insn { "movmu.l	Rm,@-R15",
   SH2A,
   abstract
-{R"(R15-4 -> R15, PR -> (R15)
-R15-4 -> R15, R14 -> (R15)
+{R"(R15-4 → R15, PR → (R15)
+R15-4 → R15, R14 → (R15)
 ...
 ...
-R15-4 -> R15, Rm -> (R15)
+R15-4 → R15, Rm → (R15)
 Note: When Rm = R15, read Rm as PR)"},
 
   code { "0100mmmm11110000" },
   issue { SH2A, "1-16" },
   latency { SH2A, "1-16" },
 
+
+
   description
 {R"(
 Transfers a source operand to a destination. This instruction performs transfer
 between a number of general registers (Rn/Rm to R14, PR) not lower than the
 specified register number and memory with the contents of R15 as its address.
-<br/><br/>
+<br /><br />
 If R15 is specified, PR is transferred instead of R15.
 )"},
 
@@ -2767,7 +3340,7 @@ void MOVLMMU (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -2775,24 +3348,26 @@ void MOVLMMU (int m)
 insn { "movmu.l	@R15+,Rn",
   SH2A,
   abstract
-{R"((R15) -> Rn, R15+4 -> R15
-(R15) -> Rn+1, R15+4 -> R15
+{R"((R15) → Rn, R15+4 → R15
+(R15) → Rn+1, R15+4 → R15
 ...
 ...
-(R15) -> R14, R15+4 -> R15
-(R15) -> PR
+(R15) → R14, R15+4 → R15
+(R15) → PR
 Note: When Rn = R15, read Rn as PR)"},
 
   code { "0100nnnn11110100" },
   issue { SH2A, "1-16" },
   latency { SH2A, "2-17" },
 
+
+
   description
 {R"(
 Transfers a source operand to a destination. This instruction performs transfer
 between a number of general registers (Rn/Rm to R14, PR) not lower than the
 specified register number and memory with the contents of R15 as its address.
-<br/><br/>
+<br /><br />
 If R15 is specified, PR is transferred instead of R15.
 )"},
 
@@ -2824,18 +3399,20 @@ void MOVLPMU (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movrt	Rn",
   SH2A,
-  abstract { "~T -> Rn" },
+  abstract { "~T → Rn" },
   code { "0000nnnn00111001" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -2874,14 +3451,20 @@ void MOVRT (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movt	Rn",
-  SH_ANY,
-  abstract { "T -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "T → Rn" },
   code { "0000nnnn00101001" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+op1 ← t;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores the T bit in general register Rn.
@@ -2907,7 +3490,11 @@ void MOVT (int n)
 
   example
 {R"(
-
+XOR R2,R2 ;R2 = 0
+CMP/PZ R2 ;T = 1
+MOVT R0 ;R0 = 1
+CLRT ;T = 0
+MOVT R1 ;R1 = 0
 )"},
 
   exceptions
@@ -2919,12 +3506,14 @@ void MOVT (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "nott",
   SH2A,
-  abstract { "~T -> T" },
+  abstract { "~T → T" },
   code { "0000000001101000" },
-  t_bit { "~T" },
+  flags { "~T → T" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -2962,14 +3551,20 @@ void NOTT (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.b	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm -> swap lower 2 bytes -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → swap lower 2 bytes → Rn" },
   code { "0110nnnnmmmm1000" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← ((op1 < 16 FOR 16 > << 16) ∨ (op1 < 0 FOR 8 > << 8)) ∨ op1< 8 FOR 8 > ;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Swaps the upper and lower parts of the contents of general register Rm and
@@ -2999,7 +3594,8 @@ void SWAPB (int m, int n)
 
   example
 {R"(
-
+SWAP.B R0,R1 ;Before execution: R0 = H'12345678
+;After execution: R1 = H'12347856
 )"},
 
   exceptions
@@ -3010,14 +3606,20 @@ void SWAPB (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.w	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm -> swap upper/lower words -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → swap upper/lower words → Rn" },
   code { "0110nnnnmmmm1001" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← (op1 < 0 FOR 16 > << 16) ∨ op1< 16 FOR 16 > ;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Swaps the upper and lower parts of the contents of general register Rm and
@@ -3045,7 +3647,8 @@ void SWAPW (int m, int n)
 
   example
 {R"(
-
+SWAP.W R0,R1 ;Before execution: R0 = H'12345678
+;After execution: R1 = H'5678123
 )"},
 
   exceptions
@@ -3056,19 +3659,26 @@ void SWAPW (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xtrct	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm:Rn middle 32 bits -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm:Rn middle 32 bits → Rn" },
   code { "0010nnnnmmmm1101" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← ZeroExtend 32(R n);
+op2 ← op2 < 16 FOR 16 > ∨ (op1 < 0 FOR 16 > << 16);
+R n ← Register(op2);
+)"},
   description
 {R"(
 Extracts the middle 32 bits from the 64-bit contents of linked general registers
 Rm and Rn, and stores the result in Rn.
-<br/><img src="xtrct.svg" height="110"/>
+<br /><img alt="Extract operation" src="xtrct.svg" height="110" />
 )"},
 
   note
@@ -3089,7 +3699,8 @@ void XTRCT (int m, int n)
 
   example
 {R"(
-
+XTRCT R0,R1 ;Before execution: R0 = H'01234567, R1 = H'89ABCDEF
+;After execution: R1 = H'456789AB
 )"},
 
   exceptions
@@ -3107,9 +3718,9 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "band.b     #imm3,@disp12,Rn",
   SH2A,
-  abstract { "(imm of (disp+Rn)) & T -> T" },
+  abstract { "(imm of (disp+Rn)) & T → T" },
   code { "0011nnnn0iii1001 0100dddddddddddd" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3121,7 +3732,7 @@ T bit, and stores the result in the T bit. The bit number is specified by 3-bit
 immediate data. With this instruction, data is read from memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="band.b.svg" height="110"/>
+// FIXME: <br /><img src="band.b.svg" height="110" />
 
   note
 {R"(
@@ -3153,16 +3764,16 @@ void BANDM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bandnot.b  #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "~(imm of (disp+Rn)) & T -> T" },
+  abstract { "~(imm of (disp+Rn)) & T → T" },
   code { "0011nnnn0iii1001 1100dddddddddddd" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3175,7 +3786,7 @@ The bit number is specified by 3-bit immediate data. With this instruction, data
 is read from memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bandnot.b.svg" height="110"/>
+// FIXME: <br /><img src="bandnot.b.svg" height="110" />
 
   note
 {R"(
@@ -3207,18 +3818,20 @@ void BANDNOTM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bclr.b     #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "0 -> (imm of (disp+Rn))" },
+  abstract { "0 → (imm of (disp+Rn))" },
   code { "0011nnnn0iii1001 0000dddddddddddd" },
 
   issue { SH2A, "3" },
   latency { SH2A, "2" },
+
+
 
   description
 {R"(
@@ -3228,7 +3841,7 @@ memory as a byte unit, clearing of the specified bit is executed and the
 resulting data is then written to memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bclr.b.svg" height="110"/>
+// FIXME: <br /><img src="bclr.b.svg" height="110" />
 
   note
 {R"(
@@ -3255,14 +3868,14 @@ void BCLRM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bclr       #imm3,Rn",
   SH2A,
-  abstract { "0 -> imm of Rn" },
+  abstract { "0 → imm of Rn" },
   code { "10000110nnnn0iii" },
 
   issue { SH2A, "1" },
@@ -3274,7 +3887,7 @@ Clears a specified bit of the LSB 8 bits of a general register Rn.
 The bit number is specified by 3-bit immediate data.
 )"},
 
-// FIXME: <br/><img src="bclr.svg" height="110"/>
+// FIXME: <br /><img src="bclr.svg" height="110" />
 
   note
 {R"(
@@ -3306,9 +3919,9 @@ void CLR (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bld.b      #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "(imm of (disp+Rn)) -> T" },
+  abstract { "(imm of (disp+Rn)) → T" },
   code { "0011nnnn0iii1001 0011dddddddddddd" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3320,7 +3933,7 @@ T bit. The bit number is specified by 3-bit immediate data. Data is read from
 memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bld.b.svg" height="110"/>
+// FIXME: <br /><img src="bld.b.svg" height="110" />
 
   note
 {R"(
@@ -3352,16 +3965,16 @@ void BLDM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bld        #imm3,Rn",
   SH2A,
-  abstract { "imm of Rn -> T" },
+  abstract { "imm of Rn → T" },
   code { "10000111nnnn1iii" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
@@ -3372,7 +3985,7 @@ Stores a specified bit of the LSB 8 bits of a general register Rn in the T bit.
 The bit number is specified by 3-bit immediate data.
 )"},
 
-// FIXME: <br/><img src="bld.svg" height="110"/>
+// FIXME: <br /><img src="bld.svg" height="110" />
 
   note
 {R"(
@@ -3410,9 +4023,9 @@ void BLD (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bldnot.b   #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "~(imm of (disp+Rn)) -> T" },
+  abstract { "~(imm of (disp+Rn)) → T" },
   code { "0011nnnn0iii1001 1011dddddddddddd" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3424,7 +4037,7 @@ stores the resulting value in the T bit. The bit number is specified by 3-bit
 immediate data. Data is read from memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bldnot.svg" height="110"/>
+// FIXME: <br /><img src="bldnot.svg" height="110" />
 
   note
 {R"(
@@ -3456,19 +4069,21 @@ void BLDNOTM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bor.b      #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "(imm of (disp+Rn)) | T -> T" },
+  abstract { "(imm of (disp+Rn)) | T → T" },
   code { "0011nnnn0iii1001 0101dddddddddddd" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
+
+
 
   description
 {R"(
@@ -3477,7 +4092,7 @@ T bit, and stores the result in the T bit. The bit number is specified by 3-bit
 immediate data. Data is read from memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bor.b.svg" height="110"/>
+// FIXME: <br /><img src="bor.b.svg" height="110" />
 
   note
 {R"(
@@ -3509,16 +4124,16 @@ void BORM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bornot.b   #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "~(imm of (disp+Rn)) | T -> T" },
+  abstract { "~(imm of (disp+Rn)) | T → T" },
   code { "0011nnnn0iii1001 1101dddddddddddd" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3531,7 +4146,7 @@ The bit number is specified by 3-bit immediate data. With this instruction,
 data is read from memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bornot.b.svg" height="110"/>
+// FIXME: <br /><img src="bornot.b.svg" height="110" />
 
   note
 {R"(
@@ -3563,14 +4178,14 @@ void BORNOTM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bset.b     #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "1 -> (imm of (disp+Rn))" },
+  abstract { "1 → (imm of (disp+Rn))" },
   code { "0011nnnn0iii1001 0001dddddddddddd" },
 
   issue { SH2A, "3" },
@@ -3584,7 +4199,7 @@ memory as a byte unit, the specified bit is set to 1, and the resulting data is
 then written to memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bset.b.svg" height="110"/>
+// FIXME: <br /><img src="bset.b.svg" height="110" />
 
   note
 {R"(
@@ -3611,14 +4226,14 @@ void BSETM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bset       #imm3,Rn",
   SH2A,
-  abstract { "1 -> imm of Rn" },
+  abstract { "1 → imm of Rn" },
   code { "10000110nnnn1iii" },
 
   issue { SH2A, "1" },
@@ -3630,7 +4245,7 @@ Sets to 1 a specified bit of the LSB 8 bits of a general register Rn. The bit
 number is specified by 3-bit immediate data.
 )"},
 
-// FIXME: <br/><img src="bset.svg" height="110"/>
+// FIXME: <br /><img src="bset.svg" height="110" />
 
   note
 {R"(
@@ -3662,7 +4277,7 @@ void BSET (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bst.b      #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "T -> (imm of (disp+Rn))" },
+  abstract { "T → (imm of (disp+Rn))" },
   code { "0011nnnn0iii1001 0010dddddddddddd" },
 
   issue { SH2A, "3" },
@@ -3677,7 +4292,7 @@ T bit to the specified bit is executed, and the resulting data is then written
 to memory as a byte unit.
 )"},
 
-// FIXME: <br/><img src="bst.b.svg" height="110"/>
+// FIXME: <br /><img src="bst.b.svg" height="110" />
 
   note
 {R"(
@@ -3709,14 +4324,14 @@ void BSTM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bst        #imm3,Rn",
   SH2A,
-  abstract { "T -> imm of Rn" },
+  abstract { "T → imm of Rn" },
   code { "10000111nnnn0iii" },
 
   issue { SH2A, "1" },
@@ -3729,7 +4344,7 @@ LSB 8 bits of a general register Rn. The bit number is specified by 3-bit
 immediate data.
 )"},
 
-// FIXME: <br/><img src="bst.svg" height="110"/>
+// FIXME: <br /><img src="bst.svg" height="110" />
 
   note
 {R"(
@@ -3767,12 +4382,14 @@ void BST (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bxor.b     #imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "(imm of (disp+Rn)) ^ T -> T" },
+  abstract { "(imm of (disp+Rn)) ^ T → T" },
   code { "0011nnnn0iii1001 0110dddddddddddd" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
+
+
 
   description
 {R"(
@@ -3782,7 +4399,7 @@ by 3-bit immediate data. With this instruction, data is read from memory as a
 byte unit.
 )"},
 
-// FIXME: <br/><img src="bxor.b.svg" height="110"/>
+// FIXME: <br /><img src="bxor.b.svg" height="110" />
 
   note
 {R"(
@@ -3824,7 +4441,7 @@ void BXORM (int d, int i, int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -3836,13 +4453,21 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "add	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn + Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn + Rm → Rn" },
   code { "0011nnnnmmmm1100" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+op2 ← op2 + op1;
+R n ← Register(op2)
+)"},
 
   description
 {R"(
@@ -3866,7 +4491,8 @@ void ADD (int m, int n)
 
   example
 {R"(
-
+ADD R0,R1 ;Before execution: R0 = H'7FFFFFFF, R1 = H'00000001
+;After execution: R1 = H'80000000
 )"},
 
   exceptions
@@ -3878,13 +4504,21 @@ void ADD (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "add	#imm,Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "Rn + (sign extension)imm" },
   code { "0111nnnniiiiiiii" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+brief
+{R"(
+imm ← SignExtend 8 (s);
+op2 ← SignExtend 32 (Rn );
+op2 ← op2 + imm;
+R n ← Register(op2);
+)"},
 
   description
 {R"(
@@ -3914,7 +4548,10 @@ void ADDI (int i, int n)
 
   example
 {R"(
-
+ADD #H'01,R2 ;Before execution: R2 = H'00000000
+;After execution: R2 = H'00000001
+ADD #H'FE,R3 ;Before execution: R3 = H'00000001
+;After execution: R3 = H'FFFFFFFF
 )"},
 
   exceptions
@@ -3926,14 +4563,25 @@ void ADDI (int i, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "addc	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn + Rm + T -> Rn, carry -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn + Rm + T → Rn, carry → T" },
   code { "0011nnnnmmmm1110" },
-  t_bit { "Carry" },
+  flags { "Carry → T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+op1 ← ZeroExtend 32(SignExtend 32(R m));
+op2 ← ZeroExtend 32(SignExtend 32(R n));
+op2 ← (op2 + op1) + t;
+t ← op2< 32 FOR 1 > ;
+R n ← Register(op2);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -3972,11 +4620,11 @@ void ADDC (int m, int n)
 
   example
 {R"(
-clrt           ! r0:r1 (64 bits) + r2:r3 (64 bits) = r0:r1 (64 bits)
-addc  r3,r1    ! Before execution T = 0, r1 = 0x00000001, r3 = 0xFFFFFFFF
-               ! After execution T = 1, r1 = 0x00000000
-addc  r2,r0    ! Before execution T = 1, r0 = 0x00000000, r2 = 0x00000000
-               ! After execution T = 0, r0 = 0x00000001
+CLRT ;R0:R1 (64 bits) + R2:R3 (64 bits) = R0:R1 (64 bits)
+ADDC R3,R1 ;Before execution: T = 0, R1 = H'00000001, R3 = H'FFFFFFFF
+;After execution: T = 1, R1 = H'00000000
+ADDC R2,R0 ;Before execution: T = 1, R0 = H'00000000, R2 = H'00000000
+;After execution: T = 0, R0 = H'00000001
 )"},
 
   exceptions
@@ -3987,14 +4635,24 @@ addc  r2,r0    ! Before execution T = 1, r0 = 0x00000000, r2 = 0x00000000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "addv	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn + Rm -> Rn, overflow -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn + Rm → Rn, overflow → T" },
   code { "0011nnnnmmmm1111" },
-  t_bit { "Overflow" },
+  flags { "Overflow → T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+op2 ← op2 + op1;
+t ← INT ((op2 < (- 231)) OR (op2 ≥ 2 31));
+R n ← Register(op2);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4050,12 +4708,10 @@ void ADDV (int m, int n)
 
   example
 {R"(
-
-addv  r0,r1  ! Before execution: r0 = 0x00000001, r1 = 0x7FFFFFFE, T = 0
-             ! After execution:  r1 = 0x7FFFFFFF, T = 0
-
-addv  r0,r1  ! Before execution: r0 = 0x00000002, r1 = 0x7FFFFFFE, T = 0
-             ! After execution:  r1 = 0x80000000, T = 1
+ADDV R0,R1 ;Before execution: R0 = H'00000001, R1 = H'7FFFFFFE, T = 0
+;After execution: R1 = H'7FFFFFFF, T = 0
+ADDV R0,R1 ;Before execution: R0 = H'00000002, R1 = H'7FFFFFFE, T = 0
+;After execution: R1 = H'80000000, T = 1
 )"},
 
   exceptions
@@ -4066,14 +4722,22 @@ addv  r0,r1  ! Before execution: r0 = 0x00000002, r1 = 0x7FFFFFFE, T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/eq	#imm,R0",
-  SH_ANY,
-  abstract { "If R0 = (sign extension)imm: 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If R0 = (sign extension)imm: 1 → T\nElse: 0 → T" },
   code { "10001000iiiiiiii" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+imm ← SignExtend 8(s);
+t ← INT (r0 = imm);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4120,14 +4784,22 @@ void CMPIM (int i)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/eq	Rm,Rn",
-  SH_ANY,
-  abstract { "If Rn = Rm: 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn = Rm: 1 → T\nElse: 0 → T" },
   code { "0011nnnnmmmm0000" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+t ← INT (op2 = op1);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4166,14 +4838,22 @@ void CMPEQ (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/hs	Rm,Rn",
-  SH_ANY,
-  abstract { "If Rn >= Rm (unsigned): 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn &ge; Rm (unsigned): 1 → T\nElse: 0 → T" },
   code { "0011nnnnmmmm0010" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← ZeroExtend 32(SignExtend 32(R m));
+op2 ← ZeroExtend 32(SignExtend 32(R n));
+t ← INT (op2 ≥ op1);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4213,14 +4893,22 @@ void CMPHI (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/ge	Rm,Rn",
-  SH_ANY,
-  abstract { "If Rn >= Rm (signed): 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn &ge; Rm (signed): 1 → T\nElse: 0 → T" },
   code { "0011nnnnmmmm0011" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+t ← INT (op2 ≥ op1);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4260,14 +4948,22 @@ void CMPGE (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/hi	Rm,Rn",
-  SH_ANY,
-  abstract { "If Rn > Rm (unsigned): 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn > Rm (unsigned): 1 → T\nElse: 0 → T" },
   code { "0011nnnnmmmm0110" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← ZeroExtend 32(SignExtend 32(R m));
+op2 ← ZeroExtend 32(SignExtend 32(R n));
+t ← INT (op2 > op1);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4307,14 +5003,22 @@ void CMPHI (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/gt	Rm,Rn",
-  SH_ANY,
-  abstract { "If Rn > Rm (signed): 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn > Rm (signed): 1 → T\nElse: 0 → T" },
   code { "0011nnnnmmmm0111" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+t ← INT (op2 > op1);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4354,14 +5058,21 @@ void CMPGT (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/pl	Rn",
-  SH_ANY,
-  abstract { "If Rn > 0 (signed): 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn > 0 (signed): 1 → T\nElse: 0 → T" },
   code { "0100nnnn00010101" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+t ← INT (op1 > 0);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4401,14 +5112,21 @@ void CMPPL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/pz	Rn",
-  SH_ANY,
-  abstract { "If Rn >= 0 (signed): 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn &ge; 0 (signed): 1 → T\nElse: 0 → T" },
   code { "0100nnnn00010001" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+t ← INT (op1 ≥ 0);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4448,14 +5166,26 @@ void CMPPZ (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/str	Rm,Rn",
-  SH_ANY,
-  abstract { "If Rn and Rm have an equal byte: 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn and Rm have an equal byte: 1 → T\nElse: 0 → T" },
   code { "0010nnnnmmmm1100" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+temp ← op1 ⊕ op2;
+t ← INT (temp < 0 FOR 8 > = 0);
+t ← (INT (temp < 8 FOR 8 > = 0)) ∨ t;
+t ← (INT (temp < 16 FOR 8 > = 0)) ∨ t;
+t ← (INT (temp < 24 FOR 8 > = 0)) ∨ t;
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4507,11 +5237,13 @@ bt       target   ! T = 1, so branch is taken.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clips.b	Rn",
   SH2A,
-  abstract { "If Rn > 0x0000007F: 0x0000007F -> Rn, 1 -> CS\nIf Rn < 0xFFFFFF80: 0xFFFFFF80 -> Rn, 1 -> CS" },
+  abstract { "If Rn > 0x0000007F: 0x0000007F → Rn, 1 → CS\nIf Rn < 0xFFFFFF80: 0xFFFFFF80 → Rn, 1 → CS" },
   code { "0100nnnn10010001" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -4564,11 +5296,13 @@ void CLIPSB (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clips.w	Rn",
   SH2A,
-  abstract { "If Rn > 0x00007FFF: 0x00007FFF -> Rn, 1 -> CS\nIf Rn < 0xFFFF8000: 0xFFFF8000 -> Rn, 1 -> CS" },
+  abstract { "If Rn > 0x00007FFF: 0x00007FFF → Rn, 1 → CS\nIf Rn < 0xFFFF8000: 0xFFFF8000 → Rn, 1 → CS" },
   code { "0100nnnn10010101" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -4621,11 +5355,13 @@ void CLIPSW (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clipu.b	Rn",
   SH2A,
-  abstract { "If Rn > 0x000000FF: 0x000000FF -> Rn, 1 -> CS" },
+  abstract { "If Rn > 0x000000FF: 0x000000FF → Rn, 1 → CS" },
   code { "0100nnnn10000001" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -4669,11 +5405,13 @@ void CLIPUB (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clipu.w	Rn",
   SH2A,
-  abstract { "If Rn > 0x0000FFFF: 0x0000FFFF -> Rn, 1 -> CS" },
+  abstract { "If Rn > 0x0000FFFF: 0x0000FFFF → Rn, 1 → CS" },
   code { "0100nnnn10000101" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -4716,14 +5454,26 @@ void CLIPUW (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "div0s	Rm,Rn",
-  SH_ANY,
-  abstract { "MSB of Rn -> Q, MSB of Rm -> M, M ^ Q -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "MSB of Rn → Q, MSB of Rm → M, M ^ Q → T" },
   code { "0010nnnnmmmm0111" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+q ← op2< 31 FOR 1 > ;
+m ← op1 < 31 FOR 1 > ;
+t ← m ⊕ q;
+Q ← Bit(q);
+M ← Bit(m);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4772,14 +5522,24 @@ void DIV0S (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "div0u",
-  SH_ANY,
-  abstract { "0 -> M, 0 -> Q, 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "0 → M, 0 → Q, 0 → T" },
   code { "0000000000011001" },
-  t_bit { "0" },
+  flags { "0 → T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+q ← 0;
+m ← 0;
+t ← 0;
+Q ← Bit(q);
+M ← Bit(m);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4816,14 +5576,35 @@ void DIV0U (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "div1	Rm,Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "1-step division (Rn / Rm)" },
   code { "0011nnnnmmmm0100" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+q ← ZeroExtend 1(Q);
+m ← ZeroExtend 1(M);
+t ← ZeroExtend 1(T);
+op1 ← ZeroExtend 32(SignExtend 32(R m));
+op2 ← ZeroExtend 32(SignExtend 32(R n));
+oldq ← q;
+q ← op2< 31 FOR 1 > ;
+op2 ← ZeroExtend 32(op2 << 1) ∨ t;
+IF (oldq = m)
+op2 ← op2 - op1;
+ELSE
+op2 ← op2 + op1;
+q ← (q ⊕ m) ⊕ op2< 32 FOR 1 > ;
+t ← 1 - (q ⊕ m);
+R n ← Register(op2);
+Q ← Bit(q);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -4832,18 +5613,18 @@ register Rn (dividend) by the contents of Rm (divisor).
 The quotient is obtained by repeated execution of this instruction alone or in
 combination with other instructions. The specified registers and the M, Q, and
 T bits must not be modified during these repeated executions.
-<br/><br/>
+<br /><br />
 In 1-step division, the dividend is shifted 1 bit to the left, the divisor is
 subtracted from this, and the quotient bit is reflected in the Q bit according
 to whether the result is positive or negative.
-<br/><br/>
+<br /><br />
 Detection of division by zero or overflow is not provided. Check for division by
 zero and overflow division before executing the division. A remainder operation
 is not provided. Find the remainder by finding the product of the divisor and
 the obtained quotient, and subtracting this value from the dividend:
-<br/>
-<center><code>remainder = dividend - (divisor * quotient)</code></center>
-<br/>
+<br /><br />
+<code>remainder = dividend - (divisor × quotient)</code>
+<br /><br />
 Initial settings should first be made with the DIV0S or DIV0U instruction. DIV1
 is executed once for each bit of the divisor. If a quotient of more than 17
 bits is required, place an ROTCL instruction before the DIV1 instruction. See
@@ -4928,7 +5709,7 @@ void DIV1 (int m, int n)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
 ! r1 (32 bits) / r0 (16 bits) = r1 (16 bits)  (unsigned)
 
 shll16  r0        ! Set divisor in upper 16 bits, clear lower 16 bits to 0
@@ -5033,11 +5814,13 @@ extu.b  r4,r0
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "divs	R0,Rn",
   SH2A,
-  abstract { "Signed, Rn / R0 -> Rn\n32 / 32 -> 32 bits" },
+  abstract { "Signed, Rn / R0 → Rn\n32 / 32 → 32 bits" },
   code { "0100nnnn10010100" },
 
   issue { SH2A, "36" },
   latency { SH2A, "36" },
+
+
 
   description
 {R"(
@@ -5054,7 +5837,7 @@ same as that of the dividend.
 An overflow exception will occur if the negative maximum value (0x00000000) is
 divided by -1. If division by zero is performed a division by zero exception
 will occur.
-<br/><br/>
+<br /><br />
 If an interrupt is generated while this instruction is being executed, execution
 will be halted. The return address will be the start address of this instruction,
 and this instruction will be re-executed.  This avoids increased interrupt
@@ -5077,19 +5860,21 @@ void DIVS (int n)
 
   exceptions
 {R"(
-<li>Overflow exception</li>
-<li>Division by zero exception</li>
+Overflow exception
+Division by zero exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "divu	R0,Rn",
   SH2A,
-  abstract { "Unsigned, Rn / R0 -> Rn\n32 / 32 -> 32 bits" },
+  abstract { "Unsigned, Rn / R0 → Rn\n32 / 32 → 32 bits" },
   code { "0100nnnn10000100" },
 
   issue { SH2A, "36" },
   latency { SH2A, "36" },
+
+
 
   description
 {R"(
@@ -5103,7 +5888,7 @@ subtract this value from the dividend.
   note
 {R"(
 A division by zero exception will occur if division by zero is performed.
-<br/><br/>
+<br /><br />
 If an interrupt is generated while this instruction is being executed, execution
 will be halted. The return address will be the start address of this instruction,
 and this instruction will be re-executed.  This avoids increased interrupt
@@ -5126,19 +5911,30 @@ void DIVU (int n)
 
   exceptions
 {R"(
-<li>Division by zero exception</li>
+Division by zero exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dmuls.l	Rm,Rn",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "Signed, Rn * Rm -> MACH:MACL\n32 * 32 -> 64 bits" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  abstract { "Signed, Rn × Rm → MACH:MACL\n32 × 32 → 64 bits" },
   code { "0011nnnnmmmm1101" },
 
   group { SH4, "CO", SH4A, "EX" },
   issue { SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH2, "2-4", SH3, "2-5", SH4A, "2", SH2A, "3", SH4, "4/4" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+mac ← op2 × op1;
+macl ← mac;
+mach ← mac >> 32;
+MACL ← ZeroExtend 32 (macl);
+MACH ← ZeroExtend 32 (mach);
+)"},
 
   description
 {R"(
@@ -5218,7 +6014,10 @@ void DMULS (int m, int n)
 
   example
 {R"(
-
+DMULS.L R0,R1 ;Before execution: R0 = H'FFFFFFFE, R1 = H'00005555
+;After execution: MACH = H'FFFFFFFF, MACL = H'FFFF5556
+STS MACH,R0 ;Operation result (top)
+STS MACL,R0 ;Operation result (bottom)
 )"},
 
   exceptions
@@ -5229,13 +6028,24 @@ void DMULS (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dmulu.l	Rm,Rn",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "Unsigned, Rn * Rm -> MACH:MACL\n32 * 32 -> 64 bits" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  abstract { "Unsigned, Rn × Rm → MACH:MACL\n32 × 32 → 64 bits" },
   code { "0011nnnnmmmm0101" },
 
   group { SH4A, "EX", SH4, "CO" },
   issue { SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH2, "2-4", SH3, "2-5", SH4A, "2", SH2A, "2", SH4, "4/4" },
+
+  brief
+{R"(
+op1 ← ZeroExtend 32(SignExtend 32(R m));
+op2 ← ZeroExtend 32(SignExtend 32(R n));
+mac ← op2 × op1;
+macl ← mac;
+mach ← mac >> 32;
+MACL ← ZeroExtend 32 (macl);
+MACH ← ZeroExtend 32 (mach);
+)"},
 
   description
 {R"(
@@ -5288,7 +6098,10 @@ void DMULU (int m, int n)
 
   example
 {R"(
-
+DMULU.L R0,R1 ;Before execution: R0 = H'FFFFFFFE, R1 = H'00005555
+;After execution: MACH = H'FFFFFFFF, MACL = H'FFFF5556
+STS MACH,R0 ;Operation result (top)
+STS MACL,R0 ;Operation result (bottom
 )"},
 
   exceptions
@@ -5299,13 +6112,22 @@ void DMULU (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dt	Rn",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "Rn-1 -> Rn\nIf Rn = 0: 1 -> T\nElse: 0 -> T" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  abstract { "Rn-1 → Rn\nIf Rn = 0: 1 → T\nElse: 0 → T" },
   code { "0100nnnn00010000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+op1 ← op1 - 1;
+t ← INT (op1 = 0);
+R n ← Register(op1);
+T ← Bit(t);
+)"},
 
   description
 {R"(
@@ -5334,7 +6156,7 @@ void DT (int n)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
     mov   #4,r4      ! Set loop count
 loop:
     add   r0,r1
@@ -5351,13 +6173,20 @@ loop:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "exts.b	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm sign-extended from byte -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm sign-extended from byte → Rn" },
   code { "0110nnnnmmmm1110" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 8(R m );
+op2 ← op1;
+R n ← Register(op2);
+)"},
 
   description
 {R"(
@@ -5387,7 +6216,8 @@ void EXTSB (int m, int n)
 
   example
 {R"(
-
+EXTS.B R0,R1 ;Before execution: R0 = H'00000080
+;After execution: R1 = H'FFFFFF80
 )"},
 
   exceptions
@@ -5398,13 +6228,20 @@ void EXTSB (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "exts.w	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm sign-extended from word -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm sign-extended from word → Rn" },
   code { "0110nnnnmmmm1111" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← SignExtend 16 (Rm );
+op2 ← op1;
+R n ← Register(op2);
+)"},
 
   description
 {R"(
@@ -5434,7 +6271,8 @@ void EXTSW (int m, int n)
 
   example
 {R"(
-
+EXTS.W R0,R1 ;Before execution: R0 = H'00008000
+;After execution: R1 = H'FFFF8000
 )"},
 
   exceptions
@@ -5445,13 +6283,20 @@ void EXTSW (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "extu.b	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm zero-extended from byte -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm zero-extended from byte → Rn" },
   code { "0110nnnnmmmm1100" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← ZeroExtend 8(Rm );
+op2 ← op1;
+R n ← Register(op2);
+)"},
 
   description
 {R"(
@@ -5476,7 +6321,8 @@ void EXTUB (int m, int n)
 
   example
 {R"(
-
+EXTU.B R0,R1 ;Before execution: R0 = H'FFFFFF80
+;After execution: R1 = H'00000080
 )"},
 
   exceptions
@@ -5487,13 +6333,20 @@ void EXTUB (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "extu.w	Rm,Rn",
-  SH_ANY,
-  abstract { "Rm zero-extended from word -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm zero-extended from word → Rn" },
   code { "0110nnnnmmmm1101" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← ZeroExtend 16(R m);
+op2 ← op1;
+R n ← Register(op2)
+)"},
 
   description
 {R"(
@@ -5518,7 +6371,8 @@ void EXTUW (int m, int n)
 
   example
 {R"(
-
+EXTU.W R0,R1 ;Before execution: R0 = H'FFFF8000
+;After execution: R1 = H'00008000
 )"},
 
   exceptions
@@ -5529,24 +6383,60 @@ void EXTUW (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mac.l	@Rm+,@Rn+",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "Signed, (Rn) * (Rm) + MAC -> MAC\n32 * 32 + 64 -> 64 bits" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  abstract { "Signed, (Rn) × (Rm) + MAC → MAC\n32 × 32 + 64 → 64 bits" },
   code { "0000nnnnmmmm1111" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH2, "2", SH3, "2", SH4A, "2", SH2A, "4", SH4, "2" },
   latency { SH2, "2-4", SH3, "2-5", SH4A, "5", SH2A, "5", SH4, "2/4" },
 
+  brief
+{R"(
+macl ← ZeroExtend 32 (MACL);
+mach ← ZeroExtend 32(MACH);
+s ← ZeroExtend 1 (S);
+m_field ← ZeroExtend 4(m);
+n_field ← ZeroExtend 4(n);
+m_address ← SignExtend 32 (Rm );
+n_address ← SignExtend 32 (Rn);
+value2 ← SignExtend 32 (ReadMemory 32 (ZeroExtend 32 (n_address)));
+n_address ← n_address + 4;
+IF (n_field = m_field)
+{
+m_address ← m_address + 4;
+n_address ← n_address + 4;
+}
+value1 ← SignExtend 32 (ReadMemory 32 (ZeroExtend 32 (m_address)));
+m_address ← m_address + 4;
+mul ← value2 × value1;
+mac ← (mach << 32) + macl;
+result ← mac + mul;
+IF (s = 1)
+IF (((result ⊕ mac) ∧ (result ⊕ mul)) < 63 FOR 1 > = 1)
+IF (mac < 63 FOR 1 > = 0)
+result ← 247 - 1;
+ELSE
+result ← - 247 ;
+ELSE
+result ← SignedSaturate 48 (result);
+macl ← result;
+mach ← result >> 32;
+R m ← Register(m_address);
+R n ← Register(n_address);
+MACL ← ZeroExtend 32 (macl);
+MACH ← ZeroExtend 32 (mach);
+)"},
   description
 {R"(
 Performs signed multiplication of the 32-bit operands whose addresses are the
 contents of general registers Rm and Rn, adds the 64-bit result to the MAC
 register contents, and stores the result in the MAC register.
 Operands Rm and Rn are each incremented by 4 each time they are read.
-<br/><br/>
+<br /><br />
 When the S bit is cleared to 0, the 64-bit result is stored in the coupled MACH
 and MACL registers.
-<br/><br/>
+<br /><br />
 When bit S is set to 1, addition to the MAC register is a saturation operation
 of 48 bits starting from the LSB. For the saturation operation, only the lower
 48 bits of the MACL register are enabled and the result is limited to a range
@@ -5658,40 +6548,91 @@ void MACL (int m, int n)
 
   example
 {R"(
-
+MOVA TBLM,R0 ;Table address
+MOV R0,R1 ;
+MOVA TBLN,R0 ;Table address
+CLRMAC ;MAC register initialization
+MAC.L @R0+,@R1+ ;
+MAC.L @R0+,@R1+ ;
+STS MACL,R0 ;Store result into R0
+...............
+.align 2 ;
+TBLM
+.data.l H'1234ABCD ;
+.data.l H'5678EF01 ;
+TBLN
+.data.l H'0123ABCD ;
+.data.l H'4567DEF0 ;
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mac.w	@Rm+,@Rn+",
-  SH_ANY,
-  abstract { "Signed, (Rn) * (Rm) + MAC -> MAC\nSH1: 16 * 16 + 42 -> 42 bits\nOther: 16 * 16 + 64 -> 64 bits" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Signed, (Rn) × (Rm) + MAC → MAC\nSH1: 16 × 16 + 42 → 42 bits\nOther: 16 × 16 + 64 → 64 bits" },
   code { "0100nnnnmmmm1111" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "2", SH2A, "3", SH4, "2" },
   latency { SH1, "2-3", SH2, "2-3", SH3, "2-5", SH4A, "4", SH2A, "4", SH4, "2/4" },
 
+  brief
+{R"(
+macl ← ZeroExtend 32 (MACL);
+mach ← ZeroExtend 32(MACH);
+s ← ZeroExtend 1 (S);
+m_field ← ZeroExtend 4(m);
+n_field ← ZeroExtend 4(n);
+m_address ← SignExtend 32 (Rm );
+n_address ← SignExtend 32 (Rn);
+value2 ← SignExtend 16 (ReadMemory 16 (ZeroExtend 32 (n_address)));
+n_address ← n_address + 2;
+IF (n_field = m_field)
+{
+m_address ← m_address + 2;
+n_address ← n_address + 2;
+}
+value1 ← SignExtend 16 (ReadMemory 16 (ZeroExtend 32 (m_address)));
+m_address ← m_address + 2;
+mul ← value2 × value1;
+IF (s = 1)
+{
+macl ← SignExtend 32(macl) + mul;
+temp ← SignedSaturate 32 (macl);
+IF (macl = temp)
+result ← (mach << 32) ∨ ZeroExtend 32 (macl);
+ELSE
+result ← (0x1 << 32) ∨ ZeroExtend 32 (temp);
+}
+ELSE
+result ← ((mach << 32) + macl) + mul;
+macl ← result;
+mach ← result >> 32;
+R m ← Register(m_address);
+R n ← Register(n_address);
+MACL ← ZeroExtend 32 (macl);
+MACH ← ZeroExtend 32 (mach);
+)"},
   description
 {R"(
 Performs signed multiplication of the 16-bit operands whose addresses are the
 contents of general registers Rm and Rn, adds the 32-bit result to the MAC
 register contents, and stores the result in the MAC register.
 Operands Rm and Rn are each incremented by 2 each time they are read.
-<br/><br/>
-If the S bit is 0, a 16 * 16 + 64 -> 64-bit multiply-and-accumulate operation
+<br /><br />
+If the S bit is 0, a 16 × 16 + 64 → 64-bit multiply-and-accumulate operation
 is performed, and the 64-bit result is stored in the linked MACH and MACL
 registers.
-<br/><br/>
-If the S bit is 1, a 16 * 16 + 32 -> 32-bit multiply-and-accumulate operation is
+<br /><br />
+If the S bit is 1, a 16 × 16 + 32 → 32-bit multiply-and-accumulate operation is
 performed, and the addition to the MAC register contents is a saturation
 operation. In a saturation operation, only the MACL register is valid, and the
 result range is limited to 0x80000000 (minimum value) to 0x7FFFFFFF
@@ -5703,10 +6644,10 @@ if the result overflows in the positive direction
 
   note
 {R"(
-When the S bit is 0, the SH2 and SH-DSP CPU perform a 16 * 16 + 64 -> 64 bit
-multiply and accumulate operation and the SH1 CPU performs a 16 * 16 + 42 ->
+When the S bit is 0, the SH2 and SH-DSP CPU perform a 16 × 16 + 64 → 64 bit
+multiply and accumulate operation and the SH1 CPU performs a 16 × 16 + 42 →
 42 bit multiply and accumulate operation.
-<br/><br/>
+<br /><br />
 On SH4, when MAC*/MUL* is followed by an STS.L MAC*,@-Rn instruction, the
 latency of MAC*/MUL* is 5 cycles.  In the case of consecutive executions of
 MAC.W/MAC.L, the latency is decreased to 2 cycles.
@@ -5788,28 +6729,49 @@ void MACW (int m, int n)
 
   example
 {R"(
-
+MOVA TBLM,R0 ;Table address
+MOV R0,R1 ;
+MOVA TBLN,R0 ;Table address
+CLRMAC ;MAC register initialization
+MAC.W @R0+,@R1+ ;
+MAC.W @R0+,@R1+ ;
+STS MACL,R0 ;Store result into R0
+...............
+.align 2 ;
+TBLM
+.data.w H'1234 ;
+.data.w H'5678 ;
+TBLN
+.data.w H'0123 ;
+.data.w H'4567 ;
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mul.l	Rm,Rn",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "Rn * Rm -> MACL\n32 * 32 -> 32 bits" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  abstract { "Rn × Rm → MACL\n32 × 32 → 32 bits" },
   code { "0000nnnnmmmm0111" },
 
   group { SH4A, "EX", SH4, "CO" },
   issue { SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH2, "2-4", SH3, "2-4", SH4A, "2", SH2A, "3", SH4, "4/4" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+macl ← op1 × op2;
+MACL ← ZeroExtend 32 (macl);
+)"},
   description
 {R"(
 Performs 32-bit multiplication of the contents of general registers Rn and Rm,
@@ -5834,7 +6796,9 @@ void MULL (int m, int n)
 
   example
 {R"(
-
+MULL R0,R1 ;Before execution: R0 = H'FFFFFFFE, R1 = H'00005555
+;After execution: MACL = H'FFFF5556
+STS MACL,R0 ;Operation result
 )"},
 
   exceptions
@@ -5846,11 +6810,13 @@ void MULL (int m, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mulr	R0,Rn",
   SH2A,
-  abstract { "R0 * Rn -> Rn\n32 * 32 -> 32 bits" },
+  abstract { "R0 × Rn → Rn\n32 × 32 → 32 bits" },
   code { "0100nnnn10000000" },
 
   issue { SH2A, "2" },
   latency { SH2A, "4" },
+
+
 
   description
 {R"(
@@ -5885,14 +6851,21 @@ void MULR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "muls.w	Rm,Rn",
-  SH_ANY,
-  abstract { "Signed, Rn * Rm -> MACL\n16 * 16 -> 32 bits" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Signed, Rn × Rm → MACL\n16 × 16 → 32 bits" },
   code { "0010nnnnmmmm1111" },
 
   group { SH4A, "EX", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1-3", SH2, "1-3", SH3, "1-3", SH4A, "1", SH2A, "2", SH4, "4/4" },
 
+  brief
+{R"(
+op1 ← SignExtend 16 (SignExtend32 (Rm ));
+op2 ← SignExtend 16 (SignExtend32 (Rn));
+macl ← op1 × op2;
+MACL ← ZeroExtend 32 (macl);
+)"},
   description
 {R"(
 Performs 16-bit multiplication of the contents of general registers Rn and Rm,
@@ -5918,7 +6891,9 @@ void MULS (int m, int n)
 
   example
 {R"(
-
+MULS R0,R1 ;Before execution: R0 = H'FFFFFFFE, R1 = H'00005555
+;After execution: MACL = H'FFFF5556
+STS MACL,R0 ;Operation result
 )"},
 
   exceptions
@@ -5929,14 +6904,21 @@ void MULS (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mulu.w	Rm,Rn",
-  SH_ANY,
-  abstract { "Unsigned, Rn * Rm -> MACL\n16 * 16 -> 32 bits" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Unsigned, Rn × Rm → MACL\n16 × 16 → 32 bits" },
   code { "0010nnnnmmmm1110" },
 
   group { SH4A, "EX", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1-3", SH2, "1-3", SH3, "1-3", SH4A, "1", SH2A, "2", SH4, "4/4" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 16(SignExtend 32(R m));
+op2 ← ZeroExtend 16(SignExtend 32(R n));
+macl ← op1 × op2;
+MACL ← ZeroExtend 32 (macl);
+)"},
   description
 {R"(
 Performs 16-bit multiplication of the contents of general registers Rn and Rm,
@@ -5962,7 +6944,9 @@ void MULU (int m, int n)
 
   example
 {R"(
-
+MULU R0,R1 ;Before execution: R0 = H'00000002, R1 = H'FFFFAAAA
+;After execution: MACL = H'00015554
+STS MACL,R0 ;Operation result
 )"},
 
   exceptions
@@ -5973,14 +6957,20 @@ void MULU (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "neg	Rm,Rn",
-  SH_ANY,
-  abstract { "0 - Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "0 - Rm → Rn" },
   code { "0110nnnnmmmm1011" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← - op1;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Finds the two's complement of the contents of general register Rm and stores
@@ -6003,7 +6993,8 @@ void NEG (int m, int n)
 
   example
 {R"(
-
+NEG R0,R1 ;Before execution: R0 = H'00000001
+;After execution: R1 = H'FFFFFFFF
 )"},
 
   exceptions
@@ -6014,15 +7005,24 @@ void NEG (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "negc	Rm,Rn",
-  SH_ANY,
-  abstract { "0 - Rm - T -> Rn, borrow -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "0 - Rm - T → Rn, borrow → T" },
   code { "0110nnnnmmmm1010" },
-  t_bit { "Borrow" },
+  flags { "Borrow → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+op1 ← ZeroExtend 32(R m);
+op2 ← (- op1) - t;
+t ← op2< 32 FOR 1 > ;
+R n ← Register(op2);
+T ← Bit(t);
+)"},
   description
 {R"(
 Subtracts the contents of general register Rm and the T bit from 0 and stores
@@ -6058,7 +7058,7 @@ void NEGC (int m, int n)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
 
 ! Sign inversion of r0:r1 (64 bits)
 
@@ -6087,14 +7087,21 @@ negc   r1,r0    ! r0 = 0 - (-1) - T
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sub	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn - Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn - Rm → Rn" },
   code { "0011nnnnmmmm1000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+op2 ← op2 - op1;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Subtracts the contents of general register Rm from the contents of general
@@ -6118,7 +7125,8 @@ void SUB (int m, int n)
 
   example
 {R"(
-
+SUB R0,R1 ;Before execution: R0 = H'00000001, R1 = H'80000000
+;After execution: R1 = H'7FFFFFFF
 )"},
 
   exceptions
@@ -6129,15 +7137,25 @@ void SUB (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "subc	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn - Rm - T -> Rn, borrow -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn - Rm - T → Rn, borrow → T" },
   code { "0011nnnnmmmm1010" },
-  t_bit { "Borrow" },
+  flags { "Borrow → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+op1 ← ZeroExtend 32(SignExtend 32(R m));
+op2 ← ZeroExtend 32(SignExtend 32(R n));
+op2 ← (op2 - op1) - t;
+t ← op2< 32 FOR 1 > ;
+R n ← Register(op2);
+T ← Bit(t);
+)"},
   description
 {R"(
 Subtracts the contents of general register Rm and the T bit from the contents of
@@ -6174,7 +7192,7 @@ void SUBC (int m, int n)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
 
 ! r0:r1(64 bits) - r2:r3(64 bits) = r0:r1(64 bits)
 
@@ -6201,15 +7219,24 @@ subc   r0,r0    ! r0 = r0 - r0 - T
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "subv	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn - Rm -> Rn, underflow -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn - Rm → Rn, underflow → T" },
   code { "0011nnnnmmmm1011" },
-  t_bit { "Underflow" },
+  flags { "Underflow → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+op2 ← op2 - op1;
+t ← INT ((op2 < (- 231)) OR (op2 ≥ 2 31));
+R n ← Register(op2);
+T ← Bit(t);
+)"},
   description
 {R"(
 Subtracts the contents of general register Rm from the contents of general
@@ -6262,7 +7289,7 @@ void SUBV (int m, int n)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
 subv   r0,r1    ! Before execution: r0 = 0x00000002, r1 = 0x80000001
                 ! After execution: r1 = 0x7FFFFFFF, T = 1
 
@@ -6284,13 +7311,21 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "and	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn & Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn & Rm → Rn" },
   code { "0010nnnnmmmm1001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← ZeroExtend 32(R n);
+op2 ← op2 ∧ op1;
+R n ← Register(op2);
+)"},
 
   description
 {R"(
@@ -6313,7 +7348,8 @@ void AND (int m, int n)
 
   example
 {R"(
-
+AND R0,R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'55555555
+;After execution: R1 = H'00000000
 )"},
 
   exceptions
@@ -6324,13 +7360,21 @@ void AND (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "and	#imm,R0",
-  SH_ANY,
-  abstract { "R0 & (zero extend)imm -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 & (zero extend)imm → R0" },
   code { "11001001iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+r0 ← ZeroExtend 32(R 0);
+imm ← ZeroExtend 8(i);
+r0 ← r0 ∧ imm;
+R 0 ← Register(r0);
+)"},
 
   description
 {R"(
@@ -6355,7 +7399,8 @@ void ANDI (int i)
 
   example
 {R"(
-
+AND #H'0F,R0 ;Before execution: R0 = H'FFFFFFFF
+;After execution: R0 = H'0000000F
 )"},
 
   exceptions
@@ -6366,13 +7411,24 @@ void ANDI (int i)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "and.b	#imm,@(R0,GBR)",
-  SH_ANY,
-  abstract { "(R0 + GBR) & (zero extend)imm -> (R0 + GBR)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(R0 + GBR) & (zero extend)imm → (R0 + GBR)" },
   code { "11001101iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "3", SH2A, "3", SH4, "4" },
   latency { SH1, "3", SH2, "3", SH3, "3", SH4A, "3", SH4, "4" },
+
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+gbr ← SignExtend 32 (GBR);
+imm ← ZeroExtend 8(i);
+address ← ZeroExtend 32(r0 + gbr);
+value ← ZeroExtend 8 (ReadMemory 8(address));
+value ← value ∧ imm;
+WriteMemory 8(address, value);
+)"},
 
   description
 {R"(
@@ -6398,17 +7454,18 @@ void ANDM (long i)
 
   example
 {R"(
-
+AND.B #H'80,@(R0,GBR) ;Before execution: @(R0,GBR) = H'A5
+;After execution: @(R0,GBR) = H'80
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<br/>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+<br />
 Exceptions are checked taking a data access by this instruction as a byte load
 and a byte store.
 )"},
@@ -6416,14 +7473,20 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "not	Rm,Rn",
-  SH_ANY,
-  abstract { "~Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "~Rm → Rn" },
   code { "0110nnnnmmmm0111" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← ~ op1;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Finds the one's complement of the contents of general register Rm and stores
@@ -6446,7 +7509,8 @@ void NOT (int m, int n)
 
   example
 {R"(
-
+NOT R0,R1 ;Before execution: R0 = H'AAAAAAAA
+;After execution: R1 = H'55555555
 )"},
 
   exceptions
@@ -6457,14 +7521,21 @@ void NOT (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "or	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn | Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn | Rm → Rn" },
   code { "0010nnnnmmmm1011" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← ZeroExtend 32(R n);
+op2 ← op2 ∨ op1;
+R n ← Register(op2);
+)"},
   description
 {R"(
 ORs the contents of general registers Rn and Rm and stores the result in Rn.
@@ -6486,7 +7557,8 @@ void OR (int m, int n)
 
   example
 {R"(
-
+OR R0,R1 ;Before execution: R0 = H'AAAA5555, R1 = H'55550000
+;After execution: R1 = H'FFFF5555
 )"},
 
   exceptions
@@ -6497,14 +7569,21 @@ void OR (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "or	#imm,R0",
-  SH_ANY,
-  abstract { "R0 | (zero extend)imm -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 | (zero extend)imm → R0" },
   code { "11001011iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+r0 ← ZeroExtend 32(R 0);
+imm ← ZeroExtend 8(i);
+r0 ← r0 ∨ imm;
+R 0 ← Register(r0);
+)"},
   description
 {R"(
 ORs the contents of general register R0 and the zero-extended immediate value
@@ -6528,7 +7607,8 @@ void ORI (int i)
 
   example
 {R"(
-
+OR #H'F0,R0 ;Before execution: R0 = H'00000008
+;After execution: R0 = H'000000F8
 )"},
 
   exceptions
@@ -6539,14 +7619,24 @@ void ORI (int i)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "or.b	#imm,@(R0,GBR)",
-  SH_ANY,
-  abstract { "(R0 + GBR) | (zero extend)imm -> (R0 + GBR)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(R0 + GBR) | (zero extend)imm → (R0 + GBR)" },
   code { "11001111iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "3", SH2A, "3", SH4, "4" },
   latency { SH1, "3", SH2, "3", SH3, "3", SH4A, "3", SH2A, "2", SH4, "4" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+gbr ← SignExtend 32 (GBR);
+imm ← ZeroExtend 8(i);
+address ← ZeroExtend 32(r0 + gbr);
+value ← ZeroExtend 8 (ReadMemory 8(address));
+value ← value ∨ imm;
+WriteMemory 8(address, value);
+)"},
   description
 {R"(
 ORs the contents of the memory byte indicated by the indirect GBR address with
@@ -6571,17 +7661,18 @@ void ORM (int i)
 
   example
 {R"(
-
+OR.B #H'50,@(R0,GBR) ;Before execution: @(R0,GBR) = H'A5
+;After execution: @(R0,GBR) = H'F5
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<br/>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+<br />
 Exceptions are checked taking a data access by this instruction as a byte load
 and a byte store.
 )"},
@@ -6589,26 +7680,37 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tas.b	@Rn",
-  SH_ANY,
-  abstract { "If (Rn) = 0: 1 -> T\nElse: 0 -> T\n1 -> MSB of (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If (Rn) = 0: 1 → T\nElse: 0 → T\n1 → MSB of (Rn)" },
   code { "0100nnnn00011011" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "4", SH2A, "3", SH4, "5" },
   latency { SH1, "4", SH2, "4", SH3, "3/4", SH4A, "4", SH2A, "3", SH4, "5" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1);
+OCBP(address)
+value ← ZeroExtend 8 (ReadMemory 8(address));
+t ← INT (value = 0);
+value ← value ∨ (1 << 7);
+WriteMemory 8(address, value);
+T ← Bit(t);
+)"},
   description
 {R"(
 Reads byte data from the address specified by general register Rn, and sets the
 T bit to 1 if the data is 0, or clears the T bit to 0 if the data is not 0.
 Then, data bit 7 is set to 1, and the data is written to the address specified
 by Rn. During this operation, the bus is not released.
-<br/><br/>
+<br /><br />
 
 On SH4 and SH4A this instruction purges the cache block corresponding to the
 memory area specified by the contents of general register Rn.
-The purge operation is executed as follows.<br/>
+The purge operation is executed as follows.<br />
 In a purge operation, data is accessed using the contents of general register Rn
 as the effective address. If there is a cache hit and the corresponding cache
 block is dirty (U bit = 1), the contents of that cache block are written back to
@@ -6623,7 +7725,7 @@ location is non-cacheable.
 {R"(
 The two TAS.B memory accesses are executed automatically. Another memory access
 is not executed between the two TAS.B accesses.
-<br/><br/>
+<br /><br />
 On SH3 the destination of the TAS instruction should be placed in a
 non-cacheable space when the cache is enabled.
 )"},
@@ -6647,17 +7749,18 @@ void TAS (int n)
 
   example
 {R"(
-
+_LOOP: TAS.B @R7 ;R7 = 1000
+BF _LOOP ;Loops until data in address 1000 is 0
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<br/>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+<br />
 Exceptions are checked taking a data access by this instruction as a byte load
 and a byte store.
 )"},
@@ -6665,15 +7768,22 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tst	Rm,Rn",
-  SH_ANY,
-  abstract { "If Rn & Rm = 0: 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If Rn & Rm = 0: 1 → T\nElse: 0 → T" },
   code { "0010nnnnmmmm1000" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+t ← INT ((op1 ∧ op2) = 0);
+T ← Bit(t);
+)"},
   description
 {R"(
 ANDs the contents of general registers Rn and Rm, and sets the T bit if the
@@ -6701,7 +7811,8 @@ void TST (int m, int n)
 
   example
 {R"(
-
+TST R0,R0 ;Before execution: R0 = H'00000000
+;After execution: T = 1
 )"},
 
   exceptions
@@ -6712,15 +7823,22 @@ void TST (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tst	#imm,R0",
-  SH_ANY,
-  abstract { "If R0 & (zero extend)imm = 0: 1 -> T\nElse: 0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If R0 & (zero extend)imm = 0: 1 → T\nElse: 0 → T" },
   code { "11001000iiiiiiii" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+imm ← ZeroExtend 8(i);
+t ← INT ((r0 ∧ imm) = 0);
+T ← Bit(t);
+)"},
   description
 {R"(
 ANDs the contents of general register R0 and the zero-extended immediate value
@@ -6751,7 +7869,8 @@ void TSTI (int i)
 
   example
 {R"(
-
+TST #H'80,R0 ;Before execution: R0 = H'FFFFFF7F
+;After execution: T = 1
 )"},
 
   exceptions
@@ -6762,15 +7881,25 @@ void TSTI (int i)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tst.b	#imm,@(R0,GBR)",
-  SH_ANY,
-  abstract { "If (R0 + GBR) & (zero extend)imm = 0: 1 -> T\nElse 0: -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If (R0 + GBR) & (zero extend)imm = 0: 1 → T\nElse 0: → T" },
   code { "11001100iiiiiiii" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "3", SH2A, "3", SH4, "3" },
   latency { SH1, "3", SH2, "3", SH3, "3", SH4A, "3", SH2A, "3", SH4, "3" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+gbr ← SignExtend 32 (GBR);
+imm ← ZeroExtend 8(i);
+address ← ZeroExtend 32(r0 + gbr);
+value ← ZeroExtend 8 (ReadMemory 8(address));
+t ← ((value ∧ imm) = 0);
+T ← Bit(t);
+)"},
   description
 {R"(
 ANDs the contents of the memory byte indicated by the indirect GBR address with
@@ -6802,16 +7931,17 @@ void TSTM (int i)
 
   example
 {R"(
-
+TST.B #H'A5,@(R0,GBR) ;Before execution: @(R0,GBR) = H'A5
+;After execution: T = 0
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<br/>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+<br />
 Exceptions are checked taking a data access by this instruction as a byte load
 and a byte store.
 )"},
@@ -6819,14 +7949,21 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xor	Rm,Rn",
-  SH_ANY,
-  abstract { "Rn ^ Rm -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn ^ Rm → Rn" },
   code { "0010nnnnmmmm1010" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R m);
+op2 ← ZeroExtend 32(R n);
+op2 ← op2 ⊕ op1;
+R n ← Register(op2);
+)"},
   description
 {R"(
 XORs the contents of general registers Rn and Rm and stores the result in Rn.
@@ -6848,7 +7985,8 @@ void XOR (long m, long n)
 
   example
 {R"(
-
+XOR R0,R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'55555555
+;After execution: R1 = H'FFFFFFFF
 )"},
 
   exceptions
@@ -6859,14 +7997,21 @@ void XOR (long m, long n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xor	#imm,R0",
-  SH_ANY,
-  abstract { "R0 ^ (zero extend)imm -> R0" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "R0 ^ (zero extend)imm → R0" },
   code { "11001010iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+r0 ← ZeroExtend 32(R 0);
+imm ← ZeroExtend 8(i);
+r0 ← r0 ⊕ imm;
+R 0 ← Register(r0)
+)"},
   description
 {R"(
 XORs the contents of general register R0 and the zero-extended immediate value
@@ -6890,7 +8035,8 @@ void XORI (int i)
 
   example
 {R"(
-
+XOR #H'F0,R0 ;Before execution: R0 = H'FFFFFFFF
+;After execution: R0 = H'FFFFFF0F
 )"},
 
   exceptions
@@ -6901,14 +8047,24 @@ void XORI (int i)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xor.b	#imm,@(R0,GBR)",
-  SH_ANY,
-  abstract { "(R0 + GBR) ^ (zero extend)imm -> (R0 + GBR)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(R0 + GBR) ^ (zero extend)imm → (R0 + GBR)" },
   code { "11001110iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "3", SH2A, "3", SH4, "4" },
   latency { SH1, "3", SH2, "3", SH3, "3", SH4A, "3", SH2A, "2", SH4, "4" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+gbr ← SignExtend 32 (GBR);
+imm ← ZeroExtend 8(i);
+address ← ZeroExtend 32(r0 + gbr);
+value ← ZeroExtend 8 (ReadMemory 8(address));
+value ← value ⊕ imm;
+WriteMemory 8(address, value);
+)"},
   description
 {R"(
 XORs the contents of the memory byte indicated by the indirect GBR address with
@@ -6933,17 +8089,18 @@ void XORM (int i)
 
   example
 {R"(
-
+XOR.B #H'A5,@(R0,GBR) ;Before execution: @(R0,GBR) = H'A5
+;After execution: @(R0,GBR) = H'00
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<br/>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+<br />
 Exceptions are checked taking a data access by this instruction as a byte load
 and a byte store.
 )"},
@@ -6957,21 +8114,30 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotcl	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << T" },
   code { "0100nnnn00100100" },
-  t_bit { "MSB" },
+  flags { "MSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+op1 ← ZeroExtend 32(R n);
+op1 ← (op1 << 1) ∨ t;
+t ← op1< 32 FOR 1 > ;
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Rotates the contents of general register Rn one bit to the left through the
 T bit, and stores the result in Rn. The bit rotated out of the operand is
 transferred to the T bit.
-<br/><img src="rotcl.svg" height="100"/>
+<br /><img alt="Rotate with Carry Left operation" src="rotcl.svg" height="100" />
 )"},
 
   note
@@ -7008,7 +8174,8 @@ void ROTCL (int n)
 
   example
 {R"(
-
+ROTCL R0 ;Before execution: R0 = H'80000000, T = 0
+;After execution: R0 = H'00000000, T = 1
 )"},
 
   exceptions
@@ -7019,21 +8186,31 @@ void ROTCL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotcr	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T >> Rn >> T" },
   code { "0100nnnn00100101" },
-  t_bit { "LSB" },
+  flags { "LSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+op1 ← ZeroExtend 32(R n);
+oldt ← t;
+t ← op1< 0 FOR 1 > ;
+op1 ← (op1 >> 1) ∨ (oldt << 31);
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Rotates the contents of general register Rn one bit to the right through the
 T bit, and stores the result in Rn. The bit rotated out of the operand is
 transferred to the T bit.
-<br/><img src="rotcr.svg" height="100"/>
+<br /><img alt="Rotate with Carry Right" src="rotcr.svg" height="100" />
 )"},
 
   note
@@ -7070,7 +8247,8 @@ void ROTCR (int n)
 
   example
 {R"(
-
+ROTCR R0 ;Before execution: R0 = H'00000001, T = 1
+;After execution: R0 = H'80000000, T = 1
 )"},
 
   exceptions
@@ -7082,20 +8260,28 @@ void ROTCR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotl	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << MSB" },
   code { "0100nnnn00000100" },
-  t_bit { "MSB" },
+  flags { "MSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+t ← op1< 31 FOR 1 > ;
+op1 ← (op1 << 1) ∨ t;
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Rotates the contents of general register Rn one bit to the left, and stores the
 result in Rn. The bit rotated out of the operand is transferred to the T bit.
-<br/><img src="rotl.svg" height="100"/>
+<br /><img alt="Rotate Left operation" src="rotl.svg" height="100" />
 )"},
 
   note
@@ -7125,7 +8311,8 @@ void ROTL (int n)
 
   example
 {R"(
-
+ROTL R0 ;Before execution: R0 = H'80000000, T = 0
+;After execution: R0 = H'00000001, T = 1
 )"},
 
   exceptions
@@ -7136,20 +8323,28 @@ void ROTL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotr	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "LSB >> Rn >> T" },
   code { "0100nnnn00000101" },
-  t_bit { "LSB" },
+  flags { "LSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+t ← op1< 0 FOR 1 > ;
+op1 ← (op1 >> 1) ∨ (t << 31);
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Rotates the contents of general register Rn one bit to the right, and stores the
 result in Rn. The bit rotated out of the operand is transferred to the T bit.
-<br/><img src="rotr.svg" height="100"/>
+<br /><img alt="Rotate Right operation" src="rotr.svg" height="100" />
 )"},
 
   note
@@ -7179,7 +8374,8 @@ void ROTR (int n)
 
   example
 {R"(
-
+ROTR R0 ;Before execution: R0 = H'00000001, T = 0
+;After execution: R0 = H'80000000, T = 1
 )"},
 
   exceptions
@@ -7190,28 +8386,43 @@ void ROTR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shad	Rm,Rn",
-  SH2A, SH3, SH4, SH4A,
-  abstract { "If Rm >= 0: Rn << Rm -> Rn\nIf Rm < 0: Rn >> |Rm| -> [MSB -> Rn]" },
+  SH2A | SH3 | SH4 | SH4A,
+  abstract { "If Rm >= 0: Rn << Rm → Rn\nIf Rm < 0: Rn >> |Rm| → [MSB → Rn]" },
   code { "0100nnnnmmmm1100" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← SignExtend 32 (Rn);
+shift_amount ← ZeroExtend 5(op1);
+IF (op1 ≥ 0)
+op2 ← op2 << shift_amount;
+ELSE IF (shift_amount ≠ 0)
+op2 ← op2 >> (32 - shift_amount);
+ELSE IF (op2 < 0)
+op2 ← - 1;
+ELSE
+op2 ← 0;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Arithmetically shifts the contents of general register Rn. General register Rm
 specifies the shift direction and the number of bits to be shifted.
-<br/><br/>
+<br /><br />
 Rn register contents are shifted to the left if the Rm register value is
 positive, and to the right if negative. In a shift to the right, the MSB is
 added at the upper end.
-<br/><br/>
+<br /><br />
 The number of bits to be shifted is specified by the lower 5 bits (bits 4 to 0)
 of the Rm register. If the value is negative (MSB = 1), the Rm register is
 represented as a two's complement. The left shift range is 0 to 31, and the
 right shift range, 1 to 32.
-<br/><img src="shad.svg" height="220"/>
+<br /><img src="shad.svg" height="220" />
 )"},
 
   note
@@ -7255,21 +8466,29 @@ void SHAD (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shal	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << 0" },
   code { "0100nnnn00100000" },
-  t_bit { "MSB" },
+  flags { "MSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+t ← op1< 31 FOR 1 > ;
+op1 ← op1 << 1;
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Arithmetically shifts the contents of general register Rn one bit to the left
 and stores the result in Rn. The bit shifted out of the operand is transferred
 to the T bit.
-<br/><img src="shal.svg" height="100"/>
+<br /><img alt="Shift Arithmetic Left operation" src="shal.svg" height="100" />
 )"},
 
   note
@@ -7293,7 +8512,8 @@ void SHAL (int n)
 
   example
 {R"(
-
+SHAL R0 ;Before execution: R0 = H'80000001, T = 0
+;After execution: R0 = H'00000002, T = 1
 )"},
 
   exceptions
@@ -7304,21 +8524,29 @@ void SHAL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shar	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "MSB >> Rn >> T" },
   code { "0100nnnn00100001" },
-  t_bit { "LSB" },
+  flags { "LSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+t ← op1< 0 FOR 1 > ;
+op1 ← op1 >> 1;
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Arithmetically shifts the contents of general register Rn one bit to the right
 and stores the result in Rn. The bit shifted out of the operand is transferred
 to the T bit.
-<br/><img src="shar.svg" height="100"/>
+<br /><img alt="Shift Arithmetic Right operation" src="shar.svg" height="100" />
 )"},
 
   note
@@ -7355,7 +8583,8 @@ void SHAR (int n)
 
   example
 {R"(
-
+SHAR R0 ;Before execution: R0 = H'80000001, T = 0
+;After execution: R0 = H'C0000000, T = 1
 )"},
 
   exceptions
@@ -7366,28 +8595,41 @@ void SHAR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shld	Rm,Rn",
-  SH2A, SH3, SH4, SH4A,
-  abstract { "If Rm >= 0: Rn << Rm -> Rn\nIf Rm < 0: Rn >> |Rm| -> [0 -> Rn]" },
+  SH2A | SH3 | SH4 | SH4A,
+  abstract { "If Rm >= 0: Rn << Rm → Rn\nIf Rm < 0: Rn >> |Rm| → [0 → Rn]" },
   code { "0100nnnnmmmm1101" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+op2 ← ZeroExtend 32(R n);
+shift_amount ← ZeroExtend 5(op1);
+IF (op1 ≥ 0)
+op2 ← op2 << shift_amount;
+ELSE IF (shift_amount ≠ 0)
+op2 ← op2 >> (32 - shift_amount);
+ELSE
+op2 ← 0;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn. General register Rm
 specifies the shift direction and the number of bits to be shifted.
-<br/><br/>
+<br /><br />
 Rn register contents are shifted to the left if the Rm register value is
 positive, and to the right if negative. In a shift to the right, 0s are added
 at the upper end.
-<br/><br/>
+<br /><br />
 The number of bits to be shifted is specified by the lower 5 bits (bits 4 to 0)
 of the Rm register. If the value is negative (MSB = 1), the Rm register is
 represented as a two's complement. The left shift range is 0 to 31, and the
 right shift range, 1 to 32.
-<br/><img src="shld.svg" height="220"/>
+<br /><img src="shld.svg" height="220" />
 )"},
 
   note
@@ -7426,21 +8668,29 @@ void SHLD (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << 0" },
   code { "0100nnnn00000000" },
-  t_bit { "MSB" },
+  flags { "MSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+t ← op1< 31 FOR 1 > ;
+op1 ← op1 << 1;
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn one bit to the left and
 stores the result in Rn. The bit shifted out of the operand is transferred to
 the T bit.
-<br/><img src="shll.svg" height="100"/>
+<br /><img alt="Shift Logical Left operation" src="shll.svg" height="100" />
 )"},
 
   note
@@ -7464,7 +8714,8 @@ void SHLL (int n)
 
   example
 {R"(
-
+SHLL R0 ;Before execution: R0 = H'80000001, T = 0
+;After execution: R0 = H'00000002, T = 1
 )"},
 
   exceptions
@@ -7475,19 +8726,25 @@ void SHLL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll2	Rn",
-  SH_ANY,
-  abstract { "Rn << 2 -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn << 2 → Rn" },
   code { "0100nnnn00001000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+op1 ← op1 << 2;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn 2 bits to the left and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br/><img src="shll2.svg" height="120"/>
+<br /><img alt="Shift Logical Left 2 Bits operation" src="shll2.svg" height="120" />
 )"},
 
   note
@@ -7506,7 +8763,8 @@ void SHLL2 (int n)
 
   example
 {R"(
-
+SHLL2 R0 ;Before execution: R0 = H'12345678
+;After execution: R0 = H'48D159E0
 )"},
 
   exceptions
@@ -7517,19 +8775,25 @@ void SHLL2 (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll8	Rn",
-  SH_ANY,
-  abstract { "Rn << 8 -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn << 8 → Rn" },
   code { "0100nnnn00011000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+op1 ← op1 << 8;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn 8 bits to the left and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br/><img src="shll8.svg" height="120"/>
+<br /><img alt="Shift Logical Left 8 Bits operation" src="shll8.svg" height="120" />
 )"},
 
   note
@@ -7548,7 +8812,8 @@ void SHLL8 (int n)
 
   example
 {R"(
-
+SHLL8 R0 ;Before execution: R0 = H'12345678
+;After execution: R0 = H'34567800
 )"},
 
   exceptions
@@ -7559,19 +8824,25 @@ void SHLL8 (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll16	Rn",
-  SH_ANY,
-  abstract { "Rn << 16 -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn << 16 → Rn" },
   code { "0100nnnn00101000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+op1 ← op1 << 16;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn 16 bits to the left and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br/><img src="shll16.svg" height="120"/>
+<br /><img alt="Shift Logical Left 16 Bits operation" src="shll16.svg" height="120" />
 )"},
 
   note
@@ -7590,7 +8861,8 @@ void SHLL16 (int n)
 
   example
 {R"(
-
+SHLL16 R0 ;Before execution: R0 = H'12345678
+;After execution: R0 = H'56780000
 )"},
 
   exceptions
@@ -7601,21 +8873,29 @@ void SHLL16 (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr	Rn",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "0 >> Rn >> T" },
   code { "0100nnnn00000001" },
-  t_bit { "LSB" },
+  flags { "LSB → T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+t ← op1< 0 FOR 1 > ;
+op1 ← op1 >> 1;
+R n ← Register(op1);
+T ← Bit(t);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn one bit to the right and
 stores the result in Rn. The bit shifted out of the operand is transferred to
 the T bit.
-<br/><img src="shlr.svg" height="100"/>
+<br /><img alt="Shift Logical Right operation" src="shlr.svg" height="100" />
 )"},
 
   note
@@ -7640,7 +8920,8 @@ void SHLR (int n)
 
   example
 {R"(
-
+SHLR R0 ;Before execution: R0 = H'80000001, T = 0
+;After execution: R0 = H'40000000, T = 1
 )"},
 
   exceptions
@@ -7651,19 +8932,25 @@ void SHLR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr2	Rn",
-  SH_ANY,
-  abstract { "Rn >> 2 -> [0 -> Rn]" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn >> 2 → [0 → Rn]" },
   code { "0100nnnn00001001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+op1 ← op1 >> 2;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn 2 bits to the right, and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br/><img src="shlr2.svg" height="120"/>
+<br /><img alt="Shift Logical Right 2 Bits operation" src="shlr2.svg" height="120" />
 )"},
 
   note
@@ -7683,7 +8970,8 @@ void SHLR2 (int n)
 
   example
 {R"(
-
+SHLR2 R0 ;Before execution: R0 = H'12345678
+;After execution: R0 = H'048D159E
 )"},
 
   exceptions
@@ -7694,19 +8982,25 @@ void SHLR2 (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr8	Rn",
-  SH_ANY,
-  abstract { "Rn >> 8 -> [0 -> Rn]" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn >> 8 → [0 → Rn]" },
   code { "0100nnnn00011001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+op1 ← op1 >> 8;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn 8 bits to the right, and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br/><img src="shlr8.svg" height="120"/>
+<br /><img alt="Shift Logical Right 8 Bits operation" src="shlr8.svg" height="120" />
 )"},
 
   note
@@ -7726,7 +9020,8 @@ void SHLR8 (int n)
 
   example
 {R"(
-
+SHLR8 R0 ;Before execution: R0 = H'12345678
+;After execution: R0 = H'00123456
 )"},
 
   exceptions
@@ -7737,19 +9032,25 @@ void SHLR8 (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr16	Rn",
-  SH_ANY,
-  abstract { "Rn >> 16 -> [0 -> Rn]" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rn >> 16 → [0 → Rn]" },
   code { "0100nnnn00101001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
+  brief
+{R"(
+op1 ← ZeroExtend 32(R n);
+op1 ← op1 >> 16;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Logically shifts the contents of general register Rn 16 bits to the right and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br/><img src="shlr16.svg" height="120"/>
+<br /><img alt="Shift Logical Right 16 Bits operation" src="shlr16.svg" height="120" />
 )"},
 
   note
@@ -7769,7 +9070,8 @@ void SHLR16 (int n)
 
   example
 {R"(
-
+SHLR16 R0 ;Before execution: R0 = H'12345678
+;After execution: R0 = H'00001234
 )"},
 
   exceptions
@@ -7786,19 +9088,38 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bf	label",
-  SH_ANY,
-  abstract { "If T = 0: disp*2 + PC + 4 -> PC\nElse: nop" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If T = 0: disp × 2 + PC + 4 → PC\nElse: nop" },
   code { "10001011dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1-3", SH2A, "1/3", SH4, "1" },
   latency { SH1, "1/3", SH2, "1/3", SH3, "1/3", SH4A, "1", SH2A, "1/3", SH4, "1/2" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+pc ← SignExtend 32 (PC);
+newpc ← SignExtend 32 (PC’);
+delayedpc ← SignExtend 32 (PC’’);
+label ← SignExtend 8(s) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+IF (t = 0)
+{
+temp ← ZeroExtend32(pc + 4 + label);
+newpc ← temp;
+delayedpc ← temp + 2;
+}
+PC’ ← Register(newpc);
+PC’’ ← Register(delayedpc);
+)"},
+
   description
 {R"(
 This is a conditional branch instruction that references the T bit. The branch
 is taken if T = 0, and not taken if T = 1. The branch destination is address
-(PC + 4 + displacement * 2).  The PC source value is the BF instruction address.
+(PC + 4 + displacement × 2).  The PC source value is the BF instruction address.
 As the 8-bit displacement is multiplied by two after sign-extension, the branch
 destination can be located in the range from -256 to +254 bytes from the BF
 instruction.
@@ -7808,11 +9129,11 @@ instruction.
 {R"(
 If the branch destination cannot be reached, the branch must be handled by using
 BF in combination with a BRA or JMP instruction, for example.
-<br/><br/>
+<br /><br />
 On some SH4 implementations a branch with a displacement value of zero does not
 cause the pipeline I-stage to be stalled even if the branch is taken.  This can
 be utilized for efficient conditional operations.
-<br/><br/>
+<br /><br />
 On some SH2E implementations (SH7055) there is an FPU related hardware bug
 which affects this instruction.  The recommended workaround is to use bt/s with
 a nop in the delay slot.
@@ -7838,32 +9159,58 @@ void BF (int d)
 
   example
 {R"(
-
+CLRT ;T is always cleared to 0
+BT TRGET_T ;Does not branch, because T = 0
+BF TRGET_F ;Branches to TRGET_F, because T = 0
+NOP ;
+NOP ;← The PC location is used to calculate the branch destination
+.......... ;  address of the BF instruction
+TRGET_F: ;← Branch destination of the BF instruction
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bf/s	label",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "If T = 0: disp*2 + PC + 4 -> PC\nElse: nop\n(Delayed branch)" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "If T = 0: disp × 2 + PC + 4 → PC\nElse: nop\n(Delayed branch)" },
   code { "10001111dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
   issue { SH2, "1", SH3, "1", SH4A, "1-3", SH2A, "1/2", SH4, "1" },
   latency { SH2, "1/2", SH3, "1/2", SH4A, "1", SH2A, "1/2", SH4, "1/2" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+pc ← SignExtend 32 (PC);
+newpc ← SignExtend 32 (PC’);
+delayedpc ← SignExtend 32 (PC’’);
+label ← SignExtend 8(s) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+IF (t = 0)
+{
+temp ← ZeroExtend32(pc + 4 + label);
+newpc ← temp;
+delayedpc ← temp + 2;
+}
+PC’ ← Register(newpc);
+PC’’ ← Register(delayedpc);
+)"},
+
   description
 {R"(
 This is a delayed conditional branch instruction that references the T bit.
 If T = 1, the next instruction is executed and the branch is not taken.
 If T = 0, the branch is taken after execution of the next instruction.
-<br/><br/>
-The branch destination is address (PC + 4 + displacement * 2). The PC source
+<br /><br />
+The branch destination is address (PC + 4 + displacement × 2). The PC source
 value is the BF/S instruction address.  As the 8-bit displacement is multiplied
 by two after sign-extension, the branch destination can be located in the range
 from -256 to +254 bytes from the BF/S instruction.
@@ -7874,16 +9221,16 @@ from -256 to +254 bytes from the BF/S instruction.
 As this is a delayed branch instruction, when the branch condition is satisfied,
 the instruction following this instruction is executed before the branch
 destination instruction.
-<br/></br>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/></br>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
-<br/></br>
+<br /><br />
 If this instruction is located in the delay slot immediately following a delayed
 branch instruction, it is identified as a slot illegal instruction.
-<br/></br>
+<br /><br />
 If the branch destination cannot be reached, the branch must be handled by using
 BF/S in combination with a BRA or JMP instruction, for example.
 )"},
@@ -7911,30 +9258,56 @@ void BFS (int d)
 
   example
 {R"(
-
+CLRT ;T is always 0
+BT/S TRGET_T ;Does not branch, because T = 0
+NOP ;
+BF/S TRGET_F ;Branches to TRGET_F, because T = 0
+ADD R0,R1 ;Executed before branch .
+NOP ;← The PC location is used to calculate the branch destination
+.......... ;  address of the BF/S instruction
+TRGET_F: ;← Branch destination of the BF/S instruction
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bt	label",
-  SH_ANY,
-  abstract { "If T = 1: disp*2 + PC + 4 -> PC\nElse: nop" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "If T = 1: disp × 2 + PC + 4 → PC\nElse: nop" },
   code { "10001001dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1-3", SH2A, "1/3", SH4, "1" },
   latency { SH1, "1/3", SH2, "1/3", SH3, "1/3", SH4A, "1", SH2A, "1/3", SH4, "1/2" },
 
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+pc ← SignExtend 32 (PC);
+newpc ← SignExtend 32 (PC’);
+delayedpc ← SignExtend 32 (PC’’);
+label ← SignExtend 8(s) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+IF (t = 1)
+{
+temp ← ZeroExtend32(pc + 4 + label);
+newpc ← temp;
+delayedpc ← temp + 2;
+}
+PC’ ← Register(newpc);
+PC’’ ← Register(delayedpc);
+)"},
+
   description
 {R"(
 This is a conditional branch instruction that references the T bit. The branch
 is taken if T = 1, and not taken if T = 0.  The branch destination is address
-(PC + 4 + displacement * 2). The PC source value is the BT instruction address.
+(PC + 4 + displacement × 2). The PC source value is the BT instruction address.
 As the 8-bit displacement is multiplied by two after sign-extension, the branch
 destination can be located in the range from -256 to +254 bytes from the BT
 instruction.
@@ -7944,11 +9317,11 @@ instruction.
 {R"(
 If the branch destination cannot be reached, the branch must be handled by using
 BT in combination with a BRA or JMP instruction, for example.
-<br/><br/>
+<br /><br />
 On some SH4 implementations a branch with a displacement value of zero does not
 cause the pipeline I-stage to be stalled even if the branch is taken.  This can
 be utilized for efficient conditional operations.
-<br/><br/>
+<br /><br />
 On some SH2E implementations (SH7055) there is an FPU related hardware bug
 which affects this instruction.  The recommended workaround is to use bt/s with
 a nop in the delay slot.
@@ -7974,24 +9347,47 @@ void BT (int d)
 
   example
 {R"(
-
+SETT ;T is always 1
+BF TRGET_F ;Does not branch, because T = 1
+BT TRGET_T ;Branches to TRGET_T, because T = 1
+NOP ;
+NOP ;← The PC location is used to calculate the branch destination
+.......... ;  address of the BT instruction
+TRGET_T: ;← Branch destination of the BT instruction
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bt/s	label",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "If T = 1: disp*2 + PC + 4 -> PC\nElse: nop\n(Delayed branch)" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "If T = 1: disp × 2 + PC + 4 → PC\nElse: nop\n(Delayed branch)" },
   code { "10001101dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
   issue { SH2, "1", SH3, "1", SH4A, "1-3", SH2A, "1/2", SH4, "1" },
   latency { SH2, "1/2", SH3, "1/2", SH4A, "1", SH2A, "1/2", SH4, "1/2" },
+
+  brief
+{R"(
+t ← ZeroExtend 1(T);
+pc ← SignExtend 32 (PC);
+delayedpc ← SignExtend 32 (PC’’);
+label ← SignExtend 8(s) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+IF (t = 1)
+{
+temp ← ZeroExtend32(pc + 4 + label);
+delayedpc ← temp;
+}
+PC’’ ← Register(delayedpc);
+)"},
 
   description
 {R"(
@@ -8007,13 +9403,13 @@ sign-extension, the branch destination can be located in the range from -256 to
 As this is a delayed branch instruction, when the branch condition is satisfied,
 the instruction following this instruction is executed before the branch
 destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
-<br/><br/>
+<br /><br />
 If the branch destination cannot be reached, the branch must be handled by using
 BT/S in combination with a BRA or JMP instruction, for example.
 )"},
@@ -8042,29 +9438,48 @@ void BTS (int d)
 
   example
 {R"(
-
+SETT ;T is always 1
+BF/S TARGET_F ;Does not branch, because T = 1
+NOP ;
+BT/S TARGET_T ;Branches to TARGET, because T = 1
+ADD R0,R1 ;Executes before branching.
+NOP ;← The PC location is used to calculate the branch destination
+.......... ;  address of the BT/S instruction
+TARGET_T: ;← Branch destination of the BT/S instruction
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bra	label",
-  SH_ANY,
-  abstract { "disp*2 + PC + 4 -> PC\n(Delayed branch)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "disp × 2 + PC + 4 → PC\n(Delayed branch)" },
   code { "1010dddddddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1-3", SH2A, "2", SH4, "1" },
   latency { SH1, "2", SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+label ← SignExtend 12(s) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+temp ← ZeroExtend32(pc + 4 + label);
+delayedpc ← temp;
+PC’’ ← Register(delayedpc);
+)"},
+
   description
 {R"(
 This is an unconditional branch instruction. The branch destination is address
-(PC + 4 + displacement * 2). The PC source value is the BRA instruction address.
+(PC + 4 + displacement × 2). The PC source value is the BRA instruction address.
 As the 12-bit displacement is multiplied by two after sign-extension, the branch
 destination can be located in the range from -4096 to +4094 bytes from the BRA
 instruction. If the branch destination cannot be reached, this branch can be
@@ -8075,10 +9490,10 @@ performed with a JMP instruction.
 {R"(
 As this is a delayed branch instruction, the instruction following this
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
 )"},
@@ -8103,24 +9518,40 @@ void BRA (int d)
 
   example
 {R"(
-
+BRA TRGET ;Branches to TRGET
+ADD R0,R1 ;Executes ADD before branching
+NOP ;← The PC location is used to calculate the branch destination
+.......... ;address of the BRA instruction
+TRGET: ;← Branch destination of the BRA instruction
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "braf	Rm",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "Rm + PC + 4 -> PC\n(Delayed branch)" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "Rm + PC + 4 → PC\n(Delayed branch)" },
   code { "0000mmmm00100011" },
 
   group { SH4A, "BR", SH4, "CO" },
   issue { SH2, "1", SH3, "1", SH4A, "4", SH2A, "2", SH4, "2" },
   latency { SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "3" },
+
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+op1 ← SignExtend 32 (Rn);
+IF (IsDelaySlot())
+THROW ILLSLOT;
+target ← ZeroExtend32(pc + 4 + op1);
+delayedpc ← target ∧ (~ 0x1);
+PC’’ ← Register(delayedpc);
+)"},
 
   description
 {R"(
@@ -8132,10 +9563,10 @@ This is an unconditional branch instruction. The branch destination is address
 {R"(
 As this is a delayed branch instruction, the instruction following this
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
 )"},
@@ -8153,28 +9584,50 @@ void BRAF (int m)
 
   example
 {R"(
-
+MOV.L #(TARGET-BSRF_PC),R0 ;Sets displacement.
+BRA TRGET ;Branches to TARGET
+ADD R0,R1 ;Executes ADD before branching
+BRAF_PC: ;← The PC location is used to calculate the
+;branch destination address of the BRAF
+;instruction
+NOP
+....................
+TARGET: ;← Branch destination of the BRAF instruction
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bsr	label",
-  SH_ANY,
-  abstract { "PC + 4 -> PR, disp*2 + PC + 4 -> PC\n(Delayed branch)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "PC + 4 → PR, disp × 2 + PC + 4 → PC\n(Delayed branch)" },
   code { "1011dddddddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1-3", SH2A, "2", SH4, "1" },
   latency { SH1, "2", SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+label ← SignExtend 12(s) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+delayedpr ← pc + 4;
+temp ← ZeroExtend32(pc + 4 + label);
+delayedpc ← temp;
+PR’’ ← Register(delayedpr);
+PC’’ ← Register(delayedpc);
+)"},
+
   description
 {R"(
-Branches to address (PC + 4 + displacement * 2), and stores address (PC + 4) in
+Branches to address (PC + 4 + displacement × 2), and stores address (PC + 4) in
 PR. The PC source value is the BSR instruction address.
 As the 12-bit displacement is multiplied by two after sign-extension, the branch
 destination can be located in the range from -4096 to +4094 bytes from the BSR
@@ -8186,10 +9639,10 @@ performed with a JSR instruction.
 {R"(
 As this is a delayed branch instruction, the instruction following this
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
 )"},
@@ -8215,24 +9668,48 @@ void BSR (int d)
 
   example
 {R"(
-
+BSR TRGET ;Branches to TRGET
+MOV R3,R4 ;Executes the MOV instruction before branching
+ADD R0,R1 ;← The PC location is used to calculate the branch destination
+;address of the BSR instruction (return address for when the
+;subroutine procedure is completed (PR data))
+.......
+.......
+TRGET: ;← Procedure entrance
+MOV R2,R3 ;
+RTS ;Returns to the above ADD instruction
+MOV #1,R0 ;Executes MOV before branching
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bsrf	Rm",
-  SH2, SH2A, SH3, SH4, SH4A,
-  abstract { "PC + 4 -> PR, Rm + PC + 4 -> PC\n(Delayed branch)" },
+  SH2 | SH2A | SH3 | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "PC + 4 → PR, Rm + PC + 4 → PC\n(Delayed branch)" },
   code { "0000mmmm00000011" },
 
   group { SH4A, "BR", SH4, "CO" },
   issue { SH2, "1", SH3, "1", SH4A, "4", SH2A, "2", SH4, "2" },
   latency { SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "3" },
+
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+label ← SignExtend 12(s) << 1;
+IF (IsDelaySlot())
+THROW ILLSLOT;
+delayedpr ← pc + 4;
+temp ← ZeroExtend32(pc + 4 + label);
+delayedpc ← temp;
+PR’’ ← Register(delayedpr);
+PC’’ ← Register(delayedpc);
+)"},
 
   description
 {R"(
@@ -8245,10 +9722,10 @@ the result of adding the 32-bit contents of general register Rm to PC + 4.
 {R"(
 As this is a delayed branch instruction, the instruction following this
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
 )"},
@@ -8267,25 +9744,47 @@ void BSRF (int m)
 
   example
 {R"(
-
+MOV.L #(TARGET-BSRF_PC),R0 ;Sets displacement.
+BRSF R0 ;Branches to TARGET
+MOV R3,R4 ;Executes the MOV instruction before
+branching
+BSRF_PC: ;← The PC location is used to calculate the
+;  branch destination with BSRF.
+ADD R0,R1
+.....
+.....
+TARGET: ;←Procedure entrance
+MOV R2,R3 ;
+RTS ;Returns to the above ADD instruction
+MOV #1,R0 ;Executes MOV before branching
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "jmp	@Rm",
-  SH_ANY,
-  abstract { "Rm -> PC\n(Delayed branch)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "Rm → PC\n(Delayed branch)" },
   code { "0100mmmm00101011" },
 
   group { SH4A, "BR", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "4", SH2A, "2", SH4, "2" },
   latency { SH1, "2", SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+IF (IsDelaySlot())
+THROW ILLSLOT;
+target ← op1;
+delayedpc ← target ∧ (~ 0x1);
+PC’’ ← Register(delayedpc);
+)"},
   description
 {R"(
 Unconditionally makes a delayed branch to the address specified by Rm.
@@ -8295,10 +9794,10 @@ Unconditionally makes a delayed branch to the address specified by Rm.
 {R"(
 As this is a delayed branch instruction, the instruction following this
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
 )"},
@@ -8316,25 +9815,45 @@ void JMP (int m)
 
   example
 {R"(
-
+MOV.L JMP_TABLE,R0 ;Address of R0 = TRGET
+JMP @R0 ;Branches to TRGET
+MOV R0,R1 ;Executes MOV before branching
+.align 4
+JMP_TABLE:
+.data.l TRGET ;Jump table
+.................
+TRGET: ADD #1,R1 ;← Branch destination
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "jsr	@Rm",
-  SH_ANY,
-  abstract { "PC + 4 -> PR, Rm -> PC\n(Delayed branch)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "PC + 4 → PR, Rm → PC\n(Delayed branch)" },
   code { "0100mmmm00001011" },
 
   group { SH4A, "BR", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "4", SH2A, "2", SH4, "2" },
   latency { SH1, "2", SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "3" },
 
+  brief
+{R"(
+pc ← SignExtend 32 (PC);
+op1 ← SignExtend 32 (Rn);
+IF (IsDelaySlot())
+THROW ILLSLOT;
+delayedpr ← pc + 4;
+target ← op1;
+delayedpc ← target ∧ (~ 0x1);
+PR’’ ← Register(delayedpr);
+PC’’ ← Register(delayedpc);
+)"},
   description
 {R"(
 Makes a delayed branch to the subroutine procedure at the specified address
@@ -8347,10 +9866,10 @@ JSR is used in combination with RTS for subroutine procedure calls.
 {R"(
 As this is a delayed branch instruction, the instruction following this
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a slot
 illegal instruction.
 )"},
@@ -8369,23 +9888,37 @@ void JSR (int m)
 
   example
 {R"(
-
+MOV.L JSR_TABLE,R0 ;Address of R0 = TRGET
+JSR @R0 ;Branches to TRGET
+XOR R1,R1 ;Executes XOR before branching
+ADD R0,R1 ;← Return address for when the subroutine
+;  procedure is completed (PR data)
+...........
+.align 4
+JSR_TABLE:
+.data.l TRGET ;Jump table
+TRGET: NOP ;← Procedure entrance
+MOV R2,R3 ;
+RTS ;Returns to the above ADD instruction
+MOV #70,R1 ;Executes MOV before RTS
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "jsr/n	@Rm",
   SH2A,
-  abstract { "PC + 2 -> PR, Rm -> PC" },
+  abstract { "PC + 2 → PR, Rm → PC" },
   code { "0100mmmm01001011" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
+
+
 
   description
 {R"(
@@ -8419,18 +9952,20 @@ void JSRN (int m)
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "jsr/n	@@(disp8,TBR)",
   SH2A,
-  abstract { "PC + 2 -> PR, (disp*4 + TBR) -> PC" },
+  abstract { "PC + 2 → PR, (disp × 4 + TBR) → PC" },
   code { "10000011dddddddd" },
 
   issue { SH2A, "5" },
   latency { SH2A, "5" },
+
+
 
   description
 {R"(
@@ -8462,20 +9997,30 @@ void JSRNM (int d)
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rts",
-  SH_ANY,
-  abstract { "PR -> PC\nDelayed branch" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH_ALL, "Delayed Branch" } } },
+  abstract { "PR → PC\nDelayed branch" },
   code { "0000000000001011" },
 
   group { SH4A, "BR", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1-4", SH2A, "2", SH4, "2" },
   latency { SH1, "2", SH2, "2", SH3, "2", SH4A, "1", SH2A, "2", SH4, "3" },
 
+  brief
+{R"(
+pr ← SignExtend 32 (PR);
+IF (IsDelaySlot())
+THROW ILLSLOT;
+target ← pr;
+delayedpc ← target ∧ (~ 0x1);
+PC’’ ← Register(delayedpc);
+)"},
   description
 {R"(
 Returns from a subroutine procedure by restoring the PC from PR. Processing
@@ -8488,13 +10033,13 @@ instruction to the source of the call.
 {R"(
 As this is a delayed branch instruction, the instruction following this
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction.
-<br/><br/>
+<br /><br />
 If the following instruction is a branch instruction, it is identified as a
 slot illegal instruction.
-<br/><br/>
+<br /><br />
 The instruction that restores PR must be executed before the RTS instruction.
 This restore instruction cannot be in the RTS delay slot.
 )"},
@@ -8512,23 +10057,35 @@ void RTS (void)
 
   example
 {R"(
-
+MOV.L TABLE,R3 ;R3 = Address of TRGET
+JSR @R3 ;Branches to TRGET
+NOP ;Executes NOP before branching
+ADD R0,R1 ;← Return address for when the subroutine procedure is
+completed (PR data)
+.............
+TABLE: .data.l TRGET ;Jump table
+.............
+TRGET: MOV R1,R0 ;← Procedure entrance
+RTS ;PR data → PC
+MOV #12,R0 ;Executes MOV before branching
 )"},
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rts/n",
   SH2A,
-  abstract { "PR -> PC" },
+  abstract { "PR → PC" },
   code { "0000000001101011" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
+
+
 
   description
 {R"(
@@ -8558,18 +10115,20 @@ void RTSN (void)
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rtv/n	Rm",
   SH2A,
-  abstract { "Rm -> R0, PR -> PC" },
+  abstract { "Rm → R0, PR → PC" },
   code { "0000mmmm01111011" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
+
+
 
   description
 {R"(
@@ -8601,7 +10160,7 @@ void RTVN (int m)
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 }
 
@@ -8613,13 +10172,21 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrmac",
-  SH_ANY,
-  abstract { "0 -> MACH, 0 -> MACL" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "0 → MACH, 0 → MACL" },
   code { "0000000000101000" },
 
   group { SH4A, "EX", SH4, "CO" },
-  issue { SH1, "1", SH2, "1", SH3, "1", SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "3" },
+
+  brief
+{R"(
+macl ← 0;
+mach ← 0;
+MACL ← ZeroExtend 32 (macl);
+MACH ← ZeroExtend 32 (mach);
+)"},
 
   description
 {R"(
@@ -8643,7 +10210,9 @@ void CLRMAC (void)
 
   example
 {R"(
-
+CLRMAC ;Clears and initializes the MAC register
+MAC.W @R0+,@R1+ ;Multiply and accumulate operation
+MAC.W @R0+,@R1+ ;
 )"},
 
   exceptions
@@ -8654,13 +10223,20 @@ void CLRMAC (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrs",
-  SH3, SH4, SH4A,
-  abstract { "0 -> S" },
+  SH3 | SH4 | SH4A,
+  abstract { "0 → S" },
   code { "0000000001001000" },
+  flags { "0 → S" },
 
   group { SH4A, "EX", SH4, "CO" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+s ← 0;
+S ← Bit(s);
+)"},
 
   description
 {R"(
@@ -8694,14 +10270,20 @@ void CLRS (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrt",
-  SH_ANY,
-  abstract { "0 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "0 → T" },
   code { "0000000000001000" },
-  t_bit { "0" },
+  flags { "0 → T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH_ANY, "1" },
-  latency { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+
+  brief
+{R"(
+t ← 0;
+T ← Bit(t)
+)"},
 
   description
 {R"(
@@ -8724,7 +10306,8 @@ void CLRT (void)
 
   example
 {R"(
-
+CLRT ;Before execution: T = 1
+;After execution: T = 0
 )"},
 
   exceptions
@@ -8742,6 +10325,8 @@ insn { "icbi	@Rn",
   group { SH4A, "CO" },
   issue { SH4A, "16" },
   latency { SH4A, "13" },
+
+
 
   description
 {R"(
@@ -8776,11 +10361,11 @@ void ICBI (int n)
 
   exceptions
 {R"(
-<li>Instruction TLB multiple-hit exception</li>
-<li>Instruction TLB miss exception</li>
-<li>Instruction TLB protection violation exception</li>
-<li>Instruction address error</li>
-<li>Slot illegal instruction exception</li>
+Instruction TLB multiple-hit exception
+Instruction TLB miss exception
+Instruction TLB protection violation exception
+Instruction address error
+Slot illegal instruction exception
 Exceptions may occur when invalidation is not performed.
 )"},
 },
@@ -8788,18 +10373,20 @@ Exceptions may occur when invalidation is not performed.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldbank	@Rm,R0",
   SH2A,
-  abstract { "(Specified register bank entry) -> R0" },
+  abstract { "(Specified register bank entry) → R0" },
   code { "0100mmmm11100101" },
 
   issue { SH2A, "6" },
   latency { SH2A, "5" },
+
+
 
   description
 {R"(
 The register bank entry indicated by the contents of general register Rm is
 transferred to general register R0. The register bank number and register stored
 in the bank are specified by general register Rm.
-<br/><img src="ldbank.svg" height="400"/>
+<br /><img src="ldbank.svg" height="400" />
 )"},
 
   note
@@ -8830,15 +10417,26 @@ void LDBANK (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,SR",
-  SH_ANY, privileged,
-  abstract { "Rm -> SR" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "Rm → SR" },
   code { "0100mmmm00001110" },
-  t_bit { "LSB" },
+  flags { "LSB → T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "7", SH2A, "3", SH4, "4" },
   latency { SH1, "1", SH2, "1", SH3, "5", SH4A, "4", SH2A, "2", SH4, "4" },
 
+  name { "Load to Control Register" },
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+sr ← op1;
+SR ← Register(sr);
+)"},
   description
 {R"(
 Stores the source operand in the control register SR.
@@ -8871,27 +10469,42 @@ void LDCSR (int m)
 
   example
 {R"(
-
+LDC R0,SR ;Before execution: R0 = H'FFFFFFFF, SR = H'00000000
+;After execution: SR = H'0FFF0FFF
 )"},
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,SR",
-  SH_ANY, privileged,
-  abstract { "(Rm) -> SR, Rm+4 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "(Rm) → SR, Rm+4 → Rm" },
   code { "0100mmmm00000111" },
-  t_bit { "LSB" },
+  flags { "LSB → T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "2", SH4A, "9", SH2A, "5", SH4, "4" },
   latency { SH1, "3", SH2, "3", SH3, "7", SH4A, "4", SH2A, "4", SH4, "4/4" },
 
+  name { "Load to Control Register" },
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+sr ← SignExtend 32(ReadMemory 32 (address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+SR ← Register(sr);
+)"},
   description
 {R"(
 Stores the source operand in the control register SR.
@@ -8930,23 +10543,25 @@ void LDCMSR (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,TBR",
   SH2A,
-  abstract { "Rm -> TBR" },
+  abstract { "Rm → TBR" },
   code { "0100mmmm01001010" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -8980,14 +10595,20 @@ void LDCTBR (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,GBR",
-  SH_ANY,
-  abstract { "Rm -> GBR" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → GBR" },
   code { "0100mmmm00011110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "3" },
   latency { SH1, "1", SH2, "1", SH3, "1/3", SH4A, "1", SH2A, "1", SH4, "3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+gbr ← op1;
+GBR ← Register(gbr)
+)"},
   description
 {R"(
 Stores a source operand in control register GBR.
@@ -9020,14 +10641,23 @@ void LDCGBR (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,GBR",
-  SH_ANY,
-  abstract { "(Rm) -> GBR, Rm+4 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → GBR, Rm+4 → Rm" },
   code { "0100mmmm00010111" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "3" },
   latency { SH1, "3", SH2, "3", SH3, "1/5", SH4A, "1", SH2A, "2", SH4, "3/3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+gbr ← SignExtend 32 (ReadMemory 32 (address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+GBR ← Register(gbr);
+)"},
   description
 {R"(
 Stores a source operand in control register GBR.
@@ -9050,28 +10680,39 @@ void LDCMGBR (int m)
 
   example
 {R"(
-
+LDC.L @R15+,GBR ;Before execution: R15 = H'10000000
+;After execution: R15 = H'10000004, GBR = @H'10000000
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,VBR",
-  SH_ANY, privileged,
-  abstract { "Rm -> VBR" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "Rm → VBR" },
   code { "0100mmmm00101110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1/3", SH4A, "1", SH2A, "1", SH4, "3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+vbr← op1;
+VBR ← Register(vbr);
+)"},
   description
 {R"(
 Stores a source operand in control register VBR.
@@ -9098,21 +10739,34 @@ void LDCVBR (int m)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,VBR",
-  SH_ANY, privileged,
-  abstract { "(Rm) -> VBR, Rm+4 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "(Rm) → VBR, Rm+4 → Rm" },
   code { "0100mmmm00100111" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "3", SH2, "3", SH3, "1/5", SH4A, "1", SH2A, "2", SH4, "1/3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+vbr ← SignExtend 32 (ReadMemory 32(address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+VBR ← Register(vbr);
+)"},
   description
 {R"(
 Stores a source operand in control register VBR.
@@ -9140,23 +10794,25 @@ void LDCMVBR (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,MOD",
   SH_DSP,
-  abstract { "Rm -> MOD" },
+  abstract { "Rm → MOD" },
   code { "0100mmmm01011110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/3" },
+
+
 
   description
 {R"(
@@ -9191,11 +10847,13 @@ void LDCMOD (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,MOD",
   SH_DSP,
-  abstract { "(Rm) -> MOD, Rm+4 -> Rm" },
+  abstract { "(Rm) → MOD, Rm+4 → Rm" },
   code { "0100mmmm01010111" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
+
+
 
   description
 {R"(
@@ -9224,7 +10882,7 @@ void LDCMMOD (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -9232,11 +10890,13 @@ void LDCMMOD (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,RE",
   SH_DSP,
-  abstract { "Rm -> RE" },
+  abstract { "Rm → RE" },
   code { "0100mmmm01111110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/3" },
+
+
 
   description
 {R"(
@@ -9271,11 +10931,13 @@ void LDCRE (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,RE",
   SH_DSP,
-  abstract { "(Rm) -> RE, Rm+4 -> Rm" },
+  abstract { "(Rm) → RE, Rm+4 → Rm" },
   code { "0100mmmm01110111" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
+
+
 
   description
 {R"(
@@ -9304,18 +10966,20 @@ void LDCMRE (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,RS",
   SH_DSP,
-  abstract { "Rm -> RS" },
+  abstract { "Rm → RS" },
   code { "0100mmmm01101110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/3" },
+
+
 
   description
 {R"(
@@ -9350,11 +11014,13 @@ void LDCRS (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,RS",
   SH_DSP,
-  abstract { "(Rm) -> RS, Rm+4 -> Rm" },
+  abstract { "(Rm) → RS, Rm+4 → Rm" },
   code { "0100mmmm01100111" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
+
+
 
   description
 {R"(
@@ -9383,19 +11049,22 @@ void LDCMRS (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,SGR",
-  SH4A, privileged,
-  abstract { "Rm -> SGR" },
+  SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rm → SGR" },
   code { "0100mmmm00111010" },
 
   group { SH4A, "CO" },
   issue { SH4A, "4" },
   latency { SH4A, "4" },
+
+
 
   description
 {R"(
@@ -9425,20 +11094,23 @@ void LDCSGR (int m)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,SGR",
-  SH4A, privileged,
-  abstract { "(Rm) -> SGR, Rm+4 -> Rm" },
+  SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "(Rm) → SGR, Rm+4 → Rm" },
   code { "0100mmmm00110110" },
 
   group { SH4A, "CO" },
   issue { SH4A, "4" },
   latency { SH4A, "4" },
+
+
 
   description
 {R"(
@@ -9469,25 +11141,35 @@ void LDCMSGR (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,SSR",
-  SH3, SH4, SH4A, privileged,
-  abstract { "Rm -> SSR" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rm → SSR" },
   code { "0100mmmm00111110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
   latency { SH3, "1/3", SH4A, "1", SH4, "3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+ssr ← op1;
+SSR ← Register(ssr);
+)"},
   description
 {R"(
 Stores a source operand in control register SSR.
@@ -9514,21 +11196,34 @@ void LDCSSR (int m)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,SSR",
-  SH3, SH4, SH4A, privileged,
-  abstract { "(Rm) -> SSR, Rm+4 -> Rm" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "(Rm) → SSR, Rm+4 → Rm" },
   code { "0100mmmm00110111" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
   latency { SH3, "1/5", SH4A, "1", SH4, "1/3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+ssr ← SignExtend 32(ReadMemory 32 (address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+SSR ← Register(ssr);
+)"},
   description
 {R"(
 Stores a source operand in control register SSR.
@@ -9556,25 +11251,35 @@ void LDCMSSR (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,SPC",
-  SH3, SH4, SH4A, privileged,
-  abstract { "Rm -> SPC" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rm → SPC" },
   code { "0100mmmm01001110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "3" },
   latency { SH3, "1/3", SH4A, "1", SH4, "1" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+spc ← op1;
+SPC ← Register(spc);
+)"},
   description
 {R"(
 Stores a source operand in control register SPC.
@@ -9601,21 +11306,34 @@ void LDCSPC (int m)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,SPC",
-  SH3, SH4, SH4A, privileged,
-  abstract { "(Rm) -> SPC, Rm+4 -> Rm" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "(Rm) → SPC, Rm+4 → Rm" },
   code { "0100mmmm01000111" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
   latency { SH3, "1/5", SH4A, "1", SH4, "1/3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+spc ← SignExtend 32 (ReadMemory 32 (address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+SPC ← Register(spc);
+)"},
   description
 {R"(
 Stores a source operand in control register SPC.
@@ -9643,25 +11361,35 @@ void LDCMSPC (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,DBR",
-  SH4, SH4A, privileged,
-  abstract { "Rm -> DBR" },
+  SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rm → DBR" },
   code { "0100mmmm11111010" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH4A, "4", SH4, "1" },
   latency { SH4A, "4", SH4, "3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+dbr← op1;
+DBR ← Register(dbr)
+)"},
   description
 {R"(
 Stores a source operand in control register DBR.
@@ -9688,21 +11416,34 @@ void LDCDBR (int m)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,DBR",
-  SH4, SH4A, privileged,
-  abstract { "(Rm) -> DBR, Rm+4 -> Rm" },
+  SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "(Rm) → DBR, Rm+4 → Rm" },
   code { "0100mmmm11110110" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH4A, "4", SH4, "1" },
   latency { SH4A, "4", SH4, "1/3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+dbr ← SignExtend 32 (ReadMemory 32 (address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+DBR ← Register(dbr);
+)"},
   description
 {R"(
 Stores a source operand in control register DBR.
@@ -9730,25 +11471,35 @@ void LDCMDBR (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc	Rm,Rn_BANK",
-  SH3, SH4, SH4A, privileged,
-  abstract { "Rm -> Rn_BANK (n = 0-7)" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rm → Rn_BANK (n = 0-7)" },
   code { "0100mmmm1nnn1110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
   latency { SH3, "1/3", SH4A, "1", SH4, "3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+rn_bank← op1;
+Rn_BANK ← Register(rn_bank);
+)"},
   description
 {R"(
 Stores a source operand in banked general register.
@@ -9777,21 +11528,34 @@ void LDCRn_BANK (int m)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l	@Rm+,Rn_BANK",
-  SH3, SH4, SH4A, privileged,
-  abstract { "(Rm) -> Rn_BANK, Rm+4 -> Rm" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "(Rm) → Rn_BANK, Rm+4 → Rm" },
   code { "0100mmmm1nnn0111" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
   latency { SH3, "1/5", SH4A, "1", SH4, "1/3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+rn_bank ← SignExtend 32 (ReadMemory 32 (address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+Rn_BANK ← Register(rn_bank);
+)"},
   description
 {R"(
 Stores a source operand in banked general register.
@@ -9821,23 +11585,25 @@ void LDCMRn_BANK (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldre	@(disp,PC)",
   SH_DSP,
-  abstract { "disp*2 + PC -> RE" },
+  abstract { "disp × 2 + PC → RE" },
   code { "10001110dddddddd" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "3" },
+
+
 
   description
 {R"(
@@ -9853,10 +11619,10 @@ destination is -256 to +254 bytes.
 The effective address value designated for the RE reregister is different from
 the actual repeat end address. Refer to RS and RE Design Rules, for more
 information.
-<br/><br/>
+<br /><br />
 When this instruction is arranged immediately after the delayed
 branch instruction, PC becomes the "first address +2" of the branch destination.
-<br/><br/>
+<br /><br />
 On the SH-DSP the latency of this instruction is 1 cycle.
 )"},
 
@@ -9877,7 +11643,7 @@ void LDRE (int d)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
     setrc  #32       ! Repeat 32 times from <instruction A> to <instruction B>
@@ -9901,11 +11667,13 @@ end:
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldrs	@(disp,PC)",
   SH_DSP,
-  abstract { "disp*2 + PC -> RS" },
+  abstract { "disp × 2 + PC → RS" },
   code { "10001100dddddddd" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "3" },
+
+
 
   description
 {R"(
@@ -9921,10 +11689,10 @@ destination is -256 to +254 bytes.
 When the instructions of the repeat (loop) program are below 3, the effective
 address value designated for the RS register is different from the actual repeat
 start address. Refer to "RS and RE setting rule", for more information. If this
-<br/><br/>
+<br /><br />
 instruction is arranged immediately after the delayed branch instruction, the PC
 becomes "the first address +2" of the branch destination.
-<br/><br/>
+<br /><br />
 On the SH-DSP the latency of this instruction is 1 cycle.
 )"},
 
@@ -9945,7 +11713,7 @@ void LDRS (int d)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
     setrc  #32       ! Repeat 32 times from <instruction A> to <instruction B>
@@ -9968,14 +11736,20 @@ end:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,MACH",
-  SH_ANY,
-  abstract { "Rm -> MACH" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → MACH" },
   code { "0100mmmm00001010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+mach ← op1;
+MACH ← ZeroExtend 32 (mach);
+)"},
   description
 {R"(
 Stores the source operand into the system register MACH.
@@ -9984,7 +11758,7 @@ Stores the source operand into the system register MACH.
   note
 {R"(
 On SH1, only the lower 10 bits are stored in MACH.
-<br/><br/>
+<br /><br />
 On SH4, when an LDS to MAC* is followed by an STS.L MAC*,@-Rn instruction, the
 latency of the LDS to MAC* is 4 cycles.   When an LDS to MAC* is followed by
 MAC.W/MAC.L, the latency of the LDS to MAC* is 1 cycle.
@@ -10020,14 +11794,23 @@ void LDSMACH (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,MACH",
-  SH_ANY,
-  abstract { "(Rm) -> MACH, Rm+4 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → MACH, Rm+4 → Rm" },
   code { "0100mmmm00000110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+mach ← SignExtend 32 (ReadMemory 32 (address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+MACH ← ZeroExtend 32 (mach);
+)"},
   description
 {R"(
 Stores the source operand into the system register MACH.
@@ -10060,28 +11843,35 @@ void LDSMMACH (int m)
 
   example
 {R"(
-
+LDS.L @R15+,MACL ;Before execution: R15 = H'10000000
+                 ;After execution:  R15 = H'10000004, MACL = @H'10000000
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,MACL",
-  SH_ANY,
-  abstract { "Rm -> MACL" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → MACL" },
   code { "0100mmmm00011010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+macl ← op1;
+MACL ← ZeroExtend 32 (macl);
+)"},
   description
 {R"(
 Stores the source operand into the system register MACL.
@@ -10116,14 +11906,23 @@ void LDSMACL (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,MACL",
-  SH_ANY,
-  abstract { "(Rm) -> MACL, Rm+4 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → MACL, Rm+4 → Rm" },
   code { "0100mmmm00010110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+macl ← SignExtend 32(ReadMemory 32(address));
+op1 ← op1 + 4;
+R m ← Register(op1);
+MACL ← ZeroExtend 32 (macl)
+)"},
   description
 {R"(
 Stores the source operand into the system register MACL.
@@ -10148,28 +11947,37 @@ void LDSMMACL (int m)
 
   example
 {R"(
-
+LDS.L @R15+,MACL ;Before execution: R15 = H'10000000
+;After execution: R15 = H'10000004, MACL = @H'10000000
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,PR",
-  SH_ANY,
-  abstract { "Rm -> PR" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "Rm → PR" },
   code { "0100mmmm00101010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+newpr ← op1;
+delayedpr ← newpr;
+PR’ ← Register(newpr);
+PR’’ ← Register(delayedpr);
+)"},
   description
 {R"(
 Stores the source operand into the system register PR.
@@ -10191,7 +11999,8 @@ void LDSPR (int m)
 
   example
 {R"(
-
+LDS R0,PR ;Before execution: R0 = H'12345678, PR = H'00000000
+;After execution: PR = H'12345678
 )"},
 
   exceptions
@@ -10202,14 +12011,25 @@ void LDSPR (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,PR",
-  SH_ANY,
-  abstract { "(Rm) -> PR, Rm+4 -> Rm" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "(Rm) → PR, Rm+4 → Rm" },
   code { "0100mmmm00100110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2/3" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rm );
+address ← ZeroExtend 32(op1);
+newpr ← SignExtend 32 (ReadMemory 32(address));
+delayedpr ← newpr;
+op1 ← op1 + 4;
+R m ← Register(op1);
+PR’ ← Register(newpr);
+PR’’ ← Register(delayedpr);
+)"},
   description
 {R"(
 Stores the source operand into the system register PR.
@@ -10237,22 +12057,23 @@ void LDSMPR (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,DSR",
   SH_DSP,
-  abstract { "Rm -> DSR" },
+  abstract { "Rm → DSR" },
   code { "0100mmmm01101010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
+  name { "Load to FPU System register" },
   description
 {R"(
 Stores the source operand into the DSP register DSR.
@@ -10284,14 +12105,63 @@ void LDSDSR (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+insn { "lds	Rm,A0",
+  SH_DSP,
+  abstract { "Rm → A0" },
+  code { "0100mmmm01111010" },
+
+  issue { SH_DSP, "1" },
+  latency { SH_DSP, "1" },
+
+
+
+  description
+{R"(
+Stores the source operand into the DSP register A0.
+)"},
+
+note
+{R"(
+
+)"},
+
+operation
+{R"(
+void LDSA0 (long m)
+{
+ A0 = R[m];
+
+ if ((A0 & 0x80000000) == 0)
+   A0G = 0x00;
+ else
+   A0G = 0xFF;
+
+ PC += 2;
+}
+)"},
+
+example
+{R"(
+
+)"},
+
+exceptions
+{R"(
+
+)"},
+},
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,DSR",
   SH_DSP,
-  abstract { "(Rm) -> DSR, Rm+4 -> Rm" },
+  abstract { "(Rm) → DSR, Rm+4 → Rm" },
   code { "0100mmmm01100110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
 
+  name { "Load to FPU System register" },
   description
 {R"(
 Stores the source operand into the DSP register DSR.
@@ -10319,64 +12189,20 @@ void LDSMDSR (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
-)"},
-},
-
-// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,A0",
-  SH_DSP,
-  abstract { "Rm -> A0" },
-  code { "0100mmmm01110110" },
-
-  issue { SH_DSP, "1" },
-  latency { SH_DSP, "1" },
-
-  description
-{R"(
-Stores the source operand into the DSP register A0.  The MSB of the data is
-copied into A0G.
-)"},
-
-  note
-{R"(
-
-)"},
-
-  operation
-{R"(
-void LDSA0 (int m)
-{
-  A0 = R[m];
-
-  if ((A0 & 0x80000000) == 0)
-    A0G = 0x00;
-  else
-    A0G = 0xFF;
-
-  PC+=2;
-}
-)"},
-
-  example
-{R"(
-
-)"},
-
-  exceptions
-{R"(
-
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,A0",
   SH_DSP,
-  abstract { "(Rm) -> A0, Rm+4 -> Rm" },
+  abstract { "(Rm) → A0, Rm+4 → Rm" },
   code { "0100mmmm01110110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -10412,18 +12238,20 @@ void LDSMA0 (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,X0",
   SH_DSP,
-  abstract { "Rm -> X0" },
+  abstract { "Rm → X0" },
   code { "0100mmmm10001010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -10458,11 +12286,13 @@ void LDSX0 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,X0",
   SH_DSP,
-  abstract { "(Rm) -> X0, Rm+4 -> Rm" },
+  abstract { "(Rm) → X0, Rm+4 → Rm" },
   code { "0100nnnn10000110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
+
+
 
   description
 {R"(
@@ -10491,18 +12321,20 @@ void LDSMX0 (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,X1",
   SH_DSP,
-  abstract { "Rm -> X1" },
+  abstract { "Rm → X1" },
   code { "0100mmmm10011010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -10537,11 +12369,13 @@ void LDSX1 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,X1",
   SH_DSP,
-  abstract { "(Rm) -> X1, Rm+4 -> Rm" },
+  abstract { "(Rm) → X1, Rm+4 → Rm" },
   code { "0100nnnn10010110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
+
+
 
   description
 {R"(
@@ -10570,7 +12404,7 @@ void LDSMX1 (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -10578,11 +12412,13 @@ void LDSMX1 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,Y0",
   SH_DSP,
-  abstract { "Rm -> Y0" },
+  abstract { "Rm → Y0" },
   code { "0100mmmm10101010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -10617,11 +12453,13 @@ void LDSY0 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,Y0",
   SH_DSP,
-  abstract { "(Rm) -> Y0, Rm+4 -> Rm" },
+  abstract { "(Rm) → Y0, Rm+4 → Rm" },
   code { "0100nnnn10100110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
+
+
 
   description
 {R"(
@@ -10650,7 +12488,7 @@ void LDSMY0 (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -10658,11 +12496,13 @@ void LDSMY0 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,Y1",
   SH_DSP,
-  abstract { "Rm -> Y1" },
+  abstract { "Rm → Y1" },
   code { "0100mmmm10111010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -10697,11 +12537,13 @@ void LDSY1 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,Y1",
   SH_DSP,
-  abstract { "(Rm) -> Y1, Rm+4 -> Rm" },
+  abstract { "(Rm) → Y1, Rm+4 → Rm" },
   code { "0100nnnn10110110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -10730,26 +12572,43 @@ void LDSMY1 (int m)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldtlb",
-  SH3, SH4, SH4A, privileged,
-  abstract { "PTEH/PTEL -> TLB" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "PTEH/PTEL → TLB" },
   code { "0000000000111000" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
   latency { SH3, "1", SH4A, "1", SH4, "1" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+UTLB[MMUCR.URC].ASID ← PTEH.ASID
+UTLB[MMUCR.URC].VPN ← PTEH.VPN
+UTLB[MMUCR.URC].PPN ← PTEH.PPN
+UTLB[MMUCR.URC].SZ ← PTEL.SZ1<<1 + PTEL.SZ0
+UTLB[MMUCR.URC].SH ← PTEL.SH
+UTLB[MMUCR.URC].PR ← PTEL.PR
+UTLB[MMUCR.URC].WT ← PTEL.WT
+UTLB[MMUCR.URC].C ← PTEL.C
+UTLB[MMUCR.URC].D ← PTEL.D
+UTLB[MMUCR.URC].V ← PTEL.V
+)"},
   description
 {R"(
 Loads the contents of the PTEH/PTEL registers into the TLB (translation
 lookaside buffer) specified by MMUCR.URC (random counter field in the MMC
 control register).
-<br/><br/>
+<br /><br />
 LDTLB is a privileged instruction, and can only be used in privileged mode. Use of this
 instruction in user mode will cause an illegal instruction exception.
 )"},
@@ -10760,11 +12619,11 @@ As this instruction loads the contents of the PTEH/PTEL registers into a TLB, it
 should be used either with the MMU disabled, or in the P1 or P2 virtual space
 with the MMU enabled (see the MMU section of the applicable hardware manual for
 details).
-<br/><br/>
+<br /><br />
 After this instruction is issued, there must be at least one instruction between
 the LDTLB instruction and issuance of an instruction relating to address to the
 P0, U0, and P3 areas (i.e. BRAF, BSRF, JMP, JSR, RTS, or RTE).
-<br/><br/>
+<br /><br />
 If the instruction is issued in an exception handler, it should be at least two
 instructions prior to an RTE instruction that terminates the handler.
 )"},
@@ -10803,27 +12662,43 @@ void LDTLB (void)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movca.l	R0,@Rn",
-  SH4, SH4A,
-  abstract { "R0 -> (Rn) (without fetching cache block)" },
+  SH4 | SH4A,
+  abstract { "R0 → (Rn) (without fetching cache block)" },
   code { "0000nnnn11000011" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "3-7" },
 
+  brief
+{R"(
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rn);
+IF (AddressUnavailable(op1))
+THROW WADDERR, op1;
+IF (MMU() AND DataAccessMiss(op1))
+THROW WTLBMISS, op1;
+IF (MMU() AND WriteProhibited(op1))
+THROW WRITEPROT, op1;
+IF (MMU() AND NOT DirtyBit(op1))
+THROW FIRSTWRITE, op1
+ALLOCO(op1);
+address ← ZeroExtend 32(op1);
+WriteMemory 32(op1, r0);
+)"},
   description
 {R"(
 Stores the contents of general register R0 in the memory location indicated by
 effective address Rn. This instruction differs from other store instructions as
 follows.
-<br/><br/>
+<br /><br />
 If write-back is selected for the accessed memory, and a cache miss occurs, the
 cache block will be allocated but an R0 data write will be performed to that
 cache block without performing a block read. Other cache block contents are
@@ -10854,23 +12729,25 @@ void MOVCAL (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "nop",
-  SH_ANY,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "No operation" },
   code { "0000000000001001" },
 
   group { SH4A, "MT", SH4, "MT" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "0" },
+
+
 
   description
 {R"(
@@ -10893,7 +12770,7 @@ void NOP (void)
 
   example
 {R"(
-
+NOP ;Executes in one cycle
 )"},
 
   exceptions
@@ -10904,7 +12781,7 @@ void NOP (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ocbi	@Rn",
-  SH4, SH4A,
+  SH4 | SH4A,
   abstract { "Invalidate operand cache block" },
   code { "0000nnnn10010011" },
 
@@ -10912,6 +12789,19 @@ insn { "ocbi	@Rn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1-2" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+IF (AddressUnavailable(op1))
+THROW WADDERR, op1;
+IF (MMU() AND DataAccessMiss(op1))
+THROW WTLBMISS, op1;
+IF (MMU() AND WriteProhibited(op1))
+THROW WRITEPROT, op1;
+IF (MMU() AND NOT DirtyBit(op1))
+THROW FIRSTWRITE, op1
+OCBI(op1);
+)"},
   description
 {R"(
 Accesses data using the contents indicated by effective address Rn. In the case
@@ -10942,18 +12832,18 @@ void OCBI (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
 Note that the above exceptions are generated even if OCBI does not operate.
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ocbp	@Rn",
-  SH4, SH4A,
+  SH4 | SH4A,
   abstract { "Write back and invalidate operand cache block" },
   code { "0000nnnn10100011" },
 
@@ -10961,6 +12851,17 @@ insn { "ocbp	@Rn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1-5" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+IF (AddressUnavailable(op1))
+THROW RADDERR, op1;
+IF (MMU() AND DataAccessMiss(op1))
+THROW RTLBMISS, op1;
+IF (MMU() AND (ReadProhibited(op1) AND WriteProhibited(op1)))
+THROW READPROT, op1;
+OCBP(op1);
+)"},
   description
 {R"(
 Accesses data using the contents indicated by effective address Rn. If the cache
@@ -10995,17 +12896,17 @@ void OCBP (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 Note that the above exceptions are generated even if OCBP does not operate.
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ocbwb	@Rn",
-  SH4, SH4A,
+  SH4 | SH4A,
   abstract { "Write back operand cache block" },
   code { "0000nnnn10110011" },
 
@@ -11013,6 +12914,17 @@ insn { "ocbwb	@Rn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1-5" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+IF (AddressUnavailable(op1))
+THROW RADDERR, op1;
+IF (MMU() AND DataAccessMiss(op1))
+THROW RTLBMISS, op1;
+IF (MMU() AND (ReadProhibited(op1) AND WriteProhibited(op1)))
+THROW READPROT, op1;
+OCBWB(op1);
+)"},
   description
 {R"(
 Accesses data using the contents indicated by effective address Rn. If the cache
@@ -11046,38 +12958,47 @@ void OCBWB (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 Note that the above exceptions are generated even if OCBWB does not operate.
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pref	@Rn",
-  SH2A, SH3, SH4, SH4A,
-  abstract { "(Rn) -> operand cache" },
+  SH2A | SH3 | SH4 | SH4A,
+  abstract { "(Rn) → operand cache" },
   code { "0000nnnn10000011" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH3, "1/2", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+op1 ← SignExtend 32 (Rn);
+IF (AddressUnavailable(op1))
+THROW RADDERR, op1
+IF (NOT (MMU() AND DataAccessMiss(op1)))
+IF (NOT (MMU() AND ReadProhibited(op1)))
+PREF(op1);
+)"},
   description
 {R"(
 SH4 and SH4A
-<br/>
+<br />
 Reads a 32-byte data block starting at a 32-byte boundary into the operand
 cache. The lower 5 bits of the address specified by Rn are masked to zero.
-<br>
+<br />
 This instruction is also used to trigger a Store Queue write-back operation if
 the specified address points to the Store Queue area.  For more information
 refer to Store Queues in the manual.
-<br/><br/>
+<br /><br />
 
 SH3 and SH2A
-<br/>
+<br />
 Reads a 16-byte data block into the cache.  The address specified by Rn should
 be on 32-bit boundary.  No address related error is detected in this
 instruction. In case of an error, the instruction operates as NOP.
@@ -11104,7 +13025,7 @@ void PREF (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
+Data TLB multiple-hit exception
 )"},
 
 },
@@ -11119,16 +13040,18 @@ insn { "prefi	@Rn",
   issue { SH4A, "13" },
   latency { SH4A, "10" },
 
+
+
   description
 {R"(
 Reads a 32-byte block of data starting at a 32-byte boundary within the
 instruction cache. The lower 5 bits of the address specified by Rn are masked
 by zeroes.
-<br/><br/>
+<br /><br />
 This instruction does not generate data address error and MMU exceptions. In the
 event of an error, the PREFI instruction is treated as an NOP (no operation)
 instruction.
-<br/><br/>
+<br /><br />
 When the address to be prefetched is missing from UTLB or is protected, the
 PREFI instruction is treated as an NOP instruction and a TLB exception does not
 occur.
@@ -11156,18 +13079,20 @@ void PREFI (int n)
 
   exceptions
 {R"(
-<li>Slot illegal instruction exception</li>
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "resbank",
   SH2A,
-  abstract { "Bank -> R0 to R14, GBR, MACH, MACL, PR" },
+  abstract { "Bank → R0 to R14, GBR, MACH, MACL, PR" },
   code { "0000000001011011" },
 
   issue { SH2A, "9/19" },
   latency { SH2A, "8/20" },
+
+
 
   description
 {R"(
@@ -11231,25 +13156,39 @@ void RESBANK (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rte",
-  SH_ANY, privileged,
-  abstract { "Delayed branch\nSH1*,SH2*: stack area -> PC/SR\nSH3*,SH4*: SSR/SPC -> SR/PC" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } } },
+  abstract { "Delayed branch\nSH1*,SH2*: stack area → PC/SR\nSH3*,SH4*: SSR/SPC → SR/PC" },
   code { "0000000000101011" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "5", SH2A, "6", SH4, "5" },
   latency { SH1, "4", SH2, "4", SH3, "4", SH4A, "4", SH2A, "5", SH4, "5" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+ssr ← SignExtend 32(SSR);
+pc ← SignExtend32(PC)
+IF (IsDelaySlot())
+THROW ILLSLOT;
+target ← pc;
+delayedpc ← target ∧ (~ 0x1);
+PC’’ ← Register(delayedpc);
+)"},
   description
 {R"(
 Returns from an exception or interrupt handling routine by restoring the PC and
 SR values.  Program execution continues from the address specified
 by the restored PC value.
-<br/><br/>
+<br /><br />
 On SH3 and SH4 the PC and SR values are restored from SPC and SSR.  The SR value
 accessed by the instruction in the RTE delay slot is the value restored from SSR
 by the RTE instruction. The SR and MD values defined prior to RTE execution are
 used to fetch the instruction in the RTE delay slot.
-<br/><br/>
+<br /><br />
 On SH1, SH2 and SH2A the PC and SR values are from the stack (R15).
 )"},
 
@@ -11257,15 +13196,15 @@ On SH1, SH2 and SH2A the PC and SR values are from the stack (R15).
 {R"(
 As this is a delayed branch instruction, the instruction following the RTE
 instruction is executed before the branch destination instruction.
-<br/><br/>
+<br /><br />
 Interrupts are not accepted between this instruction and the following
 instruction. An exception must not be generated by the instruction in this
 instruction's delay slot. If the following instruction is a branch instruction,
 it is identified as a slot illegal instruction.
-<br/><br/>
+<br /><br />
 If this instruction is located in the delay slot immediately following a delayed
 branch instruction, it is identified as a slot illegal instruction.
-<br/><br/>
+<br /><br />
 On SH3 and SH4 the SR value accessed by the instruction in the RTE delay slot is
 the value restored from SSR by the RTE instruction. The SR and MD values defined
 prior to RTE execution are used to fetch the instruction in the RTE delay slot.
@@ -11295,24 +13234,27 @@ void RTE (void)
 
   example
 {R"(
-
+RTE ;Returns to the original routine
+ADD #8,R14 ;Executes ADD before branching
 )"},
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "setrc	Rn",
   SH_DSP,
-  abstract { "Rn[11:0] -> RC (SR[27:16])" },
+  abstract { "Rn[11:0] → RC (SR[27:16])" },
   code { "0100mmmm00010100" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "3" },
+
+
 
   description
 {R"(
@@ -11321,7 +13263,7 @@ general register Rn are used as the repeat count.
 Set repeat control flags to RF1, RF0 bits of the SR register. Use of the SETRC
 instruction is subject to any limitations. Refer to the DSP Repeat (Loop)
 Control section of the manual for more information.
-<br/><img src="setrc.svg" height="140"/>
+<br /><img alt="Set Repeat Count to RC operation" src="setrc.svg" height="140" />
 )"},
 
   note
@@ -11343,7 +13285,7 @@ void SETRC (int m)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
     setrc  r14       ! Repeat n times from <instruction A> to <instruction B>
@@ -11367,11 +13309,13 @@ end:
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "setrc	#imm",
   SH_DSP,
-  abstract { "imm -> RC (SR[23:16]), 0 -> SR[27:24]" },
+  abstract { "imm → RC (SR[23:16]), 0 → SR[27:24]" },
   code { "10000010iiiiiiii" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "3" },
+
+
 
   description
 {R"(
@@ -11380,7 +13324,7 @@ is zero-extended and used as the repeat count.
 Set repeat control flags to RF1, RF0 bits of the SR register. Use of the SETRC
 instruction is subject to any limitations. Refer to the DSP Repeat (Loop)
 Control section of the manual for more information.
-<br/><img src="setrci.svg" height="140"/>
+<br /><img alt="Set Repeat Count to RC operation" src="setrci.svg" height="140" />
 )"},
 
   note
@@ -11402,7 +13346,7 @@ void SETRCI (int i)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
     setrc  #32       ! Repeat 32 times from <instruction A> to <instruction B>
@@ -11425,14 +13369,20 @@ end:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sets",
-  SH3, SH4, SH4A,
-  abstract { "1 -> S" },
+  SH3 | SH4 | SH4A,
+  abstract { "1 → S" },
   code { "0000000001011000" },
+  flags { "1 → S" },
 
   group { SH4A, "EX", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
   latency { SH3, "1", SH4A, "1", SH4, "1" },
 
+  brief
+{R"(
+s ← 1;
+S ← Bit(s);
+)"},
   description
 {R"(
 Sets the S bit to 1.
@@ -11465,15 +13415,20 @@ void SETS (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sett",
-  SH_ANY,
-  abstract { "1 -> T" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract { "1 → T" },
   code { "0000000000011000" },
-  t_bit { "1" },
+  flags { "1 → T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH_ANY, "1" },
+  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  brief
+{R"(
+t ← 1;
+T ← Bit(t);
+)"},
   description
 {R"(
 Sets the T bit to 1.
@@ -11495,7 +13450,8 @@ void SETT (void)
 
   example
 {R"(
-
+SETT ;Before execution: T = 0
+;After execution: T = 1
 )"},
 
   exceptions
@@ -11506,7 +13462,8 @@ void SETT (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sleep",
-  SH_ANY, privileged,
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
   abstract { "Sleep or standby" },
   code { "0000000000011011" },
 
@@ -11514,14 +13471,16 @@ insn { "sleep",
   issue { SH1, "1", SH2, "1", SH3, "2", SH4A, "ud", SH2A, "5", SH4, "4" },
   latency { SH1, "3", SH2, "3", SH3, "4", SH4A, "ud", SH2A, "0", SH4, "4" },
 
+
+
   description
 {R"(
 Places the CPU in the power-down state.
-<br/><br/>
+<br /><br />
 In power-down mode, the CPU retains its internal state, but immediately stops
 executing instructions and waits for an interrupt request. When it receives an
 interrupt request, the CPU exits the power-down state.
-<br/><br/>
+<br /><br />
 SLEEP is a privileged instruction, and can only be used in privileged mode. Use
 of this instruction in user mode will cause an illegal instruction exception.
 )"},
@@ -11530,16 +13489,16 @@ of this instruction in user mode will cause an illegal instruction exception.
 {R"(
 SLEEP performance depends on the standby control register (STBCR). See
 Power-Down Modes in the target product's hardware manual, for details.
-<br/><br/>
+<br /><br />
 The number of cycles given is for the transition to sleep mode. "ud" means
 the number of cycles is undefined.
-<br/><br/>
+<br /><br />
 Some SH4 implementations have a hardware bug which restricts the instructions
 that should follow this instruction for safe operation.  There are two
 recommended workarounds:
-<li>Put 8 NOP instructions following the SLEEP instruction.</li>
-<li>Put 5 "OR R0,R0" instructions following the SLEEP instruction</li>
-<br/>
+Put 8 NOP instructions following the SLEEP instruction.
+Put 5 "OR R0,R0" instructions following the SLEEP instruction
+<br />
 For more information see the document "tnsh7456ae.pdf".
 )"},
 
@@ -11553,31 +13512,33 @@ void SLEEP (void)
 
   example
 {R"(
-
+SLEEP ;Enters power-down mode
 )"},
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stbank	R0,@Rn",
   SH2A,
-  abstract { "R0 -> (specified register bank entry)" },
+  abstract { "R0 → (specified register bank entry)" },
   code { "0100nnnn11100001" },
 
   issue { SH2A, "7" },
   latency { SH2A, "6" },
+
+
 
   description
 {R"(
 R0 is transferred to the register bank entry indicated by the contents of
 general register Rn. The register bank number and register stored in the bank
 are specified by general register Rn.
-<br/><img src="stbank.svg" height="400"/>
+<br /><img src="stbank.svg" height="400" />
 )"},
 
   note
@@ -11608,14 +13569,24 @@ void STBANK (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	SR,Rn",
-  SH_ANY, privileged,
-  abstract { "SR -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "SR → Rn" },
   code { "0000nnnn00000010" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+sr ← SignExtend 32(SR);
+op1 ← sr
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SR in the destination.
@@ -11638,26 +13609,40 @@ void STCSR (int n)
 
   example
 {R"(
-
+STC SR,R0 ;Before execution: R0 = H'FFFFFFFF, SR = H'00000000
+;After execution: R0 = H'00000000
 )"},
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	SR,@-Rn",
-  SH_ANY, privileged,
-  abstract { "Rn-4 -> Rn, SR -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "Rn-4 → Rn, SR → (Rn)" },
   code { "0100nnnn00000011" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH1, "2", SH2, "2", SH3, "1/2", SH4A, "1", SH2A, "2", SH4, "2/2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+sr ← SignExtend 32(SR);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, sr);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SR in the destination.
@@ -11686,24 +13671,27 @@ void STCMSR (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	TBR,Rn",
   SH2A,
-  abstract { "TBR -> Rn" },
+  environments { { { SH2A, "Interrupt Disabled" } } },
+  abstract { "TBR → Rn" },
   code { "0000nnnn01001010" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
+
+
 
   description
 {R"(
@@ -11712,6 +13700,7 @@ Stores control register TBR in the destination.
 
   note
 {R"(
+
 )"},
 
   operation
@@ -11737,14 +13726,21 @@ void STCTBR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	GBR,Rn",
-  SH_ANY,
-  abstract { "GBR -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "GBR → Rn" },
   code { "0000nnnn00010010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
 
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+op1 ← gbr;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register GBR in the destination.
@@ -11777,14 +13773,24 @@ STCGBR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	GBR,@-Rn",
-  SH_ANY,
-  abstract { "Rn-4 -> Rn, GBR -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, GBR → (Rn)" },
   code { "0100nnnn00010011" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "2", SH2, "2", SH3, "1/2", SH4A, "1", SH2A, "1", SH4, "2/2" },
 
+  brief
+{R"(
+gbr ← SignExtend 32 (GBR);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, gbr);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register GBR in the destination.
@@ -11807,29 +13813,40 @@ void STCMGBR (int n)
 
   example
 {R"(
-
+STC.L GBR,@-R15 ;Before execution: R15 = H'10000004
+;After execution: R15 = H'10000000, @R15 = GBR
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	VBR,Rn",
-  SH_ANY, privileged,
-  abstract { "VBR -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "VBR → Rn" },
   code { "0000nnnn00100010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+vbr ← SignExtend 32 (VBR);
+op1 ← vbr
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register VBR in the destination.
@@ -11856,21 +13873,34 @@ void STCVBR (int n)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	VBR,@-Rn",
-  SH_ANY, privileged,
-  abstract { "Rn-4 -> Rn, VBR -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  abstract { "Rn-4 → Rn, VBR → (Rn)" },
   code { "0100nnnn00100011" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "2", SH2, "2", SH3, "1/2", SH4A, "1", SH2A, "1", SH4, "2/2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+vbr ← SignExtend 32 (VBR);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, vbr);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register VBR in the destination.
@@ -11898,24 +13928,27 @@ void STCMVBR (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	MOD,Rn",
   SH_DSP,
-  abstract { "MOD -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "MOD → Rn" },
   code { "0000nnnn01010010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -11950,11 +13983,14 @@ void STCMOD (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	MOD,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, MOD -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, MOD → (Rn)" },
   code { "0100nnnn01010011" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/2" },
+
+
 
   description
 {R"(
@@ -11984,18 +14020,21 @@ void STCMMOD (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	RE,Rn",
   SH_DSP,
-  abstract { "RE -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "RE → Rn" },
   code { "0000nnnn01110010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -12030,11 +14069,14 @@ void STCRE (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	RE,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, RE -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, RE → (Rn)" },
   code { "0100nnnn01110011" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/2" },
+
+
 
   description
 {R"(
@@ -12063,18 +14105,21 @@ void STCMRE (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	RS,Rn",
   SH_DSP,
-  abstract { "RS -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "RS → Rn" },
   code { "0000nnnn01100010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -12109,11 +14154,14 @@ void STCRS (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	RS,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, RS -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, RS → (Rn)" },
   code { "0100nnnn01100011" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/2" },
+
+
 
   description
 {R"(
@@ -12142,20 +14190,30 @@ void STCMRS (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	SGR,Rn",
-  SH4, SH4A, privileged,
-  abstract { "SGR -> Rn" },
+  SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "SGR → Rn" },
   code { "0000nnnn00111010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH4A, "1", SH4, "3" },
   latency { SH4A, "1", SH4, "3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+sgr ← SignExtend 32(SGR);
+op1 ← sgr
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SGR in the destination.
@@ -12182,21 +14240,34 @@ void STCSGR (int n)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	SGR,@-Rn",
-  SH4, SH4A, privileged,
-  abstract { "Rn-4 -> Rn, SGR -> (Rn)" },
+  SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rn-4 → Rn, SGR → (Rn)" },
   code { "0100nnnn00110010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH4A, "1", SH4, "3" },
   latency { SH4A, "1", SH4, "3/3" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+sgr ← SignExtend 32(SGR);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, sgr);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SGR in the destination.
@@ -12224,26 +14295,36 @@ void STCMSGR (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	SSR,Rn",
-  SH3, SH4, SH4A, privileged,
-  abstract { "SSR -> Rn" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "SSR → Rn" },
   code { "0000nnnn00110010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "2" },
   latency { SH3, "1", SH4A, "1", SH4, "2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+ssr ← SignExtend 32(SSR);
+op1 ← ssr
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SSR in the destination.
@@ -12270,21 +14351,34 @@ void STCSSR (int n)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	SSR,@-Rn",
-  SH3, SH4, SH4A, privileged,
-  abstract { "Rn-4 -> Rn, SSR -> (Rn)" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rn-4 → Rn, SSR → (Rn)" },
   code { "0100nnnn00110011" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "2" },
   latency { SH3, "1/2", SH4A, "1", SH4, "2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+ssr ← SignExtend 32(SSR);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, ssr);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SSR in the destination.
@@ -12312,26 +14406,36 @@ void STCMSSR (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	SPC,Rn",
-  SH3, SH4, SH4A, privileged,
-  abstract { "SPC -> Rn" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "SPC → Rn" },
   code { "0000nnnn01000010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "2" },
   latency { SH3, "1", SH4A, "1", SH4, "2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+spc ← SignExtend 32 (SPC);
+op1 ← spc
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SPC in the destination.
@@ -12358,21 +14462,34 @@ void STCSPC (int n)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	SPC,@-Rn",
-  SH3, SH4, SH4A, privileged,
-  abstract { "Rn-4 -> Rn, SPC -> (Rn)" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rn-4 → Rn, SPC → (Rn)" },
   code { "0100nnnn01000011" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH4A, "1", SH4, "2" },
   latency { SH4A, "1", SH4, "2/2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+spc ← SignExtend 32 (SPC);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, spc);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register SPC in the destination.
@@ -12400,26 +14517,36 @@ void STCMSPC (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	DBR,Rn",
-  SH4, SH4A, privileged,
-  abstract { "DBR -> Rn" },
+  SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "DBR → Rn" },
   code { "0000nnnn11111010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH4A, "1", SH4, "2" },
   latency { SH4A, "1", SH4, "2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+dbr ← SignExtend 32 (DBR);
+op1 ← dbr
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register DBR in the destination.
@@ -12446,21 +14573,34 @@ void STCDBR (int n)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	DBR,@-Rn",
-  SH4, SH4A, privileged,
-  abstract { "Rn-4 -> Rn, DBR -> (Rn)" },
+  SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rn-4 → Rn, DBR → (Rn)" },
   code { "0100nnnn11110010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH4A, "1", SH4, "2" },
   latency { SH4A, "1", SH4, "2/2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+dbr ← SignExtend 32 (DBR);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, dbr);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores control register DBR in the destination.
@@ -12488,26 +14628,36 @@ void STCMDBR (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc	Rm_BANK,Rn",
-  SH3, SH4, SH4A, privileged,
-  abstract { "Rm_BANK -> Rn (m = 0-7)" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rm_BANK → Rn (m = 0-7)" },
   code { "0000nnnn1mmm0010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "2" },
   latency { SH3, "1", SH4A, "1", SH4, "2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm _BANK);
+op2 ← op1;
+Rn ← Register(op2);
+)"},
   description
 {R"(
 Stores a banked general register in the destination. Rn_BANK0 is accessed when
@@ -12535,21 +14685,34 @@ void STCRm_BANK (int n)
 
   exceptions
 {R"(
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l	Rm_BANK,@-Rn",
-  SH3, SH4, SH4A, privileged,
-  abstract { "Rn-4 -> Rn, Rm_BANK -> (Rn) (m = 0-7)" },
+  SH3 | SH4 | SH4A,
+  environments { { { SH4A, "Privileged" } } },
+  abstract { "Rn-4 → Rn, Rm_BANK → (Rn) (m = 0-7)" },
   code { "0100nnnn1mmm0011" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH3, "2", SH4A, "1", SH4, "2" },
   latency { SH3, "2", SH4A, "1", SH4, "2/2" },
 
+  brief
+{R"(
+md ← ZeroExtend1(MD);
+IF (md = 0)
+THROW RESINST;
+op1 ← SignExtend 32 (Rm_BANK);
+op2 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op2 - 4);
+WriteMemory 32(address, op1);
+op2 ← address;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Stores a banked general register in the destination. Rn_BANK0 is accessed when
@@ -12578,26 +14741,33 @@ void STCMRm_BANK (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
-<li>General illegal instruction exception</li>
-<li>Slot illegal instruction exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
+General illegal instruction exception
+Slot illegal instruction exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	MACH,Rn",
-  SH_ANY,
-  abstract { "MACH -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "MACH → Rn" },
   code { "0000nnnn00001010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "3" },
 
+  brief
+{R"(
+mach ← SignExtend 32 (MACH);
+op1 ← mach;
+R n ← Register(op1)
+)"},
   description
 {R"(
 Stores system register MACH in the destination.
@@ -12607,7 +14777,7 @@ Stores system register MACH in the destination.
 {R"(
 On SH1, the value of bit 9 is transferred to and stored in the higher 22 bits
 (bits 31 to 10) of the destination.
-<br/><br/>
+<br /><br />
 On SH4, when an LDS to MAC* is followed by an STS.L MAC*,@-Rn instruction, the
 latency of the LDS to MAC* is 4 cycles.
 )"},
@@ -12632,7 +14802,8 @@ void STSMACH (int n)
 
   example
 {R"(
-
+STS MACH,R0 ;Before execution: R0 = H'FFFFFFFF, MACH = H'00000000
+;After execution: R0 = H'00000000
 )"},
 
   exceptions
@@ -12643,14 +14814,24 @@ void STSMACH (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	MACH,@-Rn",
-  SH_ANY,
-  abstract { "Rn-4 -> Rn, MACH -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, MACH → (Rn)" },
   code { "0100nnnn00000010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
+  brief
+{R"(
+mach ← SignExtend 32 (MACH);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, mach);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores system register MACH in the destination.
@@ -12660,7 +14841,7 @@ Stores system register MACH in the destination.
 {R"(
 On SH1, the value of bit 9 is transferred to and stored in the higher 22 bits
 (bits 31 to 10) of the destination.
-<br/><br/>
+<br /><br />
 On SH4, when an LDS to MAC* is followed by an STS.L MAC*,@-Rn instruction, the
 latency of the LDS to MAC* is 4 cycles.
 )"},
@@ -12693,24 +14874,31 @@ void STSMMACH (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	MACL,Rn",
-  SH_ANY,
-  abstract { "MACL -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "MACL → Rn" },
   code { "0000nnnn00011010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "3" },
 
+  brief
+{R"(
+macl ← SignExtend 32(MACL);
+op1 ← macl;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores system register MACL in the destination.
@@ -12743,14 +14931,24 @@ void STSMACL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	MACL,@-Rn",
-  SH_ANY,
-  abstract { "Rn-4 -> Rn, MACL -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, MACL → (Rn)" },
   code { "0100nnnn00010010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
+  brief
+{R"(
+macl ← SignExtend 32(MACL);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, macl);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores system register MACL in the destination.
@@ -12779,24 +14977,31 @@ void STSMMACL (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	PR,Rn",
-  SH_ANY,
-  abstract { "PR -> Rn" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "PR → Rn" },
   code { "0000nnnn00101010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
 
+  brief
+{R"(
+pr ← SignExtend 32 (PR’);
+op1 ← pr;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores system register PR in the destination.
@@ -12829,14 +15034,24 @@ void STSPR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	PR,@-Rn",
-  SH_ANY,
-  abstract { "Rn-4 -> Rn, PR -> (Rn)" },
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, PR → (Rn)" },
   code { "0100nnnn00100010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "2/2" },
 
+  brief
+{R"(
+pr ← SignExtend 32 (PR’);
+op1 ← SignExtend 32 (Rn);
+address ← ZeroExtend 32(op1 - 4);
+WriteMemory 32(address, pr);
+op1 ← address;
+R n ← Register(op1);
+)"},
   description
 {R"(
 Stores system register PR in the destination.
@@ -12859,28 +15074,31 @@ void STSMPR (int n)
 
   example
 {R"(
-
+STS.L PR,@–R15 ;Before execution: R15 = H'10000004
+;After execution: R15 = H'10000000, @R15 = PR
 )"},
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Initial page write exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Initial page write exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	DSR,Rn",
   SH_DSP,
-  abstract { "DSR -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "DSR → Rn" },
   code { "0000nnnn01101010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
+  name { "Store from FPU System Register" },
   description
 {R"(
 Stores DSP register DSR in the destination.
@@ -12914,12 +15132,14 @@ void STSDSR (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	DSR,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, DSR -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, DSR → (Rn)" },
   code { "0100nnnn01100010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
+  name { "Store from FPU System Register" },
   description
 {R"(
 Stores DSP register DSR in the destination.
@@ -12947,7 +15167,7 @@ void STSMDSR (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -12955,11 +15175,14 @@ void STSMDSR (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	A0,Rn",
   SH_DSP,
-  abstract { "A0 -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "A0 → Rn" },
   code { "0000nnnn01111010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -12994,11 +15217,14 @@ void STSA0 (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	A0,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, A0 -> (Rn)" },
-  code { "0100nnnn01100010" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, A0 → (Rn)" },
+  code { "0100nnnn01110010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13027,18 +15253,21 @@ void STSMA0 (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	X0,Rn",
   SH_DSP,
-  abstract { "X0 -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "X0 → Rn" },
   code { "0000nnnn10001010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13073,11 +15302,14 @@ void STSX0 (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	X0,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, X0 -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, X0 → (Rn)" },
   code { "0100nnnn10000010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13106,18 +15338,21 @@ void STSMX0 (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	X1,Rn",
   SH_DSP,
-  abstract { "X1 -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "X1 → Rn" },
   code { "0000nnnn10011010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13152,11 +15387,14 @@ void STSX1 (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	X1,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, X1 -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, X1 → (Rn)" },
   code { "0100nnnn10010010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13185,18 +15423,21 @@ void STSMX1 (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	Y0,Rn",
   SH_DSP,
-  abstract { "Y0 -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Y0 → Rn" },
   code { "0000nnnn10101010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13231,11 +15472,14 @@ void STSY0 (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	Y0,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, Y0 -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, Y0 → (Rn)" },
   code { "0100nnnn10100010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13264,18 +15508,21 @@ void STSMY0 (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	Y1,Rn",
   SH_DSP,
-  abstract { "Y1 -> Rn" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Y1 → Rn" },
   code { "0000nnnn10111010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13310,11 +15557,14 @@ void STSY1 (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	Y1,@-Rn",
   SH_DSP,
-  abstract { "Rn-4 -> Rn, Y1 -> (Rn)" },
+  environments { { { SH_DSP, "Interrupt Disabled" } } },
+  abstract { "Rn-4 → Rn, Y1 → (Rn)" },
   code { "0100nnnn10110010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -13343,7 +15593,7 @@ void STSMY1 (int n)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -13356,6 +15606,8 @@ insn { "synco",
   group { SH4A, "CO" },
   issue { SH4A, "ud" },
   latency { SH4A, "ud" },
+
+
 
   description
 {R"(
@@ -13370,12 +15622,12 @@ The SYNCO instruction can not guarantee the ordering of receipt timing which is
 notified by the memory-mapped peripheral resources through the method except bus
 when the register is changed by bus accesses. Refer to the description of each
 registers to guarantee this ordering.
-<br/><br/>
+<br /><br />
 Common example usages are:
-<li>Ordering access to memory areas which are shared with other memory users</li>
-<li>Flushing all write buffers</li>
-<li>Stopping memory-access operations from merging and becoming ineffective</li>
-<li>Waiting for the completion of cache-control instructions</li>
+Ordering access to memory areas which are shared with other memory users
+Flushing all write buffers
+Stopping memory-access operations from merging and becoming ineffective
+Waiting for the completion of cache-control instructions
 )"},
 
   operation
@@ -13400,30 +15652,37 @@ void SYNCO (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "trapa	#imm",
-  SH_ANY,
-  abstract {R"(SH1*,SH2*: PC/SR -> stack area, (imm*4 + VBR) -> PC
-SH3*,SH4*: PC/SR -> SPC/SSR, imm*4 -> TRA, 0x160 -> EXPEVT, VBR + 0x0100 -> PC)"},
+  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  abstract {R"(SH1*,SH2*: PC/SR → stack area, (imm*4 + VBR) → PC
+SH3*,SH4*: PC/SR → SPC/SSR, imm*4 → TRA, 0x160 → EXPEVT, VBR + 0x0100 → PC)"},
   code { "11000011iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "14", SH2A, "5", SH4, "7" },
   latency { SH1, "8", SH2, "8", SH3, "8", SH4A, "13", SH2A, "6", SH4, "7" },
 
+  brief
+{R"(
+imm ← ZeroExtend 8(i);
+IF (IsDelaySlot())
+THROW ILLSLOT;
+THROW TRAP, imm;
+)"},
   description
 {R"(
 Starts trap exception handling.
 
 SH1, SH2 and SH2A:
-<br/>
+<br />
 The PC and SR values are stored on the stack, and the program branches to an
 address specified by the vector. The vector is a memory address obtained by
 zero-extending the 8-bit immediate data and then quadrupling it. The PC is the
 start address of the next instruction. TRAPA and RTE are both used together for
 system calls.
-<br/><br/>
+<br /><br />
 
 SH3, SH4 and SH4A:
-<br/>
+<br />
 The values of (PC + 2), SR, and R15 are saved to SPC, SSR and SGR, and 8-bit
 immediate data is stored in the TRA register (bits 9 to 2). The processor mode
 is switched to privileged mode (the MD bit in SR is set to 1), and the BL bit
@@ -13439,11 +15698,11 @@ VBR register contents and offset 0x00000100.
 Some SH4 implementations have a hardware bug which restricts the instructions
 that should follow this instruction for safe operation.  There are two
 recommended workarounds:
-<li>Put 8 NOP instructions following the TRAPA instruction.</li>
-<li>Put 5 "OR R0,R0" instructions following the TRAPA instruction</li>
-<br/>
+Put 8 NOP instructions following the TRAPA instruction.
+Put 5 "OR R0,R0" instructions following the TRAPA instruction
+<br />
 For more information see the document "tnsh7456ae.pdf".
-<br/><br/>
+<br /><br />
 Some SH2E implementations (SH7055) have an FPU related hardware bug which
 affects this instruction.  The recommended workaround is to align the addresses
 of trapa handlers to 4 bytes and not to place any FPU or FPU related
@@ -13480,13 +15739,20 @@ void TRAPA (int i)
 
   example
 {R"(
-
+VBR+H'80 .data.l 10000000 ;
+..........
+TRAPA #H'20 ;Branches to an address specified by data in address VBR + H'80
+TST #0,R0 ;← Return address from the trap routine (stacked PC value)
+..........
+100000000 XOR R0,R0 ;← Trap routine entrance
+100000002 RTE ;Returns to the TST instruction
+100000004 NOP ;Executes NOP before RTE
 )"},
 
   exceptions
 {R"(
-<li>Unconditional trap</li>
-<li>Slot illegal instruction exception</li>
+Unconditional trap
+Slot illegal instruction exception
 )"},
 },
 
@@ -13498,14 +15764,27 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov	FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRm -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRm → FRn" },
   code { "1111nnnnmmmm1100" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
+  restriction { "Available only when SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2 ← op1;
+FR n ← FloatRegister 32(op2);
+)"},
   description
 {R"(
 Transfers FRm contents to FRn.
@@ -13538,14 +15817,28 @@ void FMOV (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	@Rm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "(Rm) -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "(Rm) → FRn" },
   code { "1111nnnnmmmm1000" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0/2", SH4, "2" },
 
+  restriction { "Available only when SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+op2 ← ReadMemory 32 (address);
+FR 2n ← FloatRegister 32 (op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by Rm to FRn.
@@ -13572,22 +15865,37 @@ void FMOV_LOAD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	FRm,@Rn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRm -> (Rn)" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRm → (Rn)" },
   code { "1111nnnnmmmm1010" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "1" },
+
+  restriction { "Available only when SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op2);
+WriteMemory 32(address, op1);
+)"},
 
   description
 {R"(
@@ -13615,24 +15923,39 @@ void FMOV_STORE (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	@Rm+,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "(Rm) -> FRn, Rm+4 -> Rm" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "(Rm) → FRn, Rm+4 → Rm" },
   code { "1111nnnnmmmm1001" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1/2", SH4, "1/2" },
 
+  restriction { "Available only when SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+op2 ← ReadMemory 32 (address);
+op1 ← op1 + 4;
+R m ← Register(op1);
+FR n ← FloatRegister 32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by Rm to FRn, and adds 4 to
@@ -13661,23 +15984,39 @@ void FMOV_RESTORE (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	FRm,@-Rn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "Rn-4 -> Rn, FRm -> (Rn)" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "Rn-4 → Rn, FRm → (Rn)" },
   code { "1111nnnnmmmm1011" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1/0", SH4, "1/1" },
 
+  restriction { "Available only when SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op2 - 4);
+WriteMemory 32(address, op1);
+op2 ← address;
+R n ← Register(op2);
+)"},
   description
 {R"(
 Subtracts 4 from Rn, and transfers FRm contents to memory at address indicated
@@ -13706,24 +16045,38 @@ void FMOV_SAVE (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	@(R0,Rm),FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "(R0 + Rm) -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "(R0 + Rm) → FRn" },
   code { "1111nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0/2", SH4, "2" },
 
+  restriction { "Available only when SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(r0 + op1);
+op2 ← ReadMemory 32 (address);
+FR n ← FloatRegister 32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by (R0 + Rm) to FRn.
@@ -13750,23 +16103,37 @@ void FMOV_INDEX_LOAD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	FRm,@(R0,Rn)",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRm -> (R0 + Rn)" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRm → (R0 + Rn)" },
   code { "1111nnnnmmmm0111" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
+  restriction { "Available only when SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+r0 ← SignExtend 32 (R0);
+op1 ← FloatValue 32 (FRm );
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(r0 + op2);
+WriteMemory 32(address, op1)
+)"},
   description
 {R"(
 Transfers FRm contents to memory at address indicated by (R0 + Rn).
@@ -13793,22 +16160,24 @@ void FMOV_INDEX_STORE (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	@(disp12,Rm),FRn",
   SH2A,
-  abstract { "(disp*4 + Rm) -> FRn" },
+  abstract { "(disp × 4 + Rm) → FRn" },
   code { "0011nnnnmmmm0001 0111dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "0/2" },
+
+
 
   description
 {R"(
@@ -13837,18 +16206,20 @@ void FMOV_INDEX_DISP12_LOAD (int m, int n, int d)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s	FRm,@(disp12,Rn)",
   SH2A,
-  abstract { "FRm -> (disp*4 + Rn)" },
+  abstract { "FRm → (disp × 4 + Rn)" },
   code { "0011nnnnmmmm0001 0011dddddddddddd" },
 
   issue { SH2A, "1" },
   latency { SH2A, "0" },
+
+
 
   description
 {R"(
@@ -13877,7 +16248,7 @@ void FMOV_INDEX_DISP12_STORE (int m, int n, int d)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
@@ -13888,13 +16259,26 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov	DRm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "DRm -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "DRm → DRn" },
   code { "1111nnn0mmm01100" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "1", SH4, "0" },
+
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← FloatValuePair32(FP 2m);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2 ← op1;
+FP2n ← FloatRegisterPair32(op2);
+)"},
 
   description
 {R"(
@@ -13928,14 +16312,27 @@ void FMOV_DR (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov	DRm,XDn",
-  SH4, SH4A,
-  abstract { "DRm -> XDn" },
+  SH4 | SH4A,
+  abstract { "DRm → XDn" },
   code { "1111nnn1mmm01100" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "0" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← FloatValuePair32(DR2m);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2 ← op1;
+XD2n ← FloatRegisterPair 32(op2);
+)"},
   description
 {R"(
 Transfers DRm contents to XDn.
@@ -13968,14 +16365,27 @@ void FMOV_DRXD (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov	XDm,DRn",
-  SH4, SH4A,
-  abstract { "XDm -> DRn" },
+  SH4 | SH4A,
+  abstract { "XDm → DRn" },
   code { "1111nnn0mmm11100" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "0" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← FloatValuePair32(DR2m);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2 ← op1;
+XD2n ← FloatRegisterPair 32(op2);
+)"},
   description
 {R"(
 Transfers XDm contents to DRn.
@@ -14008,14 +16418,15 @@ void FMOV_XDDR (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov	XDm,XDn",
-  SH4, SH4A,
-  abstract { "XDm -> XDn" },
+  SH4 | SH4A,
+  abstract { "XDm → XDn" },
   code { "1111nnn1mmm11100" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "0" },
 
+  name { "Floating-point Move Extension" },
   description
 {R"(
 Transfers XDm contents to XDn.
@@ -14047,15 +16458,29 @@ void FMOV_XDXD (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	@Rm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "(Rm) -> DRn" },
+insn { "fmov	@Rm,DRn",
+  SH4 | SH4A | SH2A,
+  abstract { "(Rm) → DRn" },
   code { "1111nnn0mmmm1000" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "2" },
 
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+op2 ← ReadMemoryPair 32 (address);
+FP2n ← FloatRegisterPair32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by Rm to DRn.
@@ -14082,23 +16507,39 @@ void FMOV_LOAD_DR (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	@Rm,XDn",
-  SH4, SH4A,
-  abstract { "(Rm) -> XDn" },
+insn { "fmov	@Rm,XDn",
+  SH4 | SH4A,
+  abstract { "(Rm) → XDn" },
   code { "1111nnn1mmmm1000" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "2" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+op2 ← ReadMemoryPair 32 (address);
+XD 2n ← FloatRegisterPair 32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by Rm to XDn.
@@ -14125,23 +16566,39 @@ void FMOV_LOAD_XD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	DRm,@Rn",
-  SH4, SH4A, SH2A,
-  abstract { "DRm -> (Rn)" },
+insn { "fmov	DRm,@Rn",
+  SH4 | SH4A | SH2A,
+  abstract { "DRm → (Rn)" },
   code { "1111nnnnmmm01010" },
+  mnemonic { "FMOV.D?" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0", SH4, "1" },
 
+
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValuePair32(FP 2m);
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op2);
+WriteMemoryPair 32 (address, op1);
+)"},
   description
 {R"(
 Transfers DRm contents to memory at address indicated by Rn.
@@ -14168,24 +16625,40 @@ void FMOV_STORE_DR (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	XDm,@Rn",
-  SH4, SH4A,
-  abstract { "XDm -> (Rn)" },
+insn { "fmov	XDm,@Rn",
+  SH4 | SH4A,
+  abstract { "XDm → (Rn)" },
   code { "1111nnnnmmm11010" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValuePair32(XD 2m);
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op2);
+WriteMemoryPair 32 (address, op1);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by (R0 + Rm) to XDn.
@@ -14212,25 +16685,42 @@ void FMOV_STORE_XD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	@Rm+,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "(Rm) -> DRn, Rm + 8 -> Rm" },
+insn { "fmov	@Rm+,DRn",
+  SH4 | SH4A | SH2A,
+  abstract { "(Rm) → DRn, Rm + 8 → Rm" },
   code { "1111nnn0mmmm1001" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "1/4", SH4, "1/2" },
 
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+op2 ← ReadMemoryPair 32 (address);
+op1 ← op1 + 8;
+R m ← Register(op1);
+FP2n ← FloatRegisterPair32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by Rm to DRn, and adds 8 to
@@ -14259,23 +16749,41 @@ void FMOV_RESTORE_DR (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	@Rm+,XDn",
-  SH4, SH4A,
-  abstract { "(Rm) -> XDn, Rm+8 -> Rm" },
+insn { "fmov	@Rm+,XDn",
+  SH4 | SH4A,
+  abstract { "(Rm) → XDn, Rm+8 → Rm" },
   code { "1111nnn1mmmm1001" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1/2" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+op2 ← ReadMemoryPair 32 (address);
+op1 ← op1 + 8;
+R m ← Register(op1);
+XD2n ← FloatRegisterPair 32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by Rm to XDn, and adds 8 to
@@ -14304,22 +16812,40 @@ void FMOV_RESTORE_XD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	DRm,@-Rn",
-  SH4, SH4A, SH2A,
-  abstract { "Rn-8 -> Rn, DRm -> (Rn)" },
+insn { "fmov	DRm,@-Rn",
+  SH4 | SH4A | SH2A,
+  abstract { "Rn-8 → Rn, DRm → (Rn)" },
   code { "1111nnnnmmm01011" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/1", SH4, "1/1" },
+
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValuePair32(FP 2m);
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op2 - 8);
+WriteMemoryPair 32 (address, op1);
+op2 ← address;
+R n ← Register(op2);
+)"},
 
   description
 {R"(
@@ -14349,24 +16875,43 @@ void FMOV_SAVE_DR (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	XDm,@-Rn",
-  SH4, SH4A,
-  abstract { "Rn-8 -> Rn, (Rn) -> XDm" },
+insn { "fmov	XDm,@-Rn",
+  SH4 | SH4A,
+  abstract { "Rn-8 → Rn, (Rn) → XDm" },
   code { "1111nnnnmmm11011" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1/1" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValuePair32(XD 2m);
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op2 - 8);
+WriteMemoryPair 32 (address, op1);
+op2 ← address;
+R n ← Register(op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Subtracts 8 from Rn, and transfers XDm contents to memory at address indicated
@@ -14395,24 +16940,39 @@ void FMOV_SAVE_XD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	@(R0,Rm),DRn",
-  SH4, SH4A, SH2A,
-  abstract { "(R0 + Rm) -> DRn" },
+insn { "fmov	@(R0,Rm),DRn",
+  SH4 | SH4A | SH2A,
+  abstract { "(R0 + Rm) → DRn" },
   code { "1111nnn0mmmm0110" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "2" },
 
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(r0 + op1);
+op2 ← ReadMemoryPair 32 (address);
+FP2n ← FloatRegisterPair32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by (R0 + Rm) to DRn.
@@ -14439,23 +16999,39 @@ void FMOV_INDEX_LOAD_DR (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	@(R0,Rm),XDn",
-  SH4, SH4A,
-  abstract { "(R0 + Rm) -> XDn" },
+insn { "fmov	@(R0,Rm),XDn",
+  SH4 | SH4A,
+  abstract { "(R0 + Rm) → XDn" },
   code { "1111nnn1mmmm0110" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "2" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+r0 ← SignExtend 32 (R0);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(r0 + op1);
+op2 ← ReadMemoryPair 32 (address);
+XD 2n ← FloatRegisterPair 32(op2);
+)"},
   description
 {R"(
 Transfers contents of memory at address indicated by (R0 + Rm) to XDn.
@@ -14482,23 +17058,38 @@ void FMOV_INDEX_LOAD_XD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	DRm,@(R0,Rn)",
-  SH4, SH4A, SH2A,
-  abstract { "DRm -> (R0 + Rn)" },
+insn { "fmov	DRm,@(R0,Rn)",
+  SH4 | SH4A | SH2A,
+  abstract { "DRm → (R0 + Rn)" },
   code { "1111nnnnmmm00111" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0", SH4, "1" },
 
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+r0 ← SignExtend 32 (R0);
+op1 ← FloatValuePair32(FP 2m);
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(r0 + op2);
+WriteMemoryPair 32 (address, op1);
+)"},
   description
 {R"(
 Transfers DRm contents to memory at address indicated by (R0 + Rn).
@@ -14525,24 +17116,40 @@ void FMOV_INDEX_STORE_DR (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	XDm,@(R0,Rn)",
-  SH4, SH4A,
-  abstract { "XDm -> (R0 + Rn)" },
+insn { "fmov	XDm,@(R0,Rn)",
+  SH4 | SH4A,
+  abstract { "XDm → (R0 + Rn)" },
   code { "1111nnnnmmm10111" },
+  mnemonic { "FMOV.D" }, // ??
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1" },
 
+  name { "Floating-point Move Extension" },
+  restriction { "Available only when PR=0 and SZ=1" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+r0 ← SignExtend 32 (R0);
+op1 ← FloatValuePair32(XD 2m);
+op2 ← SignExtend 32 (Rn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(r0 + op2);
+WriteMemoryPair 32 (address, op1);
+)"},
   description
 {R"(
 Transfers XDm contents to memory at address indicated by (R0 + Rn).
@@ -14569,22 +17176,24 @@ void FMOV_INDEX_STORE_XD (int m, int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.d	@(disp12,Rm),DRn",
   SH2A,
-  abstract { "(disp*8 + Rm) -> DRn" },
+  abstract { "(disp × 8 + Rm) → DRn" },
   code { "0011nnn0mmmm0001 0111dddddddddddd" },
 
   issue { SH2A, "2" },
   latency { SH2A, "0/4" },
+
+
 
   description
 {R"(
@@ -14613,18 +17222,20 @@ void FMOV_INDEX_DISP12_LOAD_DR (int m, int n, int d)
 
   exceptions
 {R"(
-<li>Data address error</li>
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.d	DRm,@(disp12,Rn)",
   SH2A,
-  abstract { "DRm -> (disp*8 + Rn)" },
+  abstract { "DRm → (disp × 8 + Rn)" },
   code { "0011nnnnmmm00001 0011dddddddddddd" },
 
   issue { SH2A, "2" },
   latency { SH2A, "0" },
+
+
 
   description
 {R"(
@@ -14653,11 +17264,11 @@ void FMOV_INDEX_DISP12_STORE_DR (int m, int n, int d)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
@@ -14669,18 +17280,30 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fldi0	FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "0x00000000 -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "0x00000000 → FRn" },
   code { "1111nnnn10001101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1 ← 0x00000000;
+FR n ← FloatRegister 32(op1);
+)"},
+
   description
 {R"(
 When FPSCR.PR = 0, this instruction loads floating-point 0.0 (0x00000000) into
-FRn.<br/>
+FRn.<br />
 If FPSCR.PR = 1, the instruction is handled as an illegal instruction.
 )"},
 
@@ -14711,18 +17334,30 @@ void FLDI0 (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fldi1	FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "0x3F800000 -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "0x3F800000 → FRn" },
   code { "1111nnnn10011101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1 ← 0x3F800000;
+FR n ← FloatRegister 32(op1);
+)"},
+
   description
 {R"(
 When FPSCR.PR = 0, this instruction loads floating-point 1.0 (0x3F800000) into
-FRn.<br/>
+FRn.<br />
 If FPCSR.PR = 1, the instruction is handled as an illegal instruction.
 )"},
 
@@ -14753,13 +17388,25 @@ void FLDI1 (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "flds	FRm,FPUL",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRm -> FPUL" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRm → FPUL" },
   code { "1111mmmm00011101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
+
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← FloatValue 32 (FRm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+fpul ← op1;
+FPUL ← ZeroExtend 32(fpul);
+)"},
 
   description
 {R"(
@@ -14793,14 +17440,25 @@ void FLDS (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fsts	FPUL,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FPUL -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FPUL → FRn" },
   code { "1111nnnn00001101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fpul ← SignExtend 32(FPUL);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1 ← fpul;
+FR n ← FloatRegister 32(op1);
+)"},
   description
 {R"(
 Transfers the contents of system register FPUL to floating-point register FRn.
@@ -14833,13 +17491,26 @@ void FSTS (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fabs	FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRn & 0x7FFFFFFF -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRn & 0x7FFFFFFF → FRn" },
   code { "1111nnnn01011101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
+
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1 ← FABS_S(op1);
+FR n ← FloatRegister 32(op1);
+)"},
 
   description
 {R"(
@@ -14850,7 +17521,7 @@ to 0, and stores the result in FRn.
   note
 {R"(
 The cause and flag fields in FPSCR are not updated.
-<br/><br/>
+<br /><br />
 A double-precision floating-point register DRn consists of a single-precision
 floating-point register pair FRn:FRn+1, where FRn is the high part and FRn+1 is
 the low part.  This instruction operates only on the high part and thus the
@@ -14880,14 +17551,27 @@ void FABS (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fneg	FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRn ^ 0x80000000 -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRn ^ 0x80000000 → FRn" },
   code { "1111nnnn01001101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1 ← FNEG_S(op1);
+FR n ← FloatRegister 32(op1);
+)"},
   description
 {R"(
 Inverts the most significant bit (sign bit) of the contents of floating-point
@@ -14897,7 +17581,7 @@ register FRn, and stores the result in FRn.
   note
 {R"(
 The cause and flag fields in FPSCR are not updated.
-<br/><br/>
+<br /><br />
 A double-precision floating-point register DRn consists of a single-precision
 floating-point register pair FRn:FRn+1, where FRn is the high part and FRn+1 is
 the low part.  This instruction operates only on the high part and thus the
@@ -14927,19 +17611,41 @@ void FNEG (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fadd	FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRn + FRm -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRn + FRm → FRn" },
   code { "1111nnnnmmmm0000" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+op2 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FADD_S(op1, op2, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+FR n ← FloatRegister 32(op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
+
   description
 {R"(
 Arithmetically adds the two single-precision floating-point numbers in FRn and
 FRm, and stores the result in FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -14947,8 +17653,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction. When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and FRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fadd.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fadd.svg" height="300" />
 )"},
 
   note
@@ -15036,42 +17742,63 @@ void FADD (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
+FPU Error
+Invalid Operation
 
-<li>Overflow
-<br/>
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 FRn and FRm have the same sign and the exponent of at least one value is 0xFE
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 FRn and FRm have different signs and neither has an exponent greater than 0x18
-</li>
 
-<li>Inexact</li>
+
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fsub	FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRn - FRm -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRn - FRm → FRn" },
   code { "1111nnnnmmmm0001" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+op2 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FSUB_S(op2, op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+FR n ← FloatRegister 32(op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Arithmetically subtracts the single-precision floating-point number in FRm from
 the single-precision floating-point number in FRn, and stores the result in FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -15079,8 +17806,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction.  When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and FRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fsub.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fsub.svg" height="300" />
 )"},
 
   note
@@ -15169,42 +17896,63 @@ void FSUB (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
+FPU Error
+Invalid Operation
 
-<li>Overflow
-<br/>
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 FRn and FRm have the same sign and the exponent of at least one value is 0xFE
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 FRn and FRm have different signs and neither has an exponent greater than 0x18
-</li>
 
-<li>Inexact</li>
+
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmul	FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRn * FRm -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRn × FRm → FRn" },
   code { "1111nnnnmmmm0010" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+op2 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FMUL_S(op1, op2, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+FR n ← FloatRegister 32(op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Arithmetically multiplies the two single-precision floating-point numbers in
 FRn and FRm, and stores the result in FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -15212,8 +17960,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction. When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and FRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fmul.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fmul.svg" height="300" />
 )"},
 
   note
@@ -15293,48 +18041,71 @@ void FMUL (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
+FPU Error
+Invalid Operation
 
-<li>Overflow
-<br/>
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 (exponent of FRn) + (exponent of FRm) - 0x7F is not less than 0xFE
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 When both FRn and FRm are normalized numbers:
 (exponent of FRn) + (exponent of FRm) - 0x7F is not more than 0x00
-<br/>
+<br />
 When at least FRn or FRm is not a normalized number:
 (exponent of FRn) + (exponent of FRm) - 0x7F is not more than 0x18
-</li>
 
-<li>Inexact</li>
+
+Inexact
 
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmac	FR0,FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FR0 * FRm + FRn -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FR0 × FRm + FRn → FRn" },
   code { "1111nnnnmmmm1110" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+fr0 ← FloatValue 32 (FR0);
+op1 ← FloatValue 32 (FRm );
+op2 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FMAC_S(fr0, op1, op2, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+FR n ← FloatRegister 32(op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
+
   description
 {R"(
 Arithmetically multiplies the two single-precision floating-point numbers in
 FR0 and FRm, arithmetically adds the contents of FRn, and stores the result in
 FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -15342,15 +18113,15 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction.  When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and FRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fmac.svg" height="942"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fmac.svg" height="942" />
 )"},
 
   note
 {R"(
 SH2E and SH3E support only invalid operation (V) and division by zero
 (Z) exception flags.
-<br/><br/>
+<br /><br />
 This instruction rounds only the final result and does not round the
 intermediate result of the multiplication.  Thus, for IEEE 754 compliant code,
 this instruction cannot be used as a replacement for individual FADD and FMUL
@@ -15562,51 +18333,76 @@ void normal_fmac (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
+FPU Error
+Invalid Operation
 
-<li>Overflow
-<br/>
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 At least one of the following results is not less than 0xFD:
-<br/>
+<br />
 (exponent of FR0) + (exponent of FRm)
-<br/>
+<br />
 (exponent of FRn)
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 At least one of the following results is not more than 0x2E:
-<br/>
+<br />
 (exponent of FR0) + (exponent of FRm)
-<br/>
+<br />
 (exponent of FRn)
-</li>
 
-<li>Inexact</li>
+
+Inexact
 
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fdiv	FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FRn / FRm -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FRn / FRm → FRn" },
   code { "1111nnnnmmmm0011" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "13", SH3E, "13", SH4A, "14", SH2A, "12", SH4, "12/13" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+op2 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FDIV_S(op2, op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuEnableZ(fps) AND FpuCauseZ(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+FR n ← FloatRegister 32(op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
+
+
   description
 {R"(
 Arithmetically divides the single-precision floating-point number in FRn by the
 single-precision floating-point number in FRm, and stores the result in FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -15614,8 +18410,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction. When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and FRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fdiv.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fdiv.svg" height="300" />
 )"},
 
   note
@@ -15751,48 +18547,68 @@ void normal_fdiv_single (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
-<li>Division by zero</li>
-<li>Overflow
-<br/>
+FPU Error
+Invalid Operation
+Division by zero
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 (exponent of FRn) - (exponent of FRm) + 0x7F is not less than 0xFF
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 (exponent of FRn) - (exponent of FRm) + 0x7F is not more than 0x01
-</li>
 
-<li>Inexact</li>
+
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fsqrt	FRn",
-  SH3E, SH4, SH4A, SH2A,
-  abstract { "sqrt (FRn) -> FRn" },
+  SH3E, SH4 | SH4A | SH2A,
+  abstract { "sqrt (FRn) → FRn" },
   code { "1111nnnn01101101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH3E, "13", SH4A, "30", SH2A, "11", SH4, "11/12" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1, fps ← FSQRT_S(op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF (FpuEnableI(fps))
+THROW FPUEXC, fps;
+FR n ← FloatRegister 32(op1);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Finds the arithmetical square root of the single-precision floating-point number
 in FRn, and stores the result in FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When an exception occurs, correct
 exception information is reflected in FPSCR.cause and FPSCR.flag and FRn is not
 updated. Appropriate processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fsqrt.svg" height="128"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fsqrt.svg" height="128" />
 )"},
 
   note
@@ -15880,33 +18696,56 @@ void normal_fsqrt_single (int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
-<li>Inexact</li>
+FPU Error
+Invalid Operation
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fcmp/eq	FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "If FRn = FRm: 1 -> T\nElse: 0 -> T" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "If FRn = FRm: 1 → T\nElse: 0 → T" },
   code { "1111nnnnmmmm0100" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "2/4" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+op2 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+t, fps ← FCMPEQ_D(op1, op2, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+FPSCR ← ZeroExtend 32 (fps);
+T ← Bit(t);
+)"},
+
+
   description
 {R"(
 Arithmetically compares the two single-precision floating-point numbers in FRn
 and FRm, and stores 1 in the T bit if they are equal, or 0 otherwise.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fcmpeq.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fcmpeq.svg" height="300" />
 )"},
 
   note
 {R"(
+Special Cases:
+When FPSCR.DN is 1, a positive denormalized number is treated as +0 and a
+negative denormalized number as -0. This flush-to-zero treatment is applied before
+exception detection and special case handling.
 )"},
 
   operation
@@ -16003,27 +18842,46 @@ void fcmp_invalid (void)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
+
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fcmp/gt	FRm,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "If FRn > FRm: 1 -> T\nElse: 0 -> T" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "If FRn > FRm: 1 → T\nElse: 0 → T" },
   code { "1111nnnnmmmm0101" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "2/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+op2 ← FloatValue 32 (FRn);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+t, fps ← FCMPGT_S(op2, op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+FPSCR ← ZeroExtend 32 (fps);
+T ← Bit(t);
+)"},
+
+
   description
 {R"(
 Arithmetically compares the two single-precision floating-point numbers in FRn
 and FRm, and stores 1 in the T bit if FRn > FRm, or 0 otherwise.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fcmpgt.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fcmpgt.svg" height="300" />
 )"},
 
   note
@@ -16066,25 +18924,41 @@ void fcmp_invalid (void)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
+Invalid operation
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "float	FPUL,FRn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "(float)FPUL -> FRn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "(float)FPUL → FRn" },
   code { "1111nnnn00101101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+fpul ← SignExtend 32(FPUL);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1, fps ← FLOAT_LS(fpul, fps);
+IF (FpuEnableI(fps))
+THROW FPUEXC, fps;
+FR n ← FloatRegister 32(op1);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Taking the contents of FPUL as a 32-bit integer, converts this integer to a
 single-precision floating-point number and stores the result in FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I = 1 an FPU exception trap is generated regardless of whether
 or not an exception has occurred. When an exception occurs, correct exception
 information is reflected in FPSCR.cause and FPSCR.flag, and FRn is not updated.
@@ -16124,26 +18998,42 @@ void FLOAT_single (int n)
 
   exceptions
 {R"(
-<li>Inexact</li>
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ftrc	FRm,FPUL",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "(long)FRm -> FPUL" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "(long)FRm → FPUL" },
   code { "1111mmmm00111101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 32 (FRm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+fpul, fps ← FTRC_SL(op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+FPSCR ← ZeroExtend 32 (fps);
+FPUL ← ZeroExtend 32(fpul);
+)"},
   description
 {R"(
 Converts the single-precision floating-point number in FRm to a 32-bit integer,
 and stores the result in FPUL.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="ftrc.svg" height="128"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="ftrc.svg" height="128" />
 )"},
 
   note
@@ -16222,55 +19112,57 @@ void ftrc_invalid (int sign, int* result)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
+Invalid operation
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fipr	FVm,FVn",
-  SH4, SH4A,
-  abstract { "inner_product (FVm, FVn) -> FR[n+3]" },
+  SH4 | SH4A,
+  abstract { "inner_product (FVm, FVn) → FR[n+3]" },
   code { "1111nnmm11101101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "4/5" },
 
+
+
   description
 {R"(
 Calculates the inner products of the 4-dimensional single-precision
 floating-point vector indicated by FVn and FVm, and stores the results in
 FR[n + 3].
-<br/><br/>
+<br /><br />
 The FIPR instruction is intended for speed rather than accuracy, and therefore
 the results will differ from those obtained by using a combination of FADD and
 FMUL instructions. The FIPR execution sequence is as follows:
 <ol type="1">
-<li> Multiplies all terms.  The results are 28 bits long.</li>
-<li> Aligns these results, rounding them to fit within 30 bits.</li>
-<li> Adds the aligned values.</li>
-<li> Performs normalization and rounding.</li>
+ Multiplies all terms.  The results are 28 bits long.
+ Aligns these results, rounding them to fit within 30 bits.
+ Adds the aligned values.
+ Performs normalization and rounding.
 </ol>
 
 Special processing is performed in the following cases:
 <ol type="1">
-<li>If an input value is an sNaN, an invalid exception is generated.</li>
+If an input value is an sNaN, an invalid exception is generated.
 
-<li>If the input values to be multiplied include a combination of 0 and
-infinity, an invalid exception is generated.</li>
+If the input values to be multiplied include a combination of 0 and
+infinity, an invalid exception is generated.
 
-<li>In cases other than the above, if the input values include a qNaN, the
-result will be a qNaN.</li>
+In cases other than the above, if the input values include a qNaN, the
+result will be a qNaN.
 
-<li>In cases other than the above, if the input values include infinity:
+In cases other than the above, if the input values include infinity:
   <ol type="a">
-  <li>If multiplication results in two or more infinities and the signs are
-  different, an invalid exception will be generated.</li>
-  <li>Otherwise, correct infinities will be stored.</li>
+  If multiplication results in two or more infinities and the signs are
+  different, an invalid exception will be generated.
+  Otherwise, correct infinities will be stored.
   </ol>
 
-<li>If the input values do not include an sNaN, qNaN, or infinity, processing
-is performed in the normal way.</li>
+If the input values do not include an sNaN, qNaN, or infinity, processing
+is performed in the normal way.
 </ol>
 When FPSCR.enable.U/I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O is set, FPU
@@ -16283,10 +19175,10 @@ processing should therefore be performed by software.
 
   note
 {R"(
-FV0 = { FR0, FR1, FR2, FR3 }<br/>
-FV4 = { FR4, FR5, FR6, FR7 }<br/>
-FV8 = { FR8, FR9, FR10, FR11 }<br/>
-FV12 = { FR12, FR13, FR14, FR15 }<br/>
+FV0 = { FR0, FR1, FR2, FR3 }<br />
+FV4 = { FR4, FR5, FR6, FR7 }<br />
+FV8 = { FR8, FR9, FR10, FR11 }<br />
+FV12 = { FR12, FR13, FR14, FR15 }<br />
 )"},
 
   operation
@@ -16311,32 +19203,34 @@ void FIPR (int m, int n)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
-<li>Overflow
-<br/>
+Invalid operation
+Overflow
+<br />
 Generation of overflow exception traps
-<br/>
+<br />
 At least one of the following results is not less than 0xFC
-<br/>
-(exponent of FRn) + (exponent of FRm)<br/>
-(exponent of FR(n + 1)) + (exponent of FR(m + 1))<br/>
-(exponent of FR(n + 2)) + (exponent of FR(m + 2))<br/>
-(exponent of FR(n + 3)) + (exponent of FR(m + 3))<br/>
-</li>
-<li>Underflow</li>
-<li>Inexact</li>
+<br />
+(exponent of FRn) + (exponent of FRm)<br />
+(exponent of FR(n + 1)) + (exponent of FR(m + 1))<br />
+(exponent of FR(n + 2)) + (exponent of FR(m + 2))<br />
+(exponent of FR(n + 3)) + (exponent of FR(m + 3))<br />
+
+Underflow
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ftrv	XMTRX,FVn",
-  SH4, SH4A,
-  abstract { "transform_vector (XMTRX, FVn) -> FVn" },
+  SH4 | SH4A,
+  abstract { "transform_vector (XMTRX, FVn) → FVn" },
   code { "1111nn0111111101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "4", SH4, "5/8" },
+
+
 
   description
 {R"(
@@ -16345,39 +19239,39 @@ as a 4-row &times 4-column matrix, takes the contents of floating-point
 registers FR[n] to FR[n + 3] indicated by FVn as a 4-dimensional vector,
 multiplies the array by the vector, and stores the results in FV[n].
 
-<br/><img src="ftrv.svg" height="128"/><br/>
+<br /><img src="ftrv.svg" height="128" /><br />
 
 The FTRV instruction is intended for speed rather than accuracy, and therefore
 the results will differ from those obtained by using a combination of FADD and
 FMUL instructions. The FTRV execution sequence is as follows:
 <ol type="1">
-<li>Multiplies all terms. The results are 28 bits long.</li>
-<li>Aligns these results, rounding them to fit within 30 bits.</li>
-<li>Adds the aligned values.</li>
-<li>Performs normalization and rounding.</li>
+Multiplies all terms. The results are 28 bits long.
+Aligns these results, rounding them to fit within 30 bits.
+Adds the aligned values.
+Performs normalization and rounding.
 </ol>
 
 Special processing is performed in the following cases:
 <ol type="1">
-<li>If an input value is an sNaN, an invalid exception is generated.</li>
+If an input value is an sNaN, an invalid exception is generated.
 
-<li>If the input values to be multiplied include a combination of 0 and
-infinity, an invalid operation exception is generated.</li>
+If the input values to be multiplied include a combination of 0 and
+infinity, an invalid operation exception is generated.
 
-<li>In cases other than the above, if the input values include a qNaN, the
-result will be a qNaN.</li>
+In cases other than the above, if the input values include a qNaN, the
+result will be a qNaN.
 
-<li>In cases other than the above, if the input values include infinity:
+In cases other than the above, if the input values include infinity:
   <ol type="a">
-  <li>If multiplication results in two or more infinities and the signs are
-  different, an invalid exception will be generated.</li>
+  If multiplication results in two or more infinities and the signs are
+  different, an invalid exception will be generated.
 
-  <li>Otherwise, correct infinities will be stored.</li>
+  Otherwise, correct infinities will be stored.
   </ol>
-</li>
 
-<li>If the input values do not include an sNaN, qNaN, or infinity, processing
-is performed in the normal way.</li>
+
+If the input values do not include an sNaN, qNaN, or infinity, processing
+is performed in the normal way.
 
 </ol>
 
@@ -16449,22 +19343,24 @@ void FTRV (int n)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
-<li>Overflow</li>
-<li>Underflow</li>
-<li>Inexact</li>
+Invalid operation
+Overflow
+Underflow
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fsrra	FRn",
   SH4A,
-  abstract { "1.0 / sqrt (FRn) -> FRn" },
+  abstract { "1.0 / sqrt (FRn) → FRn" },
   code { "1111nnnn01111101" },
 
   group { SH4A, "FE" },
   issue { SH4A, "1" },
   latency { SH4A, "1" },
+
+
 
   description
 {R"(
@@ -16474,13 +19370,13 @@ and writes the result to FRn. Since the this instruction operates by
 approximation, an imprecision exception is required when the input is a
 normalized value. In other cases, the instruction does not require an
 imprecision exception.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated. When an
 exception occurs, correct exception information is reflected in FPSCR.cause and
 FPSCR.flag, and FRn is not updated. Appropriate processing should therefore be
 performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fsrra.svg" height="128"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fsrra.svg" height="128" />
 )"},
 
   note
@@ -16551,22 +19447,24 @@ void FSRRA (int n)
 
   exceptions
 {R"(
-<li>FPU error</li>
-<li>Invalid operation</li>
-<li>Division by zero</li>
-<li>Inexact</li>
+FPU error
+Invalid operation
+Division by zero
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fsca	FPUL,DRn",
   SH4A,
-  abstract { "sin (FPUL) -> FRn\ncos (FPUL) -> FR[n+1]" },
+  abstract { "sin (FPUL) → FRn\ncos (FPUL) → FR[n+1]" },
   code { "1111nnn011111101" },
 
   group { SH4A, "FE" },
   issue { SH4A, "1" },
   latency { SH4A, "3" },
+
+
 
   description
 {R"(
@@ -16576,15 +19474,15 @@ places the values of the sine and cosine in FRn and FR[n + 1], respectively.
 Since this instruction is an approximate operation instruction, an imprecision
 exception is always required (even if the input is a 0, the result is
 imprecise).
-<br/><br/>
+<br /><br />
 The input angle is specified as a signed fraction in twos complement.  The
 result of sin and cos is a single-precision floating-point number.
-<br/>
+<br />
 0x7FFFFFFF to 0x00000001:
 360&times;2<sup>15</sup>&minus;360/2<sup>16</sup> to 360/2<sup>16</sup> degrees
-<br/>
+<br />
 0x00000000: 0 degree
-<br/>
+<br />
 0xFFFFFFFF to 0x80000000:
 &minus;360/2<sup>16</sup> to &minus;360&times2<sup>15</sup> degrees
 )"},
@@ -16625,7 +19523,7 @@ void FSCA (int n)
 
   exceptions
 {R"(
-<li>Inexact</li>
+Inexact
 )"},
 },
 
@@ -16637,13 +19535,26 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fabs	DRn",
-  SH4, SH4A, SH2A,
-  abstract { "DRn & 0x7FFFFFFFFFFFFFFF -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "DRn & 0x7FFFFFFFFFFFFFFF → DRn" },
   code { "1111nnn001011101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0", SH4, "0" },
+
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1 ← FABS_D(op1);
+DR 2n ← FloatRegister 64 (op1);
+)"},
 
   description
 {R"(
@@ -16654,7 +19565,7 @@ to 0, and stores the result in DRn.
   note
 {R"(
 The cause and flag fields in FPSCR are not updated.
-<br/><br/>
+<br /><br />
 A double-precision floating-point register DRn consists of a single-precision
 floating-point register pair FRn:FRn+1, where FRn is the high part and FRn+1 is
 the low part.  This instruction operates only on the high part and thus the
@@ -16684,14 +19595,26 @@ void FABS (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fneg	DRn",
-  SH4, SH4A, SH2A,
-  abstract { "DRn ^ 0x8000000000000000 -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "DRn ^ 0x8000000000000000 → DRn" },
   code { "1111nnn001001101" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0", SH4, "0" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1 ← FNEG_D(op1);
+DR 2n ← FloatRegister 64 (op1);
+)"},
   description
 {R"(
 Inverts the most significant bit (sign bit) of the contents of floating-point
@@ -16701,7 +19624,7 @@ register DRn, and stores the result in DRn.
   note
 {R"(
 The cause and flag fields in FPSCR are not updated.
-<br/><br/>
+<br /><br />
 A double-precision floating-point register DRn consists of a single-precision
 floating-point register pair FRn:FRn+1, where FRn is the high part and FRn+1 is
 the low part.  This instruction operates only on the high part and thus the
@@ -16731,19 +19654,41 @@ void FNEG (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fadd	DRm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "DRn + DRm -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "DRn + DRm → DRn" },
   code { "1111nnn0mmm00000" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/8", SH4, "7/9" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+op2 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FADD_D(op1, op2, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+DR 2n ← FloatRegister 64 (op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
+
   description
 {R"(
 Arithmetically adds the two double-precision floating-point numbers in DRn and
 DRm, and stores the result in DRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -16751,8 +19696,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction. When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and DRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fadd.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fadd.svg" height="300" />
 )"},
 
   note
@@ -16839,42 +19784,63 @@ void FADD (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
+FPU Error
+Invalid Operation
 
-<li>Overflow
-<br/>
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 DRn and DRm have the same sign and the exponent of at least one value is 0x7FE
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 DRn and DRm have different signs and neither has an exponent greater than 0x035
-</li>
 
-<li>Inexact</li>
+
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fsub	DRm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "DRn - DRm -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "DRn - DRm → DRn" },
   code { "1111nnn0mmm00001" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/8", SH4, "7/9" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+op2 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FSUB_D(op2, op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+DR 2n ← FloatRegister 64 (op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Arithmetically subtracts the double-precision floating-point number in DRm from
 the double-precision floating-point number in DRn, and stores the result in DRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -16882,8 +19848,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction.  When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and DRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fsub.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fsub.svg" height="300" />
 )"},
 
   note
@@ -16970,42 +19936,63 @@ void FSUB (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
+FPU Error
+Invalid Operation
 
-<li>Overflow
-<br/>
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 DRn and DRm have the same sign and the exponent of at least one value is 0x7FE
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 DRn and DRm have different signs and neither has an exponent greater than 0x035
-</li>
 
-<li>Inexact</li>
+
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmul	DRm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "DRn * DRm -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "DRn × DRm → DRn" },
   code { "1111nnn0mmm00010" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "3", SH2A, "0/8", SH4, "7/9" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+op2 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FMUL_D(op1, op2, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+DR 2n ← FloatRegister 64 (op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Arithmetically multiplies the two double-precision floating-point numbers in
 DRn and DRm, and stores the result in FRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -17013,8 +20000,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction. When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and DRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fmuld.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fmuld.svg" height="300" />
 )"},
 
   note
@@ -17093,43 +20080,68 @@ void FMUL (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
+FPU Error
+Invalid Operation
 
-<li>Overflow
-<br/>
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 (exponent of DRn) + (exponent of DRm) - 0x3FF is not less than 0x7FE
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 (exponent of DRn) + (exponent of DRm) - 0x3FF is not more than 0x000
-</li>
 
-<li>Inexact</li>
+
+Inexact
 
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fdiv	DRm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "DRn / DRm -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "DRn / DRm → DRn" },
   code { "1111nnn0mmm00011" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "14", SH2A, "0/24", SH4, "24/26" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+op2 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op2, fps ← FDIV_D(op2, op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuEnableZ(fps) AND FpuCauseZ(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+DR 2n ← FloatRegister 64 (op2);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
+
+
   description
 {R"(
 Arithmetically divides the double-precision floating-point number in DRn by the
 double-precision floating-point number in DRm, and stores the result in DRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -17137,8 +20149,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction. When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag and DRn is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fdiv.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fdiv.svg" height="300" />
 )"},
 
   note
@@ -17277,48 +20289,68 @@ void normal_fdiv_double (int m, int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
-<li>Division by zero</li>
-<li>Overflow
-<br/>
+FPU Error
+Invalid Operation
+Division by zero
+Overflow
+<br />
 Generation of overflow-exception traps
-<br/>
+<br />
 (exponent of DRn) - (exponent of DRm) + 0x3FF is not less than 0x7FF
-</li>
 
-<li>Underflow
-<br/>
+
+Underflow
+<br />
 Generation of underflow-exception traps
-<br/>
+<br />
 (exponent of DRn) - (exponent of DRm) + 0x3FF is not more than 0x001
-</li>
 
-<li>Inexact</li>
+
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fsqrt	DRn",
-  SH4, SH4A, SH2A,
-  abstract { "sqrt (DRn) -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "sqrt (DRn) → DRn" },
   code { "1111nnn001101101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "30", SH2A, "0/24", SH4, "23/25" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1, fps ← FSQRT_D(op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF (FpuEnableI(fps))
+THROW FPUEXC, fps;
+DR 2n ← FloatRegister 64 (op1);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Finds the arithmetical square root of the double-precision floating-point number
 in DRn, and stores the result in DRn.
-<br/><br/>
+<br /><br />
 When FPSCR.enable.I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When an exception occurs, correct
 exception information is reflected in FPSCR.cause and FPSCR.flag and DRn is not
 updated. Appropriate processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fsqrt.svg" height="128"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fsqrt.svg" height="128" />
 )"},
 
   note
@@ -17409,29 +20441,47 @@ void normal_fsqrt_double (int n)
 
   exceptions
 {R"(
-<li>FPU Error</li>
-<li>Invalid Operation</li>
-<li>Inexact</li>
+FPU Error
+Invalid Operation
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fcmp/eq	DRm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "If DRn = DRm: 1 -> T\nElse: 0 -> T" },
+  SH4 | SH4A | SH2A,
+  abstract { "If DRn = DRm: 1 → T\nElse: 0 → T" },
   code { "1111nnn0mmm00100" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "FE", SH4, "CO" },
   issue { SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH4A, "1", SH2A, "3", SH4, "3/5" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+op2 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+t, fps ← FCMPEQ_D(op1, op2, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+FPSCR ← ZeroExtend 32 (fps);
+T ← Bit(t);
+)"},
+
   description
 {R"(
 Arithmetically compares the two double-precision floating-point numbers in DRn
 and DRm, and stores 1 in the T bit if they are equal, or 0 otherwise.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fcmpeq.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fcmpeq.svg" height="300" />
 )"},
 
   note
@@ -17531,27 +20581,46 @@ void fcmp_invalid (void)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
+Invalid operation
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fcmp/gt	DRm,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "If DRn > DRm: 1 -> T\nElse: 0 -> T" },
+  SH4 | SH4A | SH2A,
+  abstract { "If DRn > DRm: 1 → T\nElse: 0 → T" },
   code { "1111nnn0mmm00101" },
-  t_bit { "Result" },
+  flags { "Result → T" },
 
   group { SH4A, "FE", SH4, "CO" },
   issue { SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH4A, "1", SH2A, "3", SH4, "3/5" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+op2 ← FloatValue 64 (DR2n );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+t, fps ← FCMPGT_D(op2, op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+FPSCR ← ZeroExtend 32 (fps);
+T ← Bit(t);
+)"},
+
+
   description
 {R"(
 Arithmetically compares the two double-precision floating-point numbers in DRn
 and DRm, and stores 1 in the T bit if DRn > DRm, or 0 otherwise.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fcmpgt.svg" height="300"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fcmpgt.svg" height="300" />
 )"},
 
   note
@@ -17593,19 +20662,33 @@ void fcmp_invalid (void)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
+Invalid operation
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "float	FPUL,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "(double)FPUL -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "(double)FPUL → DRn" },
   code { "1111nnn000101101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "3/5" },
+
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+fpul ← SignExtend 32(FPUL);
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1, fps ← FLOAT_LD(fpul, fps);
+DR 2n ← FloatRegister 64 (op1);
+)"},
 
   description
 {R"(
@@ -17648,20 +20731,36 @@ void FLOAT_double (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ftrc	DRm,FPUL",
-  SH4, SH4A, SH2A,
-  abstract { "(long)DRm -> FPUL" },
+  SH4 | SH4A | SH2A,
+  abstract { "(long)DRm → FPUL" },
   code { "1111mmm000111101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "4/5" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+fpul, fps ← FTRC_DL(op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+FPUL ← ZeroExtend 32(fpul);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
   description
 {R"(
 Converts the double-precision floating-point number in DRm to a 32-bit integer,
 and stores the result in FPUL.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="ftrc.svg" height="128"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="ftrc.svg" height="128" />
 )"},
 
   note
@@ -17737,25 +20836,47 @@ void ftrc_invalid (int sign, int* result)
 
   exceptions
 {R"(
-<li>Invalid operation</li>
+Invalid operation
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fcnvds	DRm,FPUL",
-  SH4, SH4A, SH2A,
-  abstract { "double_to_float (DRm) -> FPUL" },
+  SH4 | SH4A | SH2A,
+  abstract { "double_to_float (DRm) → FPUL" },
   code { "1111mmm010111101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "4", SH4, "4/5" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+op1 ← FloatValue 64 (DR2m);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+fpul, fps ← FCNV_DS(op1, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
+THROW FPUEXC, fps;
+FPSCR ← ZeroExtend 32 (fps);
+FPUL ← ZeroExtend 32(fpul);
+)"},
+
+
   description
 {R"(
 Converts the double-precision floating-point number in DRm to a single-precision
 floating-point number, and stores the result in FPUL.
-<br/><br/>
+<br /><br />
 When FPSCR.enable. I is set, an FPU exception trap is generated regardless of
 whether or not an exception has occurred. When FPSCR.enable.O/U is set, FPU
 exception traps are generated on actual generation by the FPU exception source
@@ -17763,8 +20884,8 @@ and on the satisfaction of certain special conditions that apply to this the
 instruction. When an exception occurs, correct exception information is
 reflected in FPSCR.cause and FPSCR.flag, and FPUL is not updated. Appropriate
 processing should therefore be performed by software.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fcnvds.svg" height="128"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fcnvds.svg" height="128" />
 )"},
 
   note
@@ -17854,42 +20975,62 @@ void normal_fcnvds (int m, float* result)
 
   exceptions
 {R"(
-<li>FPU error</li>
-<li>Invalid operation</li>
-<li>Overflow
-</br>
+FPU error
+Invalid operation
+Overflow
+<br />
 Generation of overflow exception traps
-</br>
+<br />
 The exponent of DRn is not less than 0x47E
-</li>
 
-<li>Underflow
-</br>
+
+Underflow
+<br />
 Generation of underflow exception traps
-</br>
+<br />
 The exponent of DRn is not more than 0x380
-</li>
 
-<li>Inexact</li>
+
+Inexact
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fcnvsd	FPUL,DRn",
-  SH4, SH4A, SH2A,
-  abstract { "float_to_double (FPUL) -> DRn" },
+  SH4 | SH4A | SH2A,
+  abstract { "float_to_double (FPUL) → DRn" },
   code { "1111nnn010101101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "4", SH4, "3/5" },
 
+  restriction { "Available only when PR=1 and SZ=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fps ← ZeroExtend 32 (FPSCR);
+fpul ← SignExtend 32(FPUL);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+op1, fps ← FCNV_SD(fpul, fps);
+IF (FpuEnableV(fps) AND FpuCauseV(fps))
+THROW FPUEXC, fps;
+IF (FpuCauseE(fps))
+THROW FPUEXC, fps;
+DR 2n ← FloatRegister 64 (op1);
+FPSCR ← ZeroExtend 32 (fps);
+)"},
+
+
   description
 {R"(
 Converts the single-precision floating-point number in FPUL to a
 double-precision floating-point number, and stores the result in DRn.
-<br/><br/><b><i>Operation result special cases</b></i>
-<br/><img src="fcnvsd.svg" height="128"/>
+<br /><br /><b><i>Operation result special cases</i></b>
+<br /><img src="fcnvsd.svg" height="128" />
 )"},
 
   note
@@ -17968,8 +21109,8 @@ int fpul_type ()
 
   exceptions
 {R"(
-<li>FPU error</li>
-<li>Invalid operation</li>
+FPU error
+Invalid operation
 )"},
 },
 
@@ -17982,14 +21123,28 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,FPSCR",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "Rm -> FPSCR" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "Rm → FPSCR" },
   code { "0100mmmm01101010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "4" },
 
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+fps, pr, sz, fr ← UnpackFPSCR(op1);
+FPSCR ← ZeroExtend 32 (fps);
+SR.PR ← Bit(pr);
+SR.SZ ← Bit(sz);
+SR.FR ← Bit(fr);
+)"},
   description
 {R"(
 Loads the source operand into FPU system register FPSCR.
@@ -18029,13 +21184,15 @@ void LDSFPSCR (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	FPSCR,Rn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FPSCR -> Rn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FPSCR → Rn" },
   code { "0000nnnn01101010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "3" },
+
+
 
   description
 {R"(
@@ -18076,14 +21233,32 @@ void STSFPSCR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,FPSCR",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "(Rm) -> FPSCR, Rm+4 -> Rm" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "(Rm) → FPSCR, Rm+4 → Rm" },
   code { "0100mmmm01100110" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3" },
 
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+value ← ReadMemory 32(address);
+fps, pr, sz, fr ← UnpackFPSCR(value);
+op1 ← op1 + 4;
+R m ← Register(op1);
+FPSCR ← ZeroExtend 32 (fps);
+SR.PR ← Bit(pr);
+SR.SZ ← Bit(sz);
+SR.FR ← Bit(fr);
+)"},
   description
 {R"(
 Loads the source operand into FPU system register FPSCR.
@@ -18118,22 +21293,24 @@ void LDSMFPSCR (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	FPSCR,@-Rn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "Rn-4 -> Rn, FPSCR -> (Rn)" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "Rn-4 → Rn, FPSCR → (Rn)" },
   code { "0100nnnn01100010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
+
+
 
   description
 {R"(
@@ -18170,24 +21347,36 @@ void STSMFPSCR (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds	Rm,FPUL",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "Rm -> FPUL" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "Rm → FPUL" },
   code { "0100mmmm01011010" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
 
+  name { "Load to FPU System register" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+fpul ← op1;
+FPUL ← ZeroExtend 32(fpul);
+)"},
   description
 {R"(
 Loads the source operand into FPU system register FPUL.
@@ -18220,14 +21409,15 @@ void LDSFPUL (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts	FPUL,Rn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "FPUL -> Rn" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "FPUL → Rn" },
   code { "0000nnnn01011010" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "3" },
 
+  name { "Store from FPU System Register" },
   description
 {R"(
 Stores FPU system register FPUL in the destination.
@@ -18263,14 +21453,29 @@ void STSFPUL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l	@Rm+,FPUL",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "(Rm) -> FPUL, Rm+4 -> Rm" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "(Rm) → FPUL, Rm+4 → Rm" },
   code { "0100mmmm01010110" },
 
   group { SH4A, "LS", SH4, "LS" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
+  name { "Load to FPU System register" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+op1 ← SignExtend 32 (Rm );
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+address ← ZeroExtend 32(op1);
+fpul ← ReadMemory 32 (address);
+op1 ← op1 + 4;
+R m ← Register(op1);
+FPUL ← ZeroExtend 32(fpul);
+)"},
   description
 {R"(
 
@@ -18298,23 +21503,24 @@ void LDSMFPUL (int m)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l	FPUL,@-Rn",
-  SH2E, SH3E, SH4, SH4A, SH2A,
-  abstract { "Rn-4 -> Rn, FPUL -> (Rn)" },
+  SH2E | SH3E | SH4 | SH4A | SH2A,
+  abstract { "Rn-4 → Rn, FPUL → (Rn)" },
   code { "0100nnnn01010010" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "1/1" },
 
+  name { "Store from FPU System Register" },
   description
 {R"(
 Stores FPU system register FPUL in the destination.
@@ -18342,24 +21548,36 @@ void STSMFPUL (int n)
 
   exceptions
 {R"(
-<li>Data TLB multiple-hit exception</li>
-<li>Data TLB miss exception</li>
-<li>Data TLB protection violation exception</li>
-<li>Data address error</li>
-<li>Initial page write exception</li>
+Data TLB multiple-hit exception
+Data TLB miss exception
+Data TLB protection violation exception
+Data address error
+Initial page write exception
 )"},
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "frchg",
-  SH4, SH4A,
-  abstract { "If FPSCR.PR = 0: ~FPSCR.FR -> FPSCR.FR\nElse: Undefined Operation" },
+  SH4 | SH4A,
+  abstract { "If FPSCR.PR = 0: ~FPSCR.FR → FPSCR.FR\nElse: Undefined Operation" },
   code { "1111101111111101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+fr ← ZeroExtend 1 (SR.FR);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+fr ← fr ⊕ 1;
+SR.FR ← Bit(fr);
+)"},
   description
 {R"(
 Inverts the FR bit in floating-point register FPSCR. When the FR bit in FPSCR is
@@ -18403,14 +21621,26 @@ void FRCHG (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fschg",
-  SH2A, SH4, SH4A,
-  abstract { "If FPSCR.PR = 0: ~FPSCR.SZ -> FPSCR.SZ\nElse: Undefined Operation" },
+  SH2A | SH4 | SH4A,
+  abstract { "If FPSCR.PR = 0: ~FPSCR.SZ → FPSCR.SZ\nElse: Undefined Operation" },
   code { "1111001111111101" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "1", SH4, "1/4" },
 
+  restriction { "Available only when PR=0" },
+  brief
+{R"(
+sr ← ZeroExtend 32 (SR);
+sz ← ZeroExtend1 (SR.SZ);
+IF (FpuIsDisabled(sr) AND IsDelaySlot())
+THROW SLOTFPUDIS;
+IF (FpuIsDisabled(sr))
+THROW FPUDIS;
+sz ← sz ⊕ 1;
+SR.SZ ← Bit(sz);
+)"},
   description
 {R"(
 Inverts the SZ bit of the floating-point status register FPSCR. Changing the
@@ -18454,12 +21684,14 @@ void FSCHG (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fpchg",
   SH4A,
-  abstract { "~FPSCR.PR -> FPSCR.PR" },
+  abstract { "~FPSCR.PR → FPSCR.PR" },
   code { "1111011111111101" },
 
   group { SH4A, "FE" },
   issue { SH4A, "1" },
   latency { SH4A, "1" },
+
+
 
   description
 {R"(
@@ -18507,6 +21739,8 @@ insn { "nopx",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
+
+
   description
 {R"(
 No access operation for X memory.
@@ -18536,11 +21770,13 @@ No access operation for X memory.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movx.w	@Ax,Dx",
   SH_DSP,
-  abstract { "(Ax) -> MSW of Dx, 0 -> LSW of Dx" },
+  abstract { "(Ax) → MSW of Dx, 0 → LSW of Dx" },
   code { "111100A*D*0*01**" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18553,9 +21789,9 @@ zeros.
   note
 {R"(
 "*" of the instruction code is MOVY instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
-<br/>
+<br />
 LSW = Low-order word of operand.
 )"},
 
@@ -18579,11 +21815,13 @@ MOVX.W  @R4,X0   ! Before execution: R4 = 0x08010000, @R4 = 0x5555, X0 = 0x12345
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movx.w	@Ax+,Dx",
   SH_DSP,
-  abstract { "(Ax) -> MSW of Dx, 0 -> LSW of Dx, Ax+2 -> Ax" },
+  abstract { "(Ax) → MSW of Dx, 0 → LSW of Dx, Ax+2 → Ax" },
   code { "111100A*D*0*10**" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18596,9 +21834,9 @@ zeros.
   note
 {R"(
 "*" of the instruction code is MOVY instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
-<br/>
+<br />
 LSW = Low-order word of operand.
 )"},
 
@@ -18622,11 +21860,13 @@ MOVX.W  @R4+,X0  ! Before execution: R4 = 0x08010000, @R4 = 0x5555, X0 = 0x12345
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movx.w	@Ax+Ix,Dx",
   SH_DSP,
-  abstract { "(Ax) -> MSW of Dx, 0 -> LSW of Dx, Ax+Ix -> Ax" },
+  abstract { "(Ax) → MSW of Dx, 0 → LSW of Dx, Ax+Ix → Ax" },
   code { "111100A*D*0*11**" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18639,9 +21879,9 @@ zeros.
   note
 {R"(
 "*" of the instruction code is MOVY instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
-<br/>
+<br />
 LSW = Low-order word of operand.
 )"},
 
@@ -18664,11 +21904,13 @@ LSW = Low-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movx.w	Da,@Ax",
   SH_DSP,
-  abstract { "MSW of Da -> (Ax)" },
+  abstract { "MSW of Da → (Ax)" },
   code { "111100A*D*1*01**" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18680,7 +21922,7 @@ is the top word of the register.
   note
 {R"(
 "*" of the instruction code is MOVY instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
 )"},
 
@@ -18703,11 +21945,13 @@ MSW = High-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movx.w	Da,@Ax+",
   SH_DSP,
-  abstract { "MSW of Da -> (Ax), Ax+2 -> Ax" },
+  abstract { "MSW of Da → (Ax), Ax+2 → Ax" },
   code { "111100A*D*1*10**" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18719,7 +21963,7 @@ is the top word of the register.
   note
 {R"(
 "*" of the instruction code is MOVY instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
 )"},
 
@@ -18742,11 +21986,13 @@ MSW = High-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movx.w	Da,@Ax+Ix",
   SH_DSP,
-  abstract { "MSW of Da -> (Ax), Ax+Ix -> Ax" },
+  abstract { "MSW of Da → (Ax), Ax+Ix → Ax" },
   code { "111100A*D*1*11**" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18758,7 +22004,7 @@ is the top word of the register.
   note
 {R"(
 "*" of the instruction code is MOVY instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
 )"},
 
@@ -18786,6 +22032,8 @@ insn { "nopy",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18816,11 +22064,13 @@ No access operation for Y memory.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movy.w	@Ay,Dy",
   SH_DSP,
-  abstract { "(Ay) -> MSW of Dy, 0 -> LSW of Dy" },
+  abstract { "(Ay) → MSW of Dy, 0 → LSW of Dy" },
   code { "111100*A*D*0**01" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18833,9 +22083,9 @@ zeros.
   note
 {R"(
 "*" of the instruction code is MOVX instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
-<br/>
+<br />
 LSW = Low-order word of operand.
 )"},
 
@@ -18858,11 +22108,13 @@ LSW = Low-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movy.w	@Ay+,Dy",
   SH_DSP,
-  abstract { "(Ay) -> MSW of Dy, 0 -> LSW of Dy, Ay+2 -> Ay" },
+  abstract { "(Ay) → MSW of Dy, 0 → LSW of Dy, Ay+2 → Ay" },
   code { "111100*A*D*0**10" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18875,9 +22127,9 @@ zeros.
   note
 {R"(
 "*" of the instruction code is MOVX instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
-<br/>
+<br />
 LSW = Low-order word of operand.
 )"},
 
@@ -18900,11 +22152,13 @@ LSW = Low-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movy.w	@Ay+Iy,Dy",
   SH_DSP,
-  abstract { "(Ay) -> MSW of Dy, 0 -> LSW of Dy, Ay+Iy -> Ay" },
+  abstract { "(Ay) → MSW of Dy, 0 → LSW of Dy, Ay+Iy → Ay" },
   code { "111100*A*D*0**11" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18917,9 +22171,9 @@ zeros.
   note
 {R"(
 "*" of the instruction code is MOVX instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
-<br/>
+<br />
 LSW = Low-order word of operand.
 )"},
 
@@ -18942,11 +22196,13 @@ LSW = Low-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movy.w	Da,@Ay",
   SH_DSP,
-  abstract { "MSW of Da -> (Ay)" },
+  abstract { "MSW of Da → (Ay)" },
   code { "111100*A*D*1**01" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18958,7 +22214,7 @@ is the top word of the register.
   note
 {R"(
 "*" of the instruction code is MOVX instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
 )"},
 
@@ -18981,11 +22237,13 @@ MSW = High-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movy.w	Da,@Ay+",
   SH_DSP,
-  abstract { "MSW of Da -> (Ay), Ay+2 -> Ay" },
+  abstract { "MSW of Da → (Ay), Ay+2 → Ay" },
   code { "111100*A*D*1**10" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -18997,7 +22255,7 @@ is the top word of the register.
   note
 {R"(
 "*" of the instruction code is MOVX instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
 )"},
 
@@ -19020,11 +22278,13 @@ MSW = High-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movy.w	Da,@Ay+Iy",
   SH_DSP,
-  abstract { "MSW of Da -> (Ay), Ay+Iy -> Ay" },
+  abstract { "MSW of Da → (Ay), Ay+Iy → Ay" },
   code { "111100*A*D*1**11" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19036,7 +22296,7 @@ is the top word of the register.
   note
 {R"(
 "*" of the instruction code is MOVX instruction designation area.
-<br/>
+<br />
 MSW = High-order word of operand.
 )"},
 
@@ -19059,11 +22319,13 @@ MSW = High-order word of operand.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	@-As,Ds",
   SH_DSP,
-  abstract { "As-2 -> As, (As) -> MSW of Ds, 0 -> LSW of Ds" },
+  abstract { "As-2 → As, (As) → MSW of Ds, 0 → LSW of Ds" },
   code { "111101AADDDD0000" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19097,11 +22359,13 @@ guard bits, the sign is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	@As,Ds",
   SH_DSP,
-  abstract { "(As) -> MSW of Ds, 0 -> LSW of Ds" },
+  abstract { "(As) → MSW of Ds, 0 → LSW of Ds" },
   code { "111101AADDDD0100" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19135,11 +22399,13 @@ guard bits, the sign is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	@As+,Ds",
   SH_DSP,
-  abstract { "(As) -> MSW of Ds, 0 -> LSW of Ds, As+2 -> As" },
+  abstract { "(As) → MSW of Ds, 0 → LSW of Ds, As+2 → As" },
   code { "111101AADDDD1000" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19173,11 +22439,13 @@ guard bits, the sign is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	@As+Ix,Ds",
   SH_DSP,
-  abstract { "(As) -> MSW of Ds, 0 -> LSW of DS, As+Ix -> As" },
+  abstract { "(As) → MSW of Ds, 0 → LSW of DS, As+Ix → As" },
   code { "111101AADDDD1100" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19211,11 +22479,13 @@ guard bits, the sign is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	Ds,@-As",
   SH_DSP,
-  abstract { "As-2 -> As, MSW of Ds -> (As)" },
+  abstract { "As-2 → As, MSW of Ds → (As)" },
   code { "111101AADDDD0001" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19248,11 +22518,13 @@ sign extended and stored as a word.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	Ds,@As",
   SH_DSP,
-  abstract { "MSW of Ds -> (As)" },
+  abstract { "MSW of Ds → (As)" },
   code { "111101AADDDD0101" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19285,11 +22557,13 @@ sign extended and stored as a word.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	Ds,@As+",
   SH_DSP,
-  abstract { "MSW of Ds -> (As), As+2 -> As" },
+  abstract { "MSW of Ds → (As), As+2 → As" },
   code { "111101AADDDD1001" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19322,11 +22596,13 @@ sign extended and stored as a word.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.w	Ds,@As+Is",
   SH_DSP,
-  abstract { "MSW of DS -> (As), As+Is -> As" },
+  abstract { "MSW of DS → (As), As+Is → As" },
   code { "111101AADDDD1101" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19359,11 +22635,13 @@ sign extended and stored as a word.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	@-As,Ds",
   SH_DSP,
-  abstract { "As-4 -> As, (As) -> Ds" },
+  abstract { "As-4 → As, (As) → Ds" },
   code { "111101AADDDD0010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19396,11 +22674,13 @@ is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	@As,Ds",
   SH_DSP,
-  abstract { "(As) -> Ds" },
+  abstract { "(As) → Ds" },
   code { "111101AADDDD0110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19433,11 +22713,13 @@ is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	@As+,Ds",
   SH_DSP,
-  abstract { "(As) -> Ds, As+4 -> As" },
+  abstract { "(As) → Ds, As+4 → As" },
   code { "111101AADDDD1010" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19470,11 +22752,13 @@ is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	@As+Is,Ds",
   SH_DSP,
-  abstract { "(As) -> Ds, As+Is -> As" },
+  abstract { "(As) → Ds, As+Is → As" },
   code { "111101AADDDD1110" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19507,11 +22791,13 @@ is extended and stored in the guard bits.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	Ds,@-As",
   SH_DSP,
-  abstract { "As-4 -> As, Ds -> (As)" },
+  abstract { "As-4 → As, Ds → (As)" },
   code { "111101AADDDD0011" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19544,11 +22830,13 @@ sign extended and stored as a word.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	Ds,@As",
   SH_DSP,
-  abstract { "Ds -> (As)" },
+  abstract { "Ds → (As)" },
   code { "111101AADDDD0111" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19581,11 +22869,13 @@ sign extended and stored as a word.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	Ds,@As+",
   SH_DSP,
-  abstract { "Ds -> (As), As+4 -> As" },
+  abstract { "Ds → (As), As+4 → As" },
   code { "111101AADDDD1011" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19618,11 +22908,13 @@ sign extended and stored as a word.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movs.l	Ds,@As+Is",
   SH_DSP,
-  abstract { "Ds -> (As), As+Is -> As" },
+  abstract { "Ds → (As), As+Is → As" },
   code { "111101AADDDD1111" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19661,19 +22953,21 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pabs		Sx,Dz",
   SH_DSP,
-  abstract { "If Sx >= 0: Sx -> Dz\nIf Sx < 0: 0 - Sx -> Dz" },
+  abstract { "If Sx >= 0: Sx → Dz\nIf Sx < 0: 0 - Sx → Dz" },
   code { "111110********** 10001000xx00zzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
 Finds absolute values. When the Sx operand is positive, the contents of the
 operand are transferred to the Dz operand. If the value is negative, the value
 of the Sx operand is subtracted from 0 and stored in the Dz operand.
-<br/><br/>
+<br /><br />
 The DC bit of the DSR register are updated according to the specifications of
 the CS bits. The N, Z, V, and GT bits of the DSR register are updated.
 )"},
@@ -19764,19 +23058,21 @@ void pabs_sx (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pabs		Sy,Dz",
   SH_DSP,
-  abstract { "If Sy >= 0: Sy -> Dz\nIf Sy < 0: 0 - Sy -> Dz" },
+  abstract { "If Sy >= 0: Sy → Dz\nIf Sy < 0: 0 - Sy → Dz" },
   code { "111110********** 1010100000yyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
 Finds absolute values. When the Sy operand is positive, the contents of the
 operand are transferred to the Dz operand. If the value is negative, the value
 of the Sy operand is subtracted from 0 and stored in the Dz operand.
-<br/><br/>
+<br /><br />
 The DC bit of the DSR register are updated according to the specifications of
 the CS bits. The N, Z, V, and GT bits of the DSR register are updated.
 )"},
@@ -19862,12 +23158,14 @@ void pabs_sy (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "padd		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx + Sy -> Dz" },
+  abstract { "Sx + Sy → Dz" },
   code { "111110********** 10110001xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -19967,11 +23265,13 @@ PADD   X0,Y0,A0   NOPX   NOPY    ! Before execution: X0 = 0x22222222, Y0 = 0x333
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct padd	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx + Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx + Sy → Dz\nElse: nop" },
   code { "111110********** 10110010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20082,11 +23382,13 @@ void padd_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf padd	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx + Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx + Sy → Dz\nElse: nop" },
   code { "111110********** 10110011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20197,12 +23499,14 @@ void padd_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "padd		Sx,Sy,Du\npmuls		Se,Sf,Dg",
   SH_DSP,
-  abstract { "Sx + Sy -> Du\nMSW of Se * MSW of Sf -> Dg" },
+  abstract { "Sx + Sy → Du\nMSW of Se × MSW of Sf → Dg" },
   code { "111110********** 0111eeffxxyygguu" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20210,7 +23514,7 @@ Adds the contents of the Sx and Sy operands and stores the result in the Du
 operand. The contents of the top word of the Se and Sf operands are multiplied
 as signed and the result stored in the Dg operand. These two processes are
 executed simultaneously in parallel.
-<br/><br/>
+<br /><br />
 The DC bit of the DSR register is updated according to the results of the ALU
 operation and the specifications for the CS bits. The N, Z, V, and GT bits of
 the DSR register are also updated according to the results of the ALU operation.
@@ -20287,12 +23591,14 @@ PADD  A0,M0,A0  PMULS X0,YO,MO  NOPX  NOPY
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "paddc		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx + Sy + DC -> Dz" },
+  abstract { "Sx + Sy + DC → Dz" },
   code { "111110********** 10110000xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20306,7 +23612,7 @@ The N, Z, V, and GT bits of the DSR register are also updated.
 {R"(
 The DC bit is updated as the carry flag after execution of the PADDC instruction
 regardless of the CS bits.
-<br/><br/>
+<br /><br />
 CS[2:0] = ***: Always operate as Carry or Borrow mode, regardless of the status
 of the DC bit.
 )"},
@@ -20402,12 +23708,14 @@ PADDC X0,Y0,M0  NOPX  NOPY   ! Before execution: X0 = 0x33333333, Y0 = 0x5555555
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pclr		Dz",
   SH_DSP,
-  abstract { "0x00000000 -> Dz" },
+  abstract { "0x00000000 → Dz" },
   code { "111110********** 100011010000zzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20456,11 +23764,13 @@ PCLR  A0  NOPX  NOPY   ! Before execution: A0 = 0xFF87654321
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pclr	Dz",
   SH_DSP,
-  abstract { "If DC = 1: 0x00000000 -> Dz\nElse: nop" },
+  abstract { "If DC = 1: 0x00000000 → Dz\nElse: nop" },
   code { "111110********** 100011100000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20496,11 +23806,13 @@ void pclr_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pclr	Dz",
   SH_DSP,
-  abstract { "If DC = 0: 0x00000000 -> Dz\nElse: nop" },
+  abstract { "If DC = 0: 0x00000000 → Dz\nElse: nop" },
   code { "111110********** 100011110000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20538,10 +23850,12 @@ insn { "pcmp		Sx,Sy",
   SH_DSP,
   abstract { "Sx - Sy" },
   code { "111110********** 10000100xxyy0000" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20647,12 +23961,14 @@ PCMP  X0,Y0  NOPX  NOPY  ! Before execution: X0 = 0x22222222, Y0 = 0x33333333
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pcopy		Sx,Dz",
   SH_DSP,
-  abstract { "Sx -> Dz" },
+  abstract { "Sx → Dz" },
   code { "111110********** 11011001xx00zzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20729,12 +24045,14 @@ void pcopy_sx (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pcopy		Sy,Dz",
   SH_DSP,
-  abstract { "Sy -> Dz" },
+  abstract { "Sy → Dz" },
   code { "111110********** 1111100100yyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20806,11 +24124,13 @@ PCOPY  X0,A0  NOPX  NOPY  ! Before execution: X0 = 0x55555555, A0 = 0xFFFFFFFF
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pcopy	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx -> Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx → Dz\nElse: nop" },
   code { "111110********** 11011010xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20901,11 +24221,13 @@ void pcopy_sx_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pcopy	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 1: Sy → Dz\nElse: nop" },
   code { "111110********** 1111101000yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -20991,11 +24313,13 @@ void pcopy_sy_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pcopy	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx -> Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx → Dz\nElse: nop" },
   code { "111110********** 11011011xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21086,11 +24410,13 @@ void pcopy_sx_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pcopy	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 0: Sy → Dz\nElse: nop" },
   code { "111110********** 1111101100yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21176,12 +24502,14 @@ void pcopy_sy_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pneg		Sx,Dz",
   SH_DSP,
-  abstract { "0 - Sx -> Dz" },
+  abstract { "0 - Sx → Dz" },
   code { "111110********** 11001001xx00zzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21259,12 +24587,14 @@ void pneg_sx (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pneg		Sy,Dz",
   SH_DSP,
-  abstract { "0 - Sy -> Dz" },
+  abstract { "0 - Sy → Dz" },
   code { "111110********** 1110100100yyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21337,11 +24667,13 @@ void pneg_sy (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pneg	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: 0 - Sx -> Dz\nElse: nop" },
+  abstract { "If DC = 1: 0 - Sx → Dz\nElse: nop" },
   code { "111110********** 11001010xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21433,11 +24765,13 @@ void pneg_sx_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pneg	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: 0 - Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 1: 0 - Sy → Dz\nElse: nop" },
   code { "111110********** 1110101000yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21524,11 +24858,13 @@ void pneg_sy_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pneg	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: 0 - Sx -> Dz\nElse: nop" },
+  abstract { "If DC = 0: 0 - Sx → Dz\nElse: nop" },
   code { "111110********** 11001011xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21620,11 +24956,13 @@ void pneg_sx_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pneg	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: 0 - Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 0: 0 - Sy → Dz\nElse: nop" },
   code { "111110********** 1110101100yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21711,12 +25049,14 @@ void pneg_sy_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "psub		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx - Sy -> Dz" },
+  abstract { "Sx - Sy → Dz" },
   code { "111110********** 10100001xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21816,11 +25156,13 @@ PSUB  X0,Y0,A0  NOPX  NOPY  ! Before execution: X0 = 0x55555555, Y0 = 0x33333333
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct psub	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx - Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx - Sy → Dz\nElse: nop" },
   code { "111110********** 10100010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -21933,11 +25275,13 @@ void psub_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf psub 	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx - Sy -> Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx - Sy → Dz\nElse: nop" },
   code { "111110********** 10100011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22050,12 +25394,14 @@ void psub_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "psub		Sx,Sy,Du\npmuls		Se,Sf,Dg",
   SH_DSP,
-  abstract { "Sx - Sy -> Du\nMSW of Se * MSW of Sf -> Dg" },
+  abstract { "Sx - Sy → Du\nMSW of Se × MSW of Sf → Dg" },
   code { "111110********** 0110eeffxxyygguu" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22063,7 +25409,7 @@ Subtracts the contents of the Sy operand from the Sx operand and stores the
 result in the Du operand. The contents of the top word of the Se and Sf operands
 are multiplied as signed and the result stored in the Dg operand. These two
 processes are executed simultaneously in parallel.
-<br/><br/>
+<br /><br />
 The DC bit of the DSR register is updated according to the results of the ALU
 operation and the specifications for the CS bits. The N, Z, V, and GT bits of
 the DSR register are also updated according to the results of the ALU operation.
@@ -22140,12 +25486,14 @@ PSUB  A0,M0,A0  PMULS X0,Y0,M0  NOPX  NOPY
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "psubc		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx - Sy - DC -> Dz" },
+  abstract { "Sx - Sy - DC → Dz" },
   code { "111110********** 10100000xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22248,12 +25596,14 @@ PSUBC X0,Y0,M0  NOPX  NOPY  ! Before execution: X0 = 0x33333333, Y0 = 0x55555555
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pdec		Sx,Dz",
   SH_DSP,
-  abstract { "MSW of Sx - 1 -> MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sx - 1 → MSW of Dz, clear LSW of Dz" },
   code { "111110********** 10001001xx00zzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22332,12 +25682,14 @@ void pdec_sx (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pdec		Sy,Dz",
   SH_DSP,
-  abstract { "MSW of Sy - 1 -> MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sy - 1 → MSW of Dz, clear LSW of Dz" },
   code { "111110********** 1010100100yyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22411,11 +25763,13 @@ void pdec_sy (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pdec	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sx - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sx - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10001010xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22509,11 +25863,13 @@ void pdec_sx_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pdec	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sy - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sy - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1010101000yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22602,11 +25958,13 @@ void pdec_sy_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pdec	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sx - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sx - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10001011xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22700,11 +26058,13 @@ void pdec_sx_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pdec	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sy - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sy - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1010101100yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22793,12 +26153,14 @@ void pdec_sy_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pinc		Sx,Dz",
   SH_DSP,
-  abstract { "MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sy + 1 → MSW of Dz, clear LSW of Dz" },
   code { "111110********** 10011001xx00zzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22872,12 +26234,14 @@ void pinc_sx (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pinc		Sy,Dz",
   SH_DSP,
-  abstract { "MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sy + 1 → MSW of Dz, clear LSW of Dz" },
   code { "111110********** 1011100100yyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -22946,11 +26310,13 @@ void pinc_sy (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pinc	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sx + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sx + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011010xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23040,11 +26406,13 @@ void pinc_sx_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pinc	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sy + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011101000yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23129,11 +26497,13 @@ void pinc_sy_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pinc	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sx + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sx + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011011xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23223,11 +26593,13 @@ void pinc_sx_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pinc	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sy + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011101100yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23312,12 +26684,14 @@ void pinc_sy_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pdmsb		Sx,Dz",
   SH_DSP,
-  abstract { "Sx data MSB position -> MSW of Dz, clear LSW of Dz" },
+  abstract { "Sx data MSB position → MSW of Dz, clear LSW of Dz" },
   code { "111110********** 10011101xx00zzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23406,12 +26780,14 @@ void pdmsb_sx (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pdmsb		Sy,Dz",
   SH_DSP,
-  abstract { "Sy data MSB position -> MSW of Dz, clear LSW of Dz" },
+  abstract { "Sy data MSB position → MSW of Dz, clear LSW of Dz" },
   code { "111110********** 1011110100yyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23495,11 +26871,13 @@ void pdmsb_sy (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pdmsb	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011110xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23602,11 +26980,13 @@ void pdmsb_sx_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pdmsb	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sy data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sy data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011111000yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23704,11 +27084,13 @@ void pdmsb_sy_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pdmsb	Sx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011111xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23811,11 +27193,13 @@ void pdmsb_sx_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pdmsb	Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sy data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sy data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011111100yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -23913,18 +27297,20 @@ void pdmsb_sy_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "prnd		Sx,Dz",
   SH_DSP,
-  abstract { "Sx + 0x00008000 -> Dz, clear LSW of Dz" },
+  abstract { "Sx + 0x00008000 → Dz, clear LSW of Dz" },
   code { "111110********** 10011000xx00zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
 Does rounding. Adds the immediate data 0x00008000 to the contents of the Sx
 operand, stores the result in the upper word of the Dz operand, and clears the
 bottom word of Dz with zeros.
-<br/><br/>
+<br /><br />
 The DC bit of the DSR register is updated according to the specifications for
 the CS bits. The N, Z, V, and GT bits of the DSR register are also updated.
 )"},
@@ -23993,18 +27379,20 @@ void prnd_sx (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "prnd		Sy,Dz",
   SH_DSP,
-  abstract { "Sy + 0x00008000 -> Dz, clear LSW of Dz" },
+  abstract { "Sy + 0x00008000 → Dz, clear LSW of Dz" },
   code { "111110********** 1011100000yyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
 Does rounding. Adds the immediate data 0x00008000 to the contents of the Sy
 operand, stores the result in the upper word of the Dz operand, and clears the
 bottom word of Dz with zeros.
-<br/><br/>
+<br /><br />
 The DC bit of the DSR register is updated according to the specifications for
 the CS bits. The N, Z, V, and GT bits of the DSR register are also updated.
 )"},
@@ -24074,12 +27462,14 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pand		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx & Sy -> Dz, clear LSW of Dz" },
+  abstract { "Sx & Sy → Dz, clear LSW of Dz" },
   code { "111110********** 10010101xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24171,11 +27561,13 @@ void pand (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pand	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx & Sy -> Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx & Sy → Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10010110xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24262,11 +27654,13 @@ void pand_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pand	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx & Sy -> Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx & Sy → Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10010111xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24353,12 +27747,14 @@ void pand_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "por		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx | Sy -> Dz, clear LSW of Dz" },
+  abstract { "Sx | Sy → Dz, clear LSW of Dz" },
   code { "111110********** 10110101xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24450,11 +27846,13 @@ void por (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct por		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx | Sy -> Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx | Sy → Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10110110xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24541,11 +27939,13 @@ void por_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf por		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx | Sy -> Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx | Sy → Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10110111xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24632,12 +28032,14 @@ void por_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pxor		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx ^ Sy -> Dz, clear LSW of Dz" },
+  abstract { "Sx ^ Sy → Dz, clear LSW of Dz" },
   code { "111110********** 10100101xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24729,11 +28131,13 @@ void pxor (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pxor	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx ^ Sy -> Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx ^ Sy → Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10100110xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24820,11 +28224,13 @@ void pxor_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pxor	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx ^ Sy -> Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx ^ Sy → Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10100111xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -24917,11 +28323,13 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pmuls	Se,Sf,Dg",
   SH_DSP,
-  abstract { "MSW of Se * MSW of Sf -> Dg" },
+  abstract { "MSW of Se × MSW of Sf → Dg" },
   code { "111110********** 0100eeff0000gg00" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25037,12 +28445,14 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "psha		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If Sy >= 0: Sx << Sy -> Dz\nIf Sy < 0: Sx >> Sy -> Dz" },
+  abstract { "If Sy >= 0: Sx << Sy → Dz\nIf Sy < 0: Sx >> Sy → Dz" },
   code { "111110********** 10010001xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25176,11 +28586,13 @@ void psha (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct psha	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1 & Sy >= 0: Sx << Sy -> Dz\nIf DC = 1 & Sy < 0: Sx >> Sy -> Dz\nIf DC = 0: nop" },
+  abstract { "If DC = 1 & Sy >= 0: Sx << Sy → Dz\nIf DC = 1 & Sy < 0: Sx >> Sy → Dz\nIf DC = 0: nop" },
   code { "111110********** 10010010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25329,11 +28741,13 @@ void psha_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf psha	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0 & Sy >= 0: Sx << Sy -> Dz\nIf DC = 0 & Sy < 0: Sx >> Sy -> Dz\nIf DC = 1: nop" },
+  abstract { "If DC = 0 & Sy >= 0: Sx << Sy → Dz\nIf DC = 0 & Sy < 0: Sx >> Sy → Dz\nIf DC = 1: nop" },
   code { "111110********** 10010011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25482,12 +28896,14 @@ void psha_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "psha		#imm,Dz",
   SH_DSP,
-  abstract { "If imm >= 0: Dz << imm -> Dz\nIf imm < 0: Dz >> imm -> Dz" },
+  abstract { "If imm >= 0: Dz << imm → Dz\nIf imm < 0: Dz >> imm → Dz" },
   code { "111110********** 00000iiiiiiizzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25590,12 +29006,14 @@ void psha_imm (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pshl		Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If Sy >= 0: Sx << Sy -> Dz, clear LSW of Dz\nIf Sy < 0: Sx >> Sy -> Dz, clear LSW of Dz" },
+  abstract { "If Sy >= 0: Sx << Sy → Dz, clear LSW of Dz\nIf Sy < 0: Sx >> Sy → Dz, clear LSW of Dz" },
   code { "111110********** 10000001xxyyzzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25711,11 +29129,13 @@ void pshl (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct pshl	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1 & Sy >= 0: Sx << Sy -> Dz, clear LSW of Dz\nIf DC = 1 & Sy < 0: Sx >> Sy -> Dz, clear LSW of Dz\nIf DC = 0: nop" },
+  abstract { "If DC = 1 & Sy >= 0: Sx << Sy → Dz, clear LSW of Dz\nIf DC = 1 & Sy < 0: Sx >> Sy → Dz, clear LSW of Dz\nIf DC = 0: nop" },
   code { "111110********** 10000010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25828,11 +29248,13 @@ void pshl_dct
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf pshl	Sx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0 & Sy >= 0: Sx << Sy -> Dz, clear LSW of Dz\nIf DC = 0 & Sy < 0: Sx >> Sy -> Dz, clear LSW of Dz\nIf DC = 1: nop" },
+  abstract { "If DC = 0 & Sy >= 0: Sx << Sy → Dz, clear LSW of Dz\nIf DC = 0 & Sy < 0: Sx >> Sy → Dz, clear LSW of Dz\nIf DC = 1: nop" },
   code { "111110********** 10000011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -25946,12 +29368,14 @@ void pshl_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "pshl		#imm,Dz",
   SH_DSP,
-  abstract { "If imm >= 0: Dz << imm -> Dz, clear LSW of Dz\nIf imm < 0: Dz >> imm, clear LSW of Dz" },
+  abstract { "If imm >= 0: Dz << imm → Dz, clear LSW of Dz\nIf imm < 0: Dz >> imm, clear LSW of Dz" },
   code { "111110********** 00010iiiiiiizzzz" },
-  dc_bit { "Update" },
+  flags { "Update → DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26054,11 +29478,13 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "plds		Dz,MACH",
   SH_DSP,
-  abstract { "Dz -> MACH" },
+  abstract { "Dz → MACH" },
   code { "111110********** 111011010000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26094,11 +29520,13 @@ void plds_mach (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "plds		Dz,MACL",
   SH_DSP,
-  abstract { "Dz -> MACL" },
+  abstract { "Dz → MACL" },
   code { "111110********** 111111010000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26134,11 +29562,13 @@ void plds_macl (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct plds	Dz,MACH",
   SH_DSP,
-  abstract { "If DC = 1: Dz -> MACH\nElse: nop" },
+  abstract { "If DC = 1: Dz → MACH\nElse: nop" },
   code { "111110********** 111011100000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26176,11 +29606,13 @@ void plds_mach_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct plds	Dz,MACL",
   SH_DSP,
-  abstract { "If DC = 1: Dz -> MACL\nElse: nop" },
+  abstract { "If DC = 1: Dz → MACL\nElse: nop" },
   code { "111110********** 111111100000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26218,11 +29650,13 @@ void plds_macl_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf plds	Dz,MACH",
   SH_DSP,
-  abstract { "If DC = 0: Dz -> MACH\nElse: nop" },
+  abstract { "If DC = 0: Dz → MACH\nElse: nop" },
   code { "111110********** 111011110000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26260,11 +29694,13 @@ void plds_mach_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf plds	Dz,MACL",
   SH_DSP,
-  abstract { "If DC = 0: Dz -> MACL\nElse: nop" },
+  abstract { "If DC = 0: Dz → MACL\nElse: nop" },
   code { "111110********** 111111110000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26302,11 +29738,13 @@ void plds_macl_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "psts		MACH,Dz",
   SH_DSP,
-  abstract { "MACH -> Dz" },
+  abstract { "MACH → Dz" },
   code { "111110********** 110011010000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26354,11 +29792,13 @@ void psts_mach (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "psts		MACL,Dz",
   SH_DSP,
-  abstract { "MACL -> Dz" },
+  abstract { "MACL → Dz" },
   code { "111110********** 110111010000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26406,11 +29846,13 @@ void psts_macl (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct psts	MACH,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MACH -> Dz\nElse: nop" },
+  abstract { "If DC = 1: MACH → Dz\nElse: nop" },
   code { "111110********** 110011100000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26462,11 +29904,13 @@ void psts_mach_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dct psts	MACL,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MACL -> Dz\nElse: nop" },
+  abstract { "If DC = 1: MACL → Dz\nElse: nop" },
   code { "111110********** 110111100000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26518,11 +29962,13 @@ void psts_macl_dct (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf psts	MACH,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MACH -> Dz\nElse: nop" },
+  abstract { "If DC = 0: MACH → Dz\nElse: nop" },
   code { "111110********** 110011110000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26574,11 +30020,13 @@ void psts_mach_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dcf psts	MACL,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MACL -> Dz\nElse: nop" },
+  abstract { "If DC = 0: MACL → Dz\nElse: nop" },
   code { "111110********** 110111110000zzzz" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
+
+
 
   description
 {R"(
@@ -26629,6 +30077,29 @@ void psts_macl_dcf (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 });
+
+
+  for(insns& block : insn_blocks)
+  {
+    for(insn& instruction : block)
+    {
+      auto& fmt = instruction.data<format>();
+      auto& n = instruction.data<name>();
+      auto& e = instruction.data<environments>();
+      for(const instruction_info_t& info : name_data)
+      {
+        std::smatch match;
+        if(std::regex_search(fmt, match, std::regex(instruction.data<mnemonic>(), std::regex_constants::extended)) &&
+           (n.empty() || n == info.name) &&
+           e == environments { info.environments })
+        {
+          instruction.data<citations>() = { info.citations };
+        }
+
+      }
+
+    }
+  }
 
   return insn_blocks;
 }
