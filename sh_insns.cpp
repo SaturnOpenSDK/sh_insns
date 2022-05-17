@@ -29,8 +29,9 @@ along with this software; see the file LICENSE.  If not see
 #include "build_instructions.h"
 
 using namespace std::literals;
-
+using namespace std::string_view_literals;
 // ----------------------------------------------------------------------------
+
 
 static isa_property isa_name = isa_property
 (
@@ -112,9 +113,9 @@ void print_note_section (std::string title, std::string val)
     print_section_title(title);
     std::cout << "<br />";
     auto target = "<img src="sv;
-    if (auto it = std::search(val.begin(), val.end(), std::default_searcher(target.begin(), target.end()));
-        it != val.end())
-      std::cout << std::string(val.begin(), it) << "<img alt=\"" << title << "\" class=\"image_filter\" src=" << std::string(it + target.size(), val.end());
+    if (auto pos = std::search(val.begin(), val.end(), std::default_searcher(target.begin(), target.end()));
+        pos != val.end())
+      std::cout << std::string(val.begin(), pos) << "<img alt=\"" << title << "\" class=\"image_filter\" src=" << std::string(pos + target.size(), val.end());
     else
       std::cout << val;
     std::cout << "<br /><br />" << std::endl;
@@ -174,7 +175,7 @@ void print_assembly_section (std::string_view title, std::string val)
           }
           if(*pos == ';' && *pos != '\n')
           {
-            ++pos;
+            pos = std::next(pos);
             next = std::find_if(pos, val.end(), is_endline); // move past initial line break
             std::cout << std::string(pos, next);
 
@@ -183,7 +184,7 @@ void print_assembly_section (std::string_view title, std::string val)
           if(*pos == '\n')
             std::cout << std::endl;
         }
-      } while(++pos != val.end());
+      } while(pos = std::next(pos), pos != val.end());
       std::cout << "</span>" << std::endl;
     }
   }
@@ -258,20 +259,20 @@ std::string colorize_code(std::string_view code)
   uint8_t count = 0, spaces = 0;
   char current = '\0';
 
-  for(auto pos = code.begin(); pos != code.end(); ++pos)
+  for(auto pos = code.begin(); pos != code.end(); pos = std::next(pos))
   {
     r.push_back(*pos);
     ++count;
 
-    if(*pos == ' ' && pos + 1 != code.end())
+    if(*pos == ' ' && std::next(pos) != code.end())
     {
       ++spaces;
       continue;
     }
     current = *pos;
 
-    if(pos + 1 == code.end() ||
-       operand_type(current) != operand_type(*(pos + 1)))
+    if(std::next(pos) == code.end() ||
+       operand_type(current) != operand_type(*std::next(pos)))
     {
       auto total = std::count(code.begin(), code.end(), current); // find the total number of occurances in the whole string
       std::string tag = "<span title=\"";
@@ -330,7 +331,7 @@ std::string colorize_code(std::string_view code)
       }
       tag.append("\">");
 
-      r.insert(r.end() - count + spaces, tag.begin(), tag.end());
+      r.insert(std::prev(r.end(), count - spaces), tag.begin(), tag.end());
       r.append("</span>");
       count = 0;
       spaces = 0;
@@ -340,6 +341,47 @@ std::string colorize_code(std::string_view code)
   return r;
 }
 
+
+
+/*
+void replace_symbols(std::string& data)
+{
+  static const std::array<std::pair<std::string_view, std::string_view>, 15> symbols =
+  {
+    {
+      { "∀", "&forall;" },
+      { "√", "&radic;" },
+      { "−", "&minus;" },
+      { "×", "&times;" },
+      { "÷", "&divide;" },
+      { "∨", "&or;" },
+      { "∧", "&and;" },
+      { "≥", "&ge;" },
+      { "≤", "&le;" },
+      { "→", "&rarr;" },
+      { "←", "&larr;" },
+      { "⊕", "&oplus;" },
+      { "⊗", "&otimes;" },
+      { "¬", "&not;" },
+      { "«", "&laquo;" },
+      { "»", "&raquo;" },
+    }
+  };
+  if(!data.empty())
+  {
+    for(auto spair : symbols)
+    {
+      std::size_t pos = std::string::npos;
+      do
+      {
+        pos = data.find(spair.first);
+        if(pos != std::string::npos)
+          data.replace(pos, spair.first.size(), spair.second);
+      } while(pos != std::string::npos);
+    }
+  }
+}
+*/
 int main (void)
 {
   std::cout << std::unitbuf; // enable automatic flushing
@@ -350,7 +392,7 @@ R"html(<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<title>Renesas SH Instruction Set Summary</title>
+<title>Hitachi SuperH Instruction Set Summary</title>
 
 <style>
 
@@ -447,22 +489,11 @@ R"html(<!DOCTYPE html>
   span[title^='ALU Destination Register']        { color: forestgreen; }
 }
 
+var, section, q, q::before, q::after
+{ all: unset; }
+
 /*
-ALU Arithmetic Logic Unit
-ASID Address Space Identifier
-CPU Central Processing Unit
-FPU Floating Point Unit
-ITLB Instruction Translation Look aside Buffer
-LRU Least Recently Used
-LSB Least Significant Bit
-MMU Memory Management Unit
-MSB Most Significant Bit
-PC Program Counter
-PMB Privileged space Mapping Buffer
-RISC Reduced Instruction Set Computer
-TLB Translation Lookaside Buffer
-UBC User Break Controller
-UTLB Unified Translation Look aside Buffer
+
 
 
 
@@ -510,6 +541,52 @@ DC = DSP condition bit
 
 
 
+
+
+9 8 7 6 5 4 3 2 1 0
+M Q I3 I2 I1 I0 S T
+
+M and Q bits: Used by the DIV0U/S and DIV1 instructions.
+
+q[title='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
+"ASID", "<b>A</b>ddress <b>S</b>pace <b>I</b>dentifier"
+"CPU", "<b>C</b>entral <b>P</b>rocessing <b>U</b>nit"
+"FPU", "<b>F</b>loating <b>P</b>oint Unit"
+"ITLB", "<b>I</b>nstruction <b>T</b>ranslation <b>L</b>ookaside <b>B</b>uffer"
+"LRU", "<b>L</b>east <b>R</b>ecently <b>U</b>sed"
+"LSB", "<b>L</b>east <b>S</b>ignificant <b>B</b>it"
+"MMU", "<b>M</b>emory <b>M</b>anagement <b>U</b>nit"
+"MSB", "<b>M</b>ost <b>S</b>ignificant <b>B</b>it"
+"PC", "<b>P</b>rogram <b>C</b>ounter"
+"PMB", "<b>P</b>rivileged space <b>M</b>apping <b>B</b>uffer"
+"RISC", "<b>R</b>educed <b>I</b>nstruction <b>S</b>et <b>C</b>omputer"
+"TLB", "<b>T</b>ranslation <b>L</b>ookaside <b>B</b>uffer"
+"UBC", "<b>U</b>ser <b>B</b>reak <b>C</b>ontroller"
+"UTLB", "<b>U</b>nified <b>T</b>ranslation <b>L</b>ookaside <b>B</b>uffer"
+
+"I0", "<b>I</b>nterrupt mask flag"
+"I1", "<b>I</b>nterrupt mask flag"
+"I2", "<b>I</b>nterrupt mask flag"
+"I3", "<b>I</b>nterrupt mask flag"
+"I0-I3", "<b>I</b>nterrupt mask flag bits"
+"I3-I0", "<b>I</b>nterrupt mask flag bits"
+
+"GBR", "<b>G</b>lobal <b>B</b>ase <b>R</b>egister"
+"VBR", "<b>V</b>ector <b>B</b>ase <b>R</b>egister"
+"SR", "<b>S</b>tatus <b>R</b>egister"
+"DSR", "<b>D</b>SP <b>S</b>tatus <b>R</b>egister"
+"CS", "<b>C</b>ondition <b>S</b>elect flag bits"
+"DC", "<b>D</b>SP <b>C</b>ondition flag"
+"GT", "Signed <b>G</b>reater <b>T</b>han flag"
+"Z", "<b>Z</b>ero value flag"
+"N", "<b>N</b>egative value flag"
+"V", "O<b>v</b>erflow flag"
+"S", "<b>S</b>um flag"
+"T", "<b>T</b>est flag"
+
+
+
+
 */
 
 body
@@ -541,7 +618,7 @@ body
   color: var(--header-text-color)
 }
 
-
+q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
 
 input[id="cb_SH1"  ]:checked ~ label.SH1,
 input[id="cb_SH2"  ]:checked ~ label.SH2,
@@ -612,6 +689,7 @@ label.summary:hover > *,
 { background-color: var(--table-background-hover-color); }
 
 /* keep images readable */
+label.summary:hover img,
 .details:hover img
 { background-color: var(--table-image-hover-color) !important; }
 
@@ -733,16 +811,48 @@ span[title='list'] > var
   display: list-item;
 }
 
+
+var[title='for all']::before { content: "∀"; }
+
+var[title='greater than or equal']::before { content: "≥"; }
+var[title='less than or equal']::before { content: "≤"; }
+var[title='greater than']::before { content: ">"; }
+var[title='less than']::before { content: "<"; }
+var[title='store into (right)']::before { content: "→"; }
+var[title='store into (left)']::before { content: "←"; }
+var[title='shift bits left']::before { content: "<<"; }
+var[title='shift bits right']::before { content: ">>"; }
+
+var[title='equal']::before { content: "="; }
+var[title='subtract']::before { content: "−"; }
+var[title='add']::before { content: "+"; }
+var[title='multiply']::before { content: "*"; }
+var[title='divide']::before { content: "/"; }
+var[title='binary or']::before { content: "|"; }
+var[title='binary and']::before { content: "&"; }
+var[title='binary xor']::before { content: "^"; }
+var[title='binary not']::before { content: "~"; }
+var[title='prime']::before { content: "’"; }
+
+var[title='square root']::before { content: "sqrt("; }
+var[title='square root']::after { content: ")"; }
+var[title='absolute value']::before { content: "|"; }
+var[title='absolute value']::after { content: "|"; }
+
+var[title='double prime']::after { content: "’’"; }
+var[title='prime']::after { content: "’"; }
+
+q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
+
 </style>
 </head>
 <body>
   <div id="header">
-    <span style="font-size:20px;font:bold">Renesas SH Instruction Set Summary</span>
+    <span style="font-size:20px;font:bold">Hitachi SuperH Instruction Set Summary</span>
     <div style="float:right">Last updated: )html" << __DATE__ << " " << __TIME__ << R"html(</div>
     <br />
     <div style="float:right">
-      <a href="mailto:olegendo@gcc.gnu.org?Subject=Renesas%20SH%20Instruction%20Set%20Summary">Contact</a>
-      <a href="https://github.com/shared-ptr/sh_insns">Page Source</a>
+      <a href="https://github.com/SaturnOpenSDK/sh_insns">Page Source</a>
     </div>
   </div>)html"
 
@@ -773,7 +883,7 @@ span[title='list'] > var
     int id = 0;
     for (const auto& block : insn_blocks)
     {
-      std::cout << "<br/><br/><br/><b>" << block.section_title << "</b><br/><br/>" << std::endl;
+      std::cout << "<br/><br/><br/><b><q data-ref=\"ALU\">" << block.section_title << "</q></b><br/><br/>" << std::endl;
 
       for (const auto& i : block)
       {
@@ -781,8 +891,8 @@ span[title='list'] > var
         std::cout
             << "<label class=\"summary" << print_isa_list(i) << "\" for=\"row" << id << "\">" << std::endl
             << "<span class=\"cpu_grid\"><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var></span>" << std::endl
-            << "<span>" << fix_html(i.data<format>()) << "</span>" << std::endl
-            << "<span>" << fix_html(i.data<abstract>()) << "</span>" << std::endl
+            << "<span>" << i.data<format>() << "</span>" << std::endl
+            << "<span>" << i.data<abstract>() << "</span>" << std::endl
             << "<span id=\"" << fix_id(i.data<code>()) << "\" class=\"colorized\">" << colorize_code(i.data<code>()) << "</span>" << std::endl
             << "<span>" << i.data<flags>() << "</span>" << std::endl
             << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<group>()) << "</span>" << std::endl

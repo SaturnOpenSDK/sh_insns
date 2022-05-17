@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iostream>
 #include <cstdint>
 #include <string>
 #include <list>
@@ -139,7 +140,6 @@ struct exceptions       : std::string {};
 
 )"},
 */
-
 struct insn
 {
   insn(void) {}
@@ -166,11 +166,11 @@ struct insn
 
   bool is_isa (isa i) const { return std::get<isa>(details) & i; }
 
-  std::tuple<format, abstract, name, brief, restriction, mnemonic, mnemonic_origin,
+  std::tuple<format, abstract, name, classification, brief, restriction, mnemonic, mnemonic_origin,
              citations, code, description, note, operation, example, exceptions,
              group, issue, latency, environments, flags, isa> details =
   {
-    format(), abstract(), name(), brief(), restriction(), mnemonic(), mnemonic_origin(),
+    format(), abstract(), name(), classification(), brief(), restriction(), mnemonic(), mnemonic_origin(),
     citations(), code(), description(), note(), operation(), example(), exceptions(),
     group(), issue(), latency(), environments(), flags(), SH_NONE,
   };

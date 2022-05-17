@@ -1,203 +1,25 @@
 #include "build_instructions.h"
 
+#include <iostream>
 #include <list>
 #include <string>
 #include <algorithm>
 #include <regex>
 
-using namespace std::literals::string_literals;
 
-constexpr bool operator ==(const environment_t& a, const environment_t& b)
-  { return a.cpus == b.cpus && a.property == b.property; }
-
+std::list<insns> fix_list(std::list<insns>&& insn_blocks);
 
 std::list<insns> build_insn_blocks (void)
 {
-
-  struct instruction_info_t
-  {
-    std::string mnemonic;
-    std::string name;
-    std::string classification;
-    std::list<environment_t> environments;
-    std::list<citation_t> citations;
-  };
-
-  std::list<instruction_info_t> name_data =
-  {
-    { "STS", "Store System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 231 }, { SH4A_DOC, 425 } } },
-    { "STS", "Store from FPU System Register", "System Control Instruction", {}, { { SH4A_DOC, 453 } } },
-
-    { "FMOV", "Floating-point Move", "Floating-Point Instruction", {}, { { SH4A_DOC, 497 } } },
-    { "FMOV", "Floating-point Move Extension", "Floating-Point Instruction", {}, { { SH4A_DOC, 501 } } },
-
-    { "LDC", "Load to Control Register", "System Control Instruction", {}, { { SH4A_DOC, 337 } } },
-    { "LDC", "Load to Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 165 }, { SH4A_DOC, 449 } } },
-
-    { "LDS", "Load to System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 172 }, { SH4A_DOC, 342 } } },
-    { "LDS", "Load to FPU System register", "System Control Instruction", {}, { { SH4A_DOC, 450 } } },
-
-    { "BRAF", "Branch Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 133 }, { SH4A_DOC, 307 } } },
-    { "BRA", "Branch", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 131 }, { SH4A_DOC, 305 } } },
-    { "BSRF", "Branch to Subroutine Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 137 }, { SH4A_DOC, 445 } } },
-    { "BSR", "Branch to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 135 }, { SH4A_DOC, 443 } } },
-    { "JMP", "Jump", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 162 }, { SH4A_DOC, 336 } } },
-    { "JSR", "Jump to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 163 }, { SH4A_DOC, 447 } } },
-    { "RTE", "Return from Exception", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 212 }, { SH4A_DOC, 401 } } },
-    { "RTS", "Return from Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 214 }, { SH4A_DOC, 403 } } },
-    { "STC", "Store Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 228 }, { SH4A_DOC, 420 }, { SH4A_DOC, 452 } } },
-    { "SLEEP", "Sleep", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 227 }, { SH4A_DOC, 419 } } },
-    { "LDTLB", "Load PTEH/PTEL to TLB", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH4A_DOC, 344 } } },
-
-    { "MOV", "Move Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 183 }, { SH4A_DOC, 353 } } },
-    { "MOV", "Move Constant Value", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 189 }, { SH4A_DOC, 359 } } },
-    { "MOV", "Move Global Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 191 }, { SH4A_DOC, 362 } } },
-    { "MOV", "Move Structure Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 194 }, { SH4A_DOC, 365 } } },
-    { "ADDC", "Add with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 124 }, { SH4A_DOC, 296 } } },
-    { "ADDV", "ADD with `V Flag` Overflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 125 }, { SH4A_DOC, 297 } } },
-    { "ADD", "Add binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 123 }, { SH4A_DOC, 294 } } },
-    { "AND", "AND Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 126 }, { SH4A_DOC, 299 } } },
-    { "BF/S", "Branch if False with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 129 }, { SH4A_DOC, 303 } } },
-    { "BF", "Branch if False", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 128 }, { SH4A_DOC, 301 } } },
-    { "BT/S", "Branch if True with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 140 }, { SH4A_DOC, 310 } } },
-    { "BT", "Branch if True", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 139 }, { SH4A_DOC, 308 } } },
-    { "CLRMAC", "Clear MAC Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 142 }, { SH4A_DOC, 312 } } },
-    { "CLRS", "Clear S Bit", "System Control Instruction", {}, { { SH4A_DOC, 313 } } },
-    { "CLRT", "Clear T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 143 }, { SH4A_DOC, 314 } } },
-    { "CMP/EQ", "Compare If Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/GE", "Compare If Signed Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/GT", "Compare If Signed Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/HI", "Compare If Unsigned Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/HS", "Compare If Unsigned Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/PL", "Compare If Signed Greater Than Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/PZ", "Compare If Signed Greater Than or Equal To Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/STR", "Compare If Strings Equal", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "DIV0S", "Divide `Step 0` as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 148 }, { SH4A_DOC, 319 } } },
-    { "DIV0U", "Divide `Step 0` as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 149 }, { SH4A_DOC, 320 } } },
-    { "DIV1", "Divide 1 Step", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 150 }, { SH4A_DOC, 321 } } },
-    { "DMULS\\.L", "Double-length Multiply as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 155 }, { SH4A_DOC, 326 } } },
-    { "DMULU\\.L", "Double-length Multiply as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 157 }, { SH4A_DOC, 328 } } },
-    { "DT", "Decrement and Test", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 159 }, { SH4A_DOC, 330 } } },
-    { "EXTS", "Extend as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 160 }, { SH4A_DOC, 331 } } },
-    { "EXTU", "Extend as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 161 }, { SH4A_DOC, 333 } } },
-    { "ICBI", "Instruction Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 335 } } },
-    { "LDRE", "Load Effective Address to RE Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 168 } } },
-    { "LDRS", "Load Effective Address to RS Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 170 } } },
-    { "MAC\\.L", "Multiply and Accumulate Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 177 }, { SH4A_DOC, 346 } } },
-    { "MAC\\.W", "Multiply and Accumulate Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 180 }, { SH4A_DOC, 350 } } },
-    { "MOVA", "Move Effective Address", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 197 }, { SH4A_DOC, 369 } } },
-    { "MOVT", "Move T Bit", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 198 }, { SH4A_DOC, 376 } } },
-    { "MUL\\.L", "Multiply Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 199 }, { SH4A_DOC, 379 } } },
-    { "MULS\\.W", "Multiply as Signed Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 200 }, { SH4A_DOC, 380 } } },
-    { "MULU\\.W", "Multiply as Unsigned Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 201 }, { SH4A_DOC, 381 } } },
-    { "MOVCA\\.L", "Move with Cache Block Allocation", "Data Transfer Instruction", {}, { { SH4A_DOC, 371 } } },
-    { "MOVCO", "Move Conditional", "Data Transfer Instruction", {}, { { SH4A_DOC, 372 } } },
-    { "MOVLI", "Move Linked", "Data Transfer Instruction", {}, { { SH4A_DOC, 374 } } },
-    { "MOVUA", "Move Unaligned", "Data Transfer Instruction", {}, { { SH4A_DOC, 377 } } },
-    { "NEGC", "Negate with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 203 }, { SH4A_DOC, 383 } } },
-    { "NEG", "Negate", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 202 }, { SH4A_DOC, 382 } } },
-    { "NOP", "No Operation", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 204 }, { SH4A_DOC, 384 } } },
-    { "NOT", "NOT-Logical Complement", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 205 }, { SH4A_DOC, 385 } } },
-    { "OR", "OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 206 }, { SH4A_DOC, 389 } } },
-    { "PREFI", "Prefetch Instruction Cache Block", "Data Transfer Instruction", {}, { { SH4A_DOC, 394 } } },
-    { "PREF", "Prefetch Data to Cache", "Data Transfer Instruction", {}, { { SH4A_DOC, 391 } } },
-    { "ROTCL", "Rotate with Carry Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 208 }, { SH4A_DOC, 397 } } },
-    { "ROTCR", "Rotate with Carry Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 209 }, { SH4A_DOC, 398 } } },
-    { "ROTL", "Rotate Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 210 }, { SH4A_DOC, 399 } } },
-    { "ROTR", "Rotate Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 211 }, { SH4A_DOC, 400 } } },
-    { "SETRC", "Set Repeat Count to RC", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 216 } } },
-    { "SETS", "Set S Bit", "System Control Instruction", {}, { { SH4A_DOC, 405 } } },
-    { "SETT", "Set T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 218 }, { SH4A_DOC, 406 } } },
-    { "SHAD", "Shift Arithmetic Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 407 } } },
-    { "SHAL", "Shift Arithmetic Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 219 }, { SH4A_DOC, 409 } } },
-    { "SHAR", "Shift Arithmetic Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 220 }, { SH4A_DOC, 410 } } },
-    { "SHLD", "Shift Logical Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 411 } } },
-    { "SHLL([281][6]?)", "Shift Logical Left \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 222 }, { SH4A_DOC, 414 } } },
-    { "SHLL", "Shift Logical Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 221 }, { SH4A_DOC, 413 } } },
-    { "SHLR([281][6]?)", "Shift Logical Right \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 225 }, { SH4A_DOC, 417 } } },
-    { "SHLR", "Shift Logical Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 224 }, { SH4A_DOC, 416 } } },
-    { "SUBC", "Subtract with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 237 }, { SH4A_DOC, 428 } } },
-    { "SUBV", "Subtract with `V Flag` Underflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 238 }, { SH4A_DOC, 429 } } },
-    { "SUB", "Subtract Binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 236 }, { SH4A_DOC, 427 } } },
-    { "SWAP", "Swap Register Halves", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 239 }, { SH4A_DOC, 431 } } },
-    { "SYNCO", "Synchronize Data Operation", "Data Transfer Instruction", {}, { { SH4A_DOC, 433 } } },
-    { "TAS", "Test and Set", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 241 }, { SH4A_DOC, 434 } } },
-    { "TRAPA", "Trap Always", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 242 }, { SH4A_DOC, 436 } } },
-    { "TST", "Test Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 243 }, { SH4A_DOC, 438 } } },
-    { "XOR", "Exclusive OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 245 }, { SH4A_DOC, 440 } } },
-    { "XTRCT", "Extract", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 247 }, { SH4A_DOC, 442 } } },
-    { "MOVS", "Move Single Data between Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 255 } } },
-    { "MOVX", "Move between X Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 257 } } },
-    { "MOVY", "Move between Y Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 258 } } },
-    { "NOPX", "No Access Operation for X Memory", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 260 } } },
-    { "PABS", "Absolute", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 278 } } },
-    { "DC[TF] PADD", "Addition with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 282 } } },
-    { "PADDC", "Addition with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 291 } } },
-    { "PADD PMULS", "Addition & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 286 } } },
-    { "DC[TF] PAND", "Logical AND", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 294 } } },
-    { "DC[TF] PCLR", "Clear", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 298 } } },
-    { "PCMP", "Compare Two Data", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 301 } } },
-    { "DC[TF] PCOPY", "Copy with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 303 } } },
-    { "DC[TF] PDEC", "Decrement by 1", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 307 } } },
-    { "DC[TF] PDMSB", "Detect MSB with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 312 } } },
-    { "DC[TF] PINC", "Increment by 1 with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 317 } } },
-    { "DC[TF] PLDS", "Load System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 322 } } },
-    { "PMULS", "Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 326 } } },
-    { "DC[TF] PNEG", "Negate", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 329 } } },
-    { "DC[TF] POR", "Logical OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 334 } } },
-    { "PRND", "Rounding", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 338 } } },
-    { "DC[TF] PSHA", "Shift Arithmetically with Condition", "DSP Arithmetic Shift Instruction", {}, { { SH1_2_DSP_DOC, 342 } } },
-    { "DC[TF] PSHL", "Shift Logically with Condition", "DSP Logical Shift Instruction", {}, { { SH1_2_DSP_DOC, 350 } } },
-    { "DC[TF] PSTS", "Store System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 357 } } },
-    { "DC[TF] PSUB", "Subtract with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 362 } } },
-    { "PSUB PMULS", "Subtraction & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 367 } } },
-    { "PSUBC", "Subtraction with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 372 } } },
-    { "DC[TF] PXOR", "Logical Exclusive OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 375 } } },
-    { "OCBI", "Operand Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 386 } } },
-    { "OCBP", "Operand Cache Block Purge", "Data Transfer Instruction", {}, { { SH4A_DOC, 387 } } },
-    { "OCBWB", "Operand Cache Block Write Back", "Data Transfer Instruction", {}, { { SH4A_DOC, 388 } } },
-    { "FABS", "Floating-point Absolute Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 467 } } },
-    { "FADD", "Floating-point ADD", "Floating-Point Instruction", {}, { { SH4A_DOC, 468 } } },
-    { "FCMP", "Floating-point Compare", "Floating-Point Instruction", {}, { { SH4A_DOC, 471 } } },
-    { "FCNVDS", "Floating-point Convert Double to Single Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 475 } } },
-    { "FCNVSD", "Floating-point Convert Single to Double Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 478 } } },
-    { "FDIV", "Floating-point Divide", "Floating-Point Instruction", {}, { { SH4A_DOC, 480 } } },
-    { "FIPR", "Floating-point Inner Product", "Floating-Point Instruction", {}, { { SH4A_DOC, 484 } } },
-    { "FLDI0", "Floating-point Load Immediate 0.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 486 } } },
-    { "FLDI1", "Floating-point Load Immediate 1.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 487 } } },
-    { "FLDS", "Floating-point Load to System register", "Floating-Point Instruction", {}, { { SH4A_DOC, 488 } } },
-    { "FLOAT", "Floating-point Convert from Integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 489 } } },
-    { "FMAC", "Floating-point Multiply and Accumulate", "Floating-Point Instruction", {}, { { SH4A_DOC, 491 } } },
-    { "FMUL", "Floating-point Multiply", "Floating-Point Instruction", {}, { { SH4A_DOC, 504 } } },
-    { "FNEG", "Floating-point Negate Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 507 } } },
-    { "FPCHG", "Pr-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 508 } } },
-    { "FRCHG", "FR-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 509 } } },
-    { "FSCA", "Floating Point Sine And Cosine Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 510 } } },
-    { "FSCHG", "Sz-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 512 } } },
-    { "FSQRT", "Floating-point Square Root", "Floating-Point Instruction", {}, { { SH4A_DOC, 513 } } },
-    { "FSRRA", "Floating Point Square Reciprocal Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 516 } } },
-    { "FSTS", "Floating-point Store System Register", "Floating-Point Instruction", {}, { { SH4A_DOC, 518 } } },
-    { "FSUB", "Floating-point Subtract", "Floating-Point Instruction", {}, { { SH4A_DOC, 519 } } },
-    { "FTRC", "Floating-point Truncate and Convert to integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 522 } } },
-    { "FTRV", "Floating-point Transform Vector", "Floating-Point Instruction", {}, { { SH4A_DOC, 525 } } },
-  };
-
-  auto to_lowercase = [](unsigned char c) -> unsigned char { return std::tolower(c); };
-  for(instruction_info_t& info : name_data)
-  {
-    info.mnemonic.insert(0, 1, '$'); // add regex string start
-    std::transform(info.mnemonic.begin(), info.mnemonic.begin(), info.mnemonic.end(), to_lowercase); // convert to lowercase
-  }
-
   std::list<insns> insn_blocks;
 
 insn_blocks.push_back
 (insns { "Data Transfer Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov	Rm,Rn",
+insn { "mov\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → Rn" },
+  abstract { "Rm -> Rn" },
   code { "0110nnnnmmmm0011" },
 
   group { SH4, "MT", SH4A, "MT" },
@@ -242,9 +64,9 @@ MOV R0,R1 ;Before execution: R0 = H'FFFFFFFF, R1 = H'00000000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov	#imm,Rn",
+insn { "mov\t#imm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "imm → sign extension → Rn" },
+  abstract { "imm -> sign extension -> Rn" },
   code { "1110nnnniiiiiiii" },
 
   group { SH4, "EX", SH4A, "MT" },
@@ -310,9 +132,9 @@ MOV.W instruction
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movi20	#imm20,Rn",
+insn { "movi20\t#imm20,Rn",
   SH2A,
-  abstract { "imm → sign extension → Rn" },
+  abstract { "imm -> sign extension -> Rn" },
   code { "0000nnnniiii0000 iiiiiiiiiiiiiiii" },
 
   issue { SH2A, "1" },
@@ -322,7 +144,7 @@ insn { "movi20	#imm20,Rn",
 {R"(
 Stores immediate data that has been sign-extended to longword in general
 register Rn.
-<br /><img alt="Move Immediate Data operation" src="movi20.svg" height="140" />
+<br /><img src="movi20.svg" height="140" />
 )"},
 
   note
@@ -356,9 +178,9 @@ void MOVI20 (int i, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movi20s	#imm20,Rn",
+insn { "movi20s\t#imm20,Rn",
   SH2A,
-  abstract { "imm << 8 → sign extension → Rn" },
+  abstract { "imm << 8 -> sign extension -> Rn" },
   code { "0000nnnniiii0001 iiiiiiiiiiiiiiii" },
 
   issue { SH2A, "1" },
@@ -370,7 +192,7 @@ Shifts immediate data 8 bits to the left and performs sign extension to
 longword, then stores the resulting data in general register Rn. Using an OR or
 ADD instruction as the next instruction enables a 28-bit absolute address to be
 generated.
-<br /><img alt="Move Immediate Data operation" src="movi20s.svg" height="150" />
+<br /><img src="movi20s.svg" height="150" />
 )"},
 
   note
@@ -404,9 +226,9 @@ void MOVI20S (int i, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mova	@(disp,PC),R0",
+insn { "mova\t@(disp,PC),R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp × 4) + (PC & 0xFFFFFFFC) + 4 → R0" },
+  abstract { "(disp * 4) + (PC & 0xFFFFFFFC) + 4 -> R0" },
   code { "11000111dddddddd" },
 
   group { SH4, "EX", SH4A, "LS" },
@@ -476,9 +298,9 @@ Slot illegal instruction
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@(disp,PC),Rn",
+insn { "mov.w\t@(disp,PC),Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp × 2 + PC + 4) → sign extension → Rn" },
+  abstract { "(disp * 2 + PC + 4) -> sign extension -> Rn" },
   code { "1001nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -541,9 +363,9 @@ Data TLB protection violation exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@(disp,PC),Rn",
+insn { "mov.l\t@(disp,PC),Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp × 4 + (PC & 0xFFFFFFFC) + 4) → sign extension → Rn" },
+  abstract { "(disp * 4 + (PC & 0xFFFFFFFC) + 4) -> sign extension -> Rn" },
   code { "1101nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -602,9 +424,9 @@ Data TLB protection violation exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	@Rm,Rn",
+insn { "mov.b\t@Rm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → sign extension → Rn" },
+  abstract { "(Rm) -> sign extension -> Rn" },
   code { "0110nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -660,9 +482,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@Rm,Rn",
+insn { "mov.w\t@Rm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → sign extension → Rn" },
+  abstract { "(Rm) -> sign extension -> Rn" },
   code { "0110nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -717,9 +539,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@Rm,Rn",
+insn { "mov.l\t@Rm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → Rn" },
+  abstract { "(Rm) -> Rn" },
   code { "0110nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -767,9 +589,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	Rm,@Rn",
+insn { "mov.b\tRm,@Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → (Rn)" },
+  abstract { "Rm -> (Rn)" },
   code { "0010nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -818,9 +640,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	Rm,@Rn",
+insn { "mov.w\tRm,@Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → (Rn)" },
+  abstract { "Rm -> (Rn)" },
   code { "0010nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -870,9 +692,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	Rm,@Rn",
+insn { "mov.l\tRm,@Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → (Rn)" },
+  abstract { "Rm -> (Rn)" },
   code { "0010nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -921,9 +743,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	@Rm+,Rn",
+insn { "mov.b\t@Rm+,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → sign extension → Rn, Rm+1 → Rm" },
+  abstract { "(Rm) -> sign extension -> Rn, Rm+1 -> Rm" },
   code { "0110nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -988,9 +810,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@Rm+,Rn",
+insn { "mov.w\t@Rm+,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → sign extension → Rn, Rm+2 → Rm" },
+  abstract { "(Rm) -> sign extension -> Rn, Rm+2 -> Rm" },
   code { "0110nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1055,9 +877,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@Rm+,Rn",
+insn { "mov.l\t@Rm+,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → Rn, Rm+4 → Rm" },
+  abstract { "(Rm) -> Rn, Rm+4 -> Rm" },
   code { "0110nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1118,9 +940,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	Rm,@-Rn",
+insn { "mov.b\tRm,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn-1 → Rn, Rm → (Rn)" },
+  abstract { "Rn-1 -> Rn, Rm -> (Rn)" },
   code { "0010nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1172,9 +994,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	Rm,@-Rn",
+insn { "mov.w\tRm,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn-2 → Rn, Rm → (Rn)" },
+  abstract { "Rn-2 -> Rn, Rm -> (Rn)" },
   code { "0010nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1227,9 +1049,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	Rm,@-Rn",
+insn { "mov.l\tRm,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn-4 → Rn, Rm → (Rn)" },
+  abstract { "Rn-4 -> Rn, Rm -> (Rn)" },
   code { "0010nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1281,9 +1103,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	@-Rm,R0",
+insn { "mov.b\t@-Rm,R0",
   SH2A,
-  abstract { "Rm-1 → Rm, (Rm) → sign extension → R0" },
+  abstract { "Rm-1 -> Rm, (Rm) -> sign extension -> R0" },
   code { "0100mmmm11001011" },
 
   issue { SH2A, "1" },
@@ -1331,9 +1153,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@-Rm,R0",
+insn { "mov.w\t@-Rm,R0",
   SH2A,
-  abstract { "Rm-2 → Rm, (Rm) → sign extension → R0" },
+  abstract { "Rm-2 -> Rm, (Rm) -> sign extension -> R0" },
   code { "0100mmmm11011011" },
 
   issue { SH2A, "1" },
@@ -1381,9 +1203,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@-Rm,R0",
+insn { "mov.l\t@-Rm,R0",
   SH2A,
-  abstract { "Rm-4 → Rm, (Rm) → R0" },
+  abstract { "Rm-4 -> Rm, (Rm) -> R0" },
   code { "0100mmmm11101011" },
 
   issue { SH2A, "1" },
@@ -1423,9 +1245,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	R0,@Rn+",
+insn { "mov.b\tR0,@Rn+",
   SH2A,
-  abstract { "R0 → (Rn), Rn+1 → Rn" },
+  abstract { "R0 -> (Rn), Rn+1 -> Rn" },
   code { "0100nnnn10001011" },
 
   issue { SH2A, "1" },
@@ -1465,9 +1287,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	R0,@Rn+",
+insn { "mov.w\tR0,@Rn+",
   SH2A,
-  abstract { "R0 → (Rn), Rn+2 → Rn" },
+  abstract { "R0 -> (Rn), Rn+2 -> Rn" },
   code { "0100nnnn10011011" },
 
   issue { SH2A, "1" },
@@ -1507,9 +1329,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	R0,@Rn+",
+insn { "mov.l\tR0,@Rn+",
   SH2A,
-  abstract { "R0 → (Rn), Rn+4 → Rn" },
+  abstract { "R0 -> (Rn), Rn+4 -> Rn" },
   code { "0100nnnn10101011" },
 
   issue { SH2A, "1" },
@@ -1549,9 +1371,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	@(disp,Rm),R0",
+insn { "mov.b\t@(disp,Rm),R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp + Rm) → sign extension → R0" },
+  abstract { "(disp + Rm) -> sign extension -> R0" },
   code { "10000100mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1613,9 +1435,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	@(disp12,Rm),Rn",
+insn { "mov.b\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp + Rm) → sign extension → Rn" },
+  abstract { "(disp + Rm) -> sign extension -> Rn" },
   code { "0011nnnnmmmm0001 0100dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1665,9 +1487,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movu.b	@(disp12,Rm),Rn",
+insn { "movu.b\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp + Rm) → zero extension → Rn" },
+  abstract { "(disp + Rm) -> zero extension -> Rn" },
   code { "0011nnnnmmmm0001 1000dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1711,9 +1533,9 @@ void MOVBUL12 (int d, int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@(disp,Rm),R0",
+insn { "mov.w\t@(disp,Rm),R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp × 2 + Rm) → sign extension → R0" },
+  abstract { "(disp * 2 + Rm) -> sign extension -> R0" },
   code { "10000101mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1775,9 +1597,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@(disp12,Rm),Rn",
+insn { "mov.w\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp × 2 + Rm) → sign extension → Rn" },
+  abstract { "(disp * 2 + Rm) -> sign extension -> Rn" },
   code { "0011nnnnmmmm0001 0101dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1826,9 +1648,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movu.w	@(disp12,Rm),Rn",
+insn { "movu.w\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp × 2 + Rm) → zero extension → Rn" },
+  abstract { "(disp * 2 + Rm) -> zero extension -> Rn" },
   code { "0011nnnnmmmm0001 1001dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1872,9 +1694,9 @@ void MOVWUL12 (int d, int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@(disp,Rm),Rn",
+insn { "mov.l\t@(disp,Rm),Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp × 4 + Rm) → Rn" },
+  abstract { "(disp * 4 + Rm) -> Rn" },
   code { "0101nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1929,9 +1751,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@(disp12,Rm),Rn",
+insn { "mov.l\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "(disp × 4 + Rm) → Rn" },
+  abstract { "(disp * 4 + Rm) -> Rn" },
   code { "0011nnnnmmmm0001 0110dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1972,9 +1794,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	R0,@(disp,Rn)",
+insn { "mov.b\tR0,@(disp,Rn)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 → (disp + Rn)" },
+  abstract { "R0 -> (disp + Rn)" },
   code { "10000000nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2029,9 +1851,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	Rm,@(disp12,Rn)",
+insn { "mov.b\tRm,@(disp12,Rn)",
   SH2A,
-  abstract { "Rm → (disp + Rn)" },
+  abstract { "Rm -> (disp + Rn)" },
   code { "0011nnnnmmmm0001 0000dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -2072,9 +1894,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	R0,@(disp,Rn)",
+insn { "mov.w\tR0,@(disp,Rn)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 → (disp × 2 + Rn)" },
+  abstract { "R0 -> (disp * 2 + Rn)" },
   code { "10000001nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2129,9 +1951,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	Rm,@(disp12,Rn)",
+insn { "mov.w\tRm,@(disp12,Rn)",
   SH2A,
-  abstract { "Rm → (disp × 2 + Rn)" },
+  abstract { "Rm -> (disp * 2 + Rn)" },
   code { "0011nnnnmmmm0001 0001dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -2172,9 +1994,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	Rm,@(disp,Rn)",
+insn { "mov.l\tRm,@(disp,Rn)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → (disp × 4 + Rn)" },
+  abstract { "Rm -> (disp * 4 + Rn)" },
   code { "0001nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2230,9 +2052,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	Rm,@(disp12,Rn)",
+insn { "mov.l\tRm,@(disp12,Rn)",
   SH2A,
-  abstract { "Rm → (disp × 4 + Rn)" },
+  abstract { "Rm -> (disp * 4 + Rn)" },
   code { "0011nnnnmmmm0001 0010dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -2273,9 +2095,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	@(R0,Rm),Rn",
+insn { "mov.b\t@(R0,Rm),Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(R0 + Rm) → sign extension → Rn" },
+  abstract { "(R0 + Rm) -> sign extension -> Rn" },
   code { "0000nnnnmmmm1100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2331,9 +2153,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@(R0,Rm),Rn",
+insn { "mov.w\t@(R0,Rm),Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(R0 + Rm) → sign extension → Rn" },
+  abstract { "(R0 + Rm) -> sign extension -> Rn" },
   code { "0000nnnnmmmm1101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2391,9 +2213,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@(R0,Rm),Rn",
+insn { "mov.l\t@(R0,Rm),Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(R0 + Rm) → Rn" },
+  abstract { "(R0 + Rm) -> Rn" },
   code { "0000nnnnmmmm1110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2443,9 +2265,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	Rm,@(R0,Rn)",
+insn { "mov.b\tRm,@(R0,Rn)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → (R0 + Rn)" },
+  abstract { "Rm -> (R0 + Rn)" },
   code { "0000nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2496,9 +2318,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	Rm,@(R0,Rn)",
+insn { "mov.w\tRm,@(R0,Rn)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → (R0 + Rn)" },
+  abstract { "Rm -> (R0 + Rn)" },
   code { "0000nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2548,9 +2370,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	Rm,@(R0,Rn)",
+insn { "mov.l\tRm,@(R0,Rn)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → (R0 + Rn)" },
+  abstract { "Rm -> (R0 + Rn)" },
   code { "0000nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2600,9 +2422,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	@(disp,GBR),R0",
+insn { "mov.b\t@(disp,GBR),R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp + GBR) → sign extension → R0" },
+  abstract { "(disp + GBR) -> sign extension -> R0" },
   code { "11000100dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2663,9 +2485,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	@(disp,GBR),R0",
+insn { "mov.w\t@(disp,GBR),R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp × 2 + GBR) → sign extension → R0" },
+  abstract { "(disp * 2 + GBR) -> sign extension -> R0" },
   code { "11000101dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2726,9 +2548,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	@(disp,GBR),R0",
+insn { "mov.l\t@(disp,GBR),R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(disp × 4 + GBR) → R0" },
+  abstract { "(disp * 4 + GBR) -> R0" },
   code { "11000110dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2781,9 +2603,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.b	R0,@(disp,GBR)",
+insn { "mov.b\tR0,@(disp,GBR)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 → (disp + GBR)" },
+  abstract { "R0 -> (disp + GBR)" },
   code { "11000000dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2837,9 +2659,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.w	R0,@(disp,GBR)",
+insn { "mov.w\tR0,@(disp,GBR)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 → (disp × 2 + GBR)" },
+  abstract { "R0 -> (disp * 2 + GBR)" },
   code { "11000001dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2893,9 +2715,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mov.l	R0,@(disp,GBR)",
+insn { "mov.l\tR0,@(disp,GBR)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 → (disp × 4 + GBR)" },
+  abstract { "R0 -> (disp * 4 + GBR)" },
   code { "11000010dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2949,11 +2771,11 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movco.l	R0,@Rn",
+insn { "movco.l\tR0,@Rn",
   SH4A,
-  abstract { "LDST → T\nIf (T == 1): R0 → Rn\n0 → LDST" },
+  abstract { "LDST -> T\nIf T = 1: R0 -> Rn\n0 -> LDST" },
   code { "0000nnnn01110011" },
-  flags { "LDST → T" },
+  flags { "LDST -> T" },
 
   group { SH4A, "CO" },
   issue { SH4A, "1" },
@@ -3005,9 +2827,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movli.l	@Rm,R0",
+insn { "movli.l\t@Rm,R0",
   SH4A,
-  abstract { "1 → LDST\n(Rm) → R0\nWhen interrupt/exception occured: 0 → LDST" },
+  abstract { "1 -> LDST\n(Rm) -> R0\nWhen interrupt/exception occured: 0 -> LDST" },
   code { "0000mmmm01100011" },
 
   group { SH4A, "CO" },
@@ -3058,9 +2880,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movua.l	@Rm,R0",
+insn { "movua.l\t@Rm,R0",
   SH4A,
-  abstract { "(Rm) → R0\nLoad non-boundary alignment data" },
+  abstract { "(Rm) -> R0\nLoad non-boundary alignment data" },
   code { "0100mmmm10101001" },
 
   group { SH4A, "LS" },
@@ -3108,9 +2930,9 @@ Data address error (when the privileged area is accessed from user mode)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movua.l	@Rm+,R0",
+insn { "movua.l\t@Rm+,R0",
   SH4A,
-  abstract { "(Rm) → R0, Rm + 4 → Rm\nLoad non-boundary alignment data" },
+  abstract { "(Rm) -> R0, Rm + 4 -> Rm\nLoad non-boundary alignment data" },
   code { "0100mmmm11101001" },
 
   group { SH4A, "LS" },
@@ -3162,14 +2984,14 @@ Data address error (when the privileged area is accessed from user mode)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movml.l	Rm,@-R15",
+insn { "movml.l\tRm,@-R15",
   SH2A,
   abstract
-{ R"(R15-4 → R15, Rm → (R15)
-R15-4 → R15, Rm-1 → (R15)
+{ R"(R15−4 -> R15, Rm -> (R15)
+R15−4 -> R15, Rm−1 -> (R15)
 ...
 ...
-R15 - 4 → R15, R0 → (R15)
+R15−4 -> R15, R0 -> (R15)
 Note: When Rm = R15, read Rm as PR)"},
 
   code { "0100mmmm11110001" },
@@ -3224,14 +3046,14 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movml.l	@R15+,Rn",
+insn { "movml.l\t@R15+,Rn",
   SH2A,
   abstract
-{R"((R15) → R0, R15+4 → R15
-(R15) → R1, R15+4 → R15
+{R"((R15) -> R0, R15+4 -> R15
+(R15) -> R1, R15+4 -> R15
 ...
 ...
-(R15) → Rn
+(R15) -> Rn
 Note: When Rn = R15, read Rn as PR)"},
 
   code { "0100nnnn11110101" },
@@ -3286,14 +3108,14 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movmu.l	Rm,@-R15",
+insn { "movmu.l\tRm,@-R15",
   SH2A,
   abstract
-{R"(R15-4 → R15, PR → (R15)
-R15-4 → R15, R14 → (R15)
+{R"(R15-4 -> R15, PR -> (R15)
+R15-4 -> R15, R14 -> (R15)
 ...
 ...
-R15-4 → R15, Rm → (R15)
+R15-4 -> R15, Rm -> (R15)
 Note: When Rm = R15, read Rm as PR)"},
 
   code { "0100mmmm11110000" },
@@ -3345,15 +3167,15 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movmu.l	@R15+,Rn",
+insn { "movmu.l\t@R15+,Rn",
   SH2A,
   abstract
-{R"((R15) → Rn, R15+4 → R15
-(R15) → Rn+1, R15+4 → R15
+{R"((R15) -> Rn, R15+4 -> R15
+(R15) -> Rn+1, R15+4 -> R15
 ...
 ...
-(R15) → R14, R15+4 → R15
-(R15) → PR
+(R15) -> R14, R15+4 -> R15
+(R15) -> PR
 Note: When Rn = R15, read Rn as PR)"},
 
   code { "0100nnnn11110100" },
@@ -3404,9 +3226,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movrt	Rn",
+insn { "movrt\tRn",
   SH2A,
-  abstract { "~T → Rn" },
+  abstract { "~T -> Rn" },
   code { "0000nnnn00111001" },
 
   issue { SH2A, "1" },
@@ -3450,9 +3272,9 @@ void MOVRT (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movt	Rn",
+insn { "movt\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "T → Rn" },
+  abstract { "T -> Rn" },
   code { "0000nnnn00101001" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3506,9 +3328,9 @@ MOVT R1 ;R1 = 0
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "nott",
   SH2A,
-  abstract { "~T → T" },
+  abstract { "~T -> T" },
   code { "0000000001101000" },
-  flags { "~T → T" },
+  flags { "~T -> T" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
@@ -3550,9 +3372,9 @@ void NOTT (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "swap.b	Rm,Rn",
+insn { "swap.b\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → swap lower 2 bytes → Rn" },
+  abstract { "Rm -> swap lower 2 bytes -> Rn" },
   code { "0110nnnnmmmm1000" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3605,9 +3427,9 @@ SWAP.B R0,R1 ;Before execution: R0 = H'12345678
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "swap.w	Rm,Rn",
+insn { "swap.w\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → swap upper/lower words → Rn" },
+  abstract { "Rm -> swap upper/lower words -> Rn" },
   code { "0110nnnnmmmm1001" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3658,9 +3480,9 @@ SWAP.W R0,R1 ;Before execution: R0 = H'12345678
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "xtrct	Rm,Rn",
+insn { "xtrct\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm:Rn middle 32 bits → Rn" },
+  abstract { "Rm:Rn middle 32 bits -> Rn" },
   code { "0010nnnnmmmm1101" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3678,7 +3500,7 @@ R n ← Register(op2);
 {R"(
 Extracts the middle 32 bits from the 64-bit contents of linked general registers
 Rm and Rn, and stores the result in Rn.
-<br /><img alt="Extract operation" src="xtrct.svg" height="110" />
+<br /><img src="xtrct.svg" height="110" />
 )"},
 
   note
@@ -3716,11 +3538,11 @@ insn_blocks.push_back
 (insns { "Bit Manipulation Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "band.b     #imm3,@disp12,Rn",
+insn { "band.b\t#imm3,@disp12,Rn",
   SH2A,
-  abstract { "(imm of (disp+Rn)) & T → T" },
+  abstract { "(imm of (disp+Rn)) & T -> T" },
   code { "0011nnnn0iii1001 0100dddddddddddd" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3769,11 +3591,11 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bandnot.b  #imm3,@(disp12,Rn)",
+insn { "bandnot.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "~(imm of (disp+Rn)) & T → T" },
+  abstract { "~(imm of (disp+Rn)) & T -> T" },
   code { "0011nnnn0iii1001 1100dddddddddddd" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3823,9 +3645,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bclr.b     #imm3,@(disp12,Rn)",
+insn { "bclr.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "0 → (imm of (disp+Rn))" },
+  abstract { "0 -> (imm of (disp+Rn))" },
   code { "0011nnnn0iii1001 0000dddddddddddd" },
 
   issue { SH2A, "3" },
@@ -3873,9 +3695,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bclr       #imm3,Rn",
+insn { "bclr\t#imm3,Rn",
   SH2A,
-  abstract { "0 → imm of Rn" },
+  abstract { "0 -> imm of Rn" },
   code { "10000110nnnn0iii" },
 
   issue { SH2A, "1" },
@@ -3917,11 +3739,11 @@ void CLR (int i, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bld.b      #imm3,@(disp12,Rn)",
+insn { "bld.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "(imm of (disp+Rn)) → T" },
+  abstract { "(imm of (disp+Rn)) -> T" },
   code { "0011nnnn0iii1001 0011dddddddddddd" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -3970,11 +3792,11 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bld        #imm3,Rn",
+insn { "bld\t#imm3,Rn",
   SH2A,
-  abstract { "imm of Rn → T" },
+  abstract { "imm of Rn -> T" },
   code { "10000111nnnn1iii" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
@@ -4021,11 +3843,11 @@ void BLD (int i, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bldnot.b   #imm3,@(disp12,Rn)",
+insn { "bldnot.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "~(imm of (disp+Rn)) → T" },
+  abstract { "~(imm of (disp+Rn)) -> T" },
   code { "0011nnnn0iii1001 1011dddddddddddd" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -4074,11 +3896,11 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bor.b      #imm3,@(disp12,Rn)",
+insn { "bor.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "(imm of (disp+Rn)) | T → T" },
+  abstract { "(imm of (disp+Rn)) | T -> T" },
   code { "0011nnnn0iii1001 0101dddddddddddd" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -4129,11 +3951,11 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bornot.b   #imm3,@(disp12,Rn)",
+insn { "bornot.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "~(imm of (disp+Rn)) | T → T" },
+  abstract { "~(imm of (disp+Rn)) | T -> T" },
   code { "0011nnnn0iii1001 1101dddddddddddd" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -4183,9 +4005,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bset.b     #imm3,@(disp12,Rn)",
+insn { "bset.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "1 → (imm of (disp+Rn))" },
+  abstract { "1 -> (imm of (disp+Rn))" },
   code { "0011nnnn0iii1001 0001dddddddddddd" },
 
   issue { SH2A, "3" },
@@ -4231,9 +4053,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bset       #imm3,Rn",
+insn { "bset\t#imm3,Rn",
   SH2A,
-  abstract { "1 → imm of Rn" },
+  abstract { "1 -> imm of Rn" },
   code { "10000110nnnn1iii" },
 
   issue { SH2A, "1" },
@@ -4275,9 +4097,9 @@ void BSET (int i, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bst.b      #imm3,@(disp12,Rn)",
+insn { "bst.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "T → (imm of (disp+Rn))" },
+  abstract { "T -> (imm of (disp+Rn))" },
   code { "0011nnnn0iii1001 0010dddddddddddd" },
 
   issue { SH2A, "3" },
@@ -4329,9 +4151,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bst        #imm3,Rn",
+insn { "bst\t#imm3,Rn",
   SH2A,
-  abstract { "T → imm of Rn" },
+  abstract { "T -> imm of Rn" },
   code { "10000111nnnn0iii" },
 
   issue { SH2A, "1" },
@@ -4380,11 +4202,11 @@ void BST (int i, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bxor.b     #imm3,@(disp12,Rn)",
+insn { "bxor.b\t#imm3,@(disp12,Rn)",
   SH2A,
-  abstract { "(imm of (disp+Rn)) ^ T → T" },
+  abstract { "(imm of (disp+Rn)) ^ T -> T" },
   code { "0011nnnn0iii1001 0110dddddddddddd" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   issue { SH2A, "3" },
   latency { SH2A, "3" },
@@ -4452,9 +4274,9 @@ insn_blocks.push_back
 (insns { "Arithmetic Operation Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "add	Rm,Rn",
+insn { "add\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn + Rm → Rn" },
+  abstract { "Rn + Rm -> Rn" },
   code { "0011nnnnmmmm1100" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -4503,7 +4325,7 @@ ADD R0,R1 ;Before execution: R0 = H'7FFFFFFF, R1 = H'00000001
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "add	#imm,Rn",
+insn { "add\t#imm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "Rn + (sign extension)imm" },
   code { "0111nnnniiiiiiii" },
@@ -4562,11 +4384,11 @@ ADD #H'FE,R3 ;Before execution: R3 = H'00000001
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "addc	Rm,Rn",
+insn { "addc\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn + Rm + T → Rn, carry → T" },
+  abstract { "Rn + Rm + T -> Rn, carry -> T" },
   code { "0011nnnnmmmm1110" },
-  flags { "Carry → T" },
+  flags { "Carry -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -4634,11 +4456,11 @@ ADDC R2,R0 ;Before execution: T = 1, R0 = H'00000000, R2 = H'00000000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "addv	Rm,Rn",
+insn { "addv\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn + Rm → Rn, overflow → T" },
+  abstract { "Rn + Rm -> Rn, overflow -> T" },
   code { "0011nnnnmmmm1111" },
-  flags { "Overflow → T" },
+  flags { "Overflow -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -4721,11 +4543,11 @@ ADDV R0,R1 ;Before execution: R0 = H'00000002, R1 = H'7FFFFFFE, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/eq	#imm,R0",
+insn { "cmp/eq\t#imm,R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If R0 = (sign extension)imm: 1 → T\nElse: 0 → T" },
+  abstract { "If R0 = (sign extension)imm: 1 -> T\nElse: 0 -> T" },
   code { "10001000iiiiiiii" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -4783,11 +4605,11 @@ void CMPIM (int i)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/eq	Rm,Rn",
+insn { "cmp/eq\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn = Rm: 1 → T\nElse: 0 → T" },
+  abstract { "If Rn = Rm: 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0000" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -4837,11 +4659,11 @@ void CMPEQ (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/hs	Rm,Rn",
+insn { "cmp/hs\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn &ge; Rm (unsigned): 1 → T\nElse: 0 → T" },
+  abstract { "If Rn >= Rm (unsigned): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0010" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -4892,11 +4714,11 @@ void CMPHI (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/ge	Rm,Rn",
+insn { "cmp/ge\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn &ge; Rm (signed): 1 → T\nElse: 0 → T" },
+  abstract { "If Rn >= Rm (signed): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0011" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -4947,11 +4769,11 @@ void CMPGE (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/hi	Rm,Rn",
+insn { "cmp/hi\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn > Rm (unsigned): 1 → T\nElse: 0 → T" },
+  abstract { "If Rn > Rm (unsigned): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0110" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5002,11 +4824,11 @@ void CMPHI (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/gt	Rm,Rn",
+insn { "cmp/gt\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn > Rm (signed): 1 → T\nElse: 0 → T" },
+  abstract { "If Rn > Rm (signed): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0111" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5057,11 +4879,11 @@ void CMPGT (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/pl	Rn",
+insn { "cmp/pl\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn > 0 (signed): 1 → T\nElse: 0 → T" },
+  abstract { "If Rn > 0 (signed): 1 -> T\nElse: 0 -> T" },
   code { "0100nnnn00010101" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5111,11 +4933,11 @@ void CMPPL (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/pz	Rn",
+insn { "cmp/pz\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn &ge; 0 (signed): 1 → T\nElse: 0 → T" },
+  abstract { "If Rn >= 0 (signed): 1 -> T\nElse: 0 -> T" },
   code { "0100nnnn00010001" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5165,11 +4987,11 @@ void CMPPZ (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "cmp/str	Rm,Rn",
+insn { "cmp/str\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn and Rm have an equal byte: 1 → T\nElse: 0 → T" },
+  abstract { "If Rn and Rm have an equal byte: 1 -> T\nElse: 0 -> T" },
   code { "0010nnnnmmmm1100" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5235,9 +5057,9 @@ bt       target   ! T = 1, so branch is taken.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "clips.b	Rn",
+insn { "clips.b\tRn",
   SH2A,
-  abstract { "If Rn > 0x0000007F: 0x0000007F → Rn, 1 → CS\nIf Rn < 0xFFFFFF80: 0xFFFFFF80 → Rn, 1 → CS" },
+  abstract { "If Rn > 0x0000007F: 0x0000007F -> Rn, 1 -> CS\nIf Rn < 0xFFFFFF80: 0xFFFFFF80 -> Rn, 1 -> CS" },
   code { "0100nnnn10010001" },
 
   issue { SH2A, "1" },
@@ -5294,9 +5116,9 @@ void CLIPSB (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "clips.w	Rn",
+insn { "clips.w\tRn",
   SH2A,
-  abstract { "If Rn > 0x00007FFF: 0x00007FFF → Rn, 1 → CS\nIf Rn < 0xFFFF8000: 0xFFFF8000 → Rn, 1 → CS" },
+  abstract { "If Rn > 0x00007FFF: 0x00007FFF -> Rn, 1 -> CS\nIf Rn < 0xFFFF8000: 0xFFFF8000 -> Rn, 1 -> CS" },
   code { "0100nnnn10010101" },
 
   issue { SH2A, "1" },
@@ -5353,9 +5175,9 @@ void CLIPSW (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "clipu.b	Rn",
+insn { "clipu.b\tRn",
   SH2A,
-  abstract { "If Rn > 0x000000FF: 0x000000FF → Rn, 1 → CS" },
+  abstract { "If Rn > 0x000000FF: 0x000000FF -> Rn, 1 -> CS" },
   code { "0100nnnn10000001" },
 
   issue { SH2A, "1" },
@@ -5403,9 +5225,9 @@ void CLIPUB (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "clipu.w	Rn",
+insn { "clipu.w\tRn",
   SH2A,
-  abstract { "If Rn > 0x0000FFFF: 0x0000FFFF → Rn, 1 → CS" },
+  abstract { "If Rn > 0x0000FFFF: 0x0000FFFF -> Rn, 1 -> CS" },
   code { "0100nnnn10000101" },
 
   issue { SH2A, "1" },
@@ -5453,11 +5275,11 @@ void CLIPUW (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "div0s	Rm,Rn",
+insn { "div0s\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "MSB of Rn → Q, MSB of Rm → M, M ^ Q → T" },
+  abstract { "MSB of Rn -> Q, MSB of Rm -> M, M ^ Q -> T" },
   code { "0010nnnnmmmm0111" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5523,9 +5345,9 @@ void DIV0S (int m, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "div0u",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "0 → M, 0 → Q, 0 → T" },
+  abstract { "0 -> M, 0 -> Q, 0 -> T" },
   code { "0000000000011001" },
-  flags { "0 → T" },
+  flags { "0 -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5575,11 +5397,11 @@ void DIV0U (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "div1	Rm,Rn",
+insn { "div1\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "1-step division (Rn / Rm)" },
   code { "0011nnnnmmmm0100" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -5812,9 +5634,9 @@ extu.b  r4,r0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "divs	R0,Rn",
+insn { "divs\tR0,Rn",
   SH2A,
-  abstract { "Signed, Rn / R0 → Rn\n32 / 32 → 32 bits" },
+  abstract { "Signed, Rn / R0 -> Rn\n32 / 32 -> 32 bits" },
   code { "0100nnnn10010100" },
 
   issue { SH2A, "36" },
@@ -5866,9 +5688,9 @@ Division by zero exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "divu	R0,Rn",
+insn { "divu\tR0,Rn",
   SH2A,
-  abstract { "Unsigned, Rn / R0 → Rn\n32 / 32 → 32 bits" },
+  abstract { "Unsigned, Rn / R0 -> Rn\n32 / 32 -> 32 bits" },
   code { "0100nnnn10000100" },
 
   issue { SH2A, "36" },
@@ -5916,9 +5738,9 @@ Division by zero exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dmuls.l	Rm,Rn",
+insn { "dmuls.l\tRm,Rn",
   SH2 | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Signed, Rn × Rm → MACH:MACL\n32 × 32 → 64 bits" },
+  abstract { "Signed, Rn * Rm -> MACH:MACL\n32 * 32 -> 64 bits" },
   code { "0011nnnnmmmm1101" },
 
   group { SH4, "CO", SH4A, "EX" },
@@ -6027,9 +5849,9 @@ STS MACL,R0 ;Operation result (bottom)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dmulu.l	Rm,Rn",
+insn { "dmulu.l\tRm,Rn",
   SH2 | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Unsigned, Rn × Rm → MACH:MACL\n32 × 32 → 64 bits" },
+  abstract { "Unsigned, Rn * Rm -> MACH:MACL\n32 * 32 -> 64 bits" },
   code { "0011nnnnmmmm0101" },
 
   group { SH4A, "EX", SH4, "CO" },
@@ -6111,9 +5933,9 @@ STS MACL,R0 ;Operation result (bottom
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dt	Rn",
+insn { "dt\tRn",
   SH2 | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn-1 → Rn\nIf Rn = 0: 1 → T\nElse: 0 → T" },
+  abstract { "Rn-1 -> Rn\nIf Rn = 0: 1 -> T\nElse: 0 -> T" },
   code { "0100nnnn00010000" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -6172,9 +5994,9 @@ loop:
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "exts.b	Rm,Rn",
+insn { "exts.b\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm sign-extended from byte → Rn" },
+  abstract { "Rm sign-extended from byte -> Rn" },
   code { "0110nnnnmmmm1110" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -6227,9 +6049,9 @@ EXTS.B R0,R1 ;Before execution: R0 = H'00000080
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "exts.w	Rm,Rn",
+insn { "exts.w\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm sign-extended from word → Rn" },
+  abstract { "Rm sign-extended from word -> Rn" },
   code { "0110nnnnmmmm1111" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -6282,9 +6104,9 @@ EXTS.W R0,R1 ;Before execution: R0 = H'00008000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "extu.b	Rm,Rn",
+insn { "extu.b\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm zero-extended from byte → Rn" },
+  abstract { "Rm zero-extended from byte -> Rn" },
   code { "0110nnnnmmmm1100" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -6332,9 +6154,9 @@ EXTU.B R0,R1 ;Before execution: R0 = H'FFFFFF80
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "extu.w	Rm,Rn",
+insn { "extu.w\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm zero-extended from word → Rn" },
+  abstract { "Rm zero-extended from word -> Rn" },
   code { "0110nnnnmmmm1101" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -6382,9 +6204,9 @@ EXTU.W R0,R1 ;Before execution: R0 = H'FFFF8000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mac.l	@Rm+,@Rn+",
+insn { "mac.l\t@Rm+,@Rn+",
   SH2 | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Signed, (Rn) × (Rm) + MAC → MAC\n32 × 32 + 64 → 64 bits" },
+  abstract { "Signed, (Rn) * (Rm) + MAC -> MAC\n32 * 32 + 64 -> 64 bits" },
   code { "0000nnnnmmmm1111" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -6575,9 +6397,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mac.w	@Rm+,@Rn+",
+insn { "mac.w\t@Rm+,@Rn+",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Signed, (Rn) × (Rm) + MAC → MAC\nSH1: 16 × 16 + 42 → 42 bits\nOther: 16 × 16 + 64 → 64 bits" },
+  abstract { "Signed, (Rn) * (Rm) + MAC -> MAC\nSH1: 16 * 16 + 42 -> 42 bits\nOther: 16 * 16 + 64 -> 64 bits" },
   code { "0100nnnnmmmm1111" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -6756,9 +6578,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mul.l	Rm,Rn",
+insn { "mul.l\tRm,Rn",
   SH2 | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn × Rm → MACL\n32 × 32 → 32 bits" },
+  abstract { "Rn * Rm -> MACL\n32 * 32 -> 32 bits" },
   code { "0000nnnnmmmm0111" },
 
   group { SH4A, "EX", SH4, "CO" },
@@ -6808,9 +6630,9 @@ STS MACL,R0 ;Operation result
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mulr	R0,Rn",
+insn { "mulr\tR0,Rn",
   SH2A,
-  abstract { "R0 × Rn → Rn\n32 × 32 → 32 bits" },
+  abstract { "R0 * Rn -> Rn\n32 * 32 -> 32 bits" },
   code { "0100nnnn10000000" },
 
   issue { SH2A, "2" },
@@ -6850,9 +6672,9 @@ void MULR (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "muls.w	Rm,Rn",
+insn { "muls.w\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Signed, Rn × Rm → MACL\n16 × 16 → 32 bits" },
+  abstract { "Signed, Rn * Rm -> MACL\n16 * 16 -> 32 bits" },
   code { "0010nnnnmmmm1111" },
 
   group { SH4A, "EX", SH4, "CO" },
@@ -6903,9 +6725,9 @@ STS MACL,R0 ;Operation result
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "mulu.w	Rm,Rn",
+insn { "mulu.w\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Unsigned, Rn × Rm → MACL\n16 × 16 → 32 bits" },
+  abstract { "Unsigned, Rn * Rm -> MACL\n16 * 16 -> 32 bits" },
   code { "0010nnnnmmmm1110" },
 
   group { SH4A, "EX", SH4, "CO" },
@@ -6956,9 +6778,9 @@ STS MACL,R0 ;Operation result
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "neg	Rm,Rn",
+insn { "neg\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "0 - Rm → Rn" },
+  abstract { "0 - Rm -> Rn" },
   code { "0110nnnnmmmm1011" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7004,11 +6826,11 @@ NEG R0,R1 ;Before execution: R0 = H'00000001
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "negc	Rm,Rn",
+insn { "negc\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "0 - Rm - T → Rn, borrow → T" },
+  abstract { "0 − Rm - T -> Rn, borrow -> T" },
   code { "0110nnnnmmmm1010" },
-  flags { "Borrow → T" },
+  flags { "Borrow -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -7086,9 +6908,9 @@ negc   r1,r0    ! r0 = 0 - (-1) - T
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sub	Rm,Rn",
+insn { "sub\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn - Rm → Rn" },
+  abstract { "Rn - Rm -> Rn" },
   code { "0011nnnnmmmm1000" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7136,11 +6958,11 @@ SUB R0,R1 ;Before execution: R0 = H'00000001, R1 = H'80000000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "subc	Rm,Rn",
+insn { "subc\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn - Rm - T → Rn, borrow → T" },
+  abstract { "Rn − Rm - T -> Rn, borrow -> T" },
   code { "0011nnnnmmmm1010" },
-  flags { "Borrow → T" },
+  flags { "Borrow -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -7218,11 +7040,11 @@ subc   r0,r0    ! r0 = r0 - r0 - T
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "subv	Rm,Rn",
+insn { "subv\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn - Rm → Rn, underflow → T" },
+  abstract { "Rn - Rm -> Rn, underflow -> T" },
   code { "0011nnnnmmmm1011" },
-  flags { "Underflow → T" },
+  flags { "Underflow -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -7310,9 +7132,9 @@ insn_blocks.push_back
 (insns { "Logic Operation Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "and	Rm,Rn",
+insn { "and\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn & Rm → Rn" },
+  abstract { "Rn & Rm -> Rn" },
   code { "0010nnnnmmmm1001" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7359,9 +7181,9 @@ AND R0,R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'55555555
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "and	#imm,R0",
+insn { "and\t#imm,R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 & (zero extend)imm → R0" },
+  abstract { "R0 & (zero extend)imm -> R0" },
   code { "11001001iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7410,9 +7232,9 @@ AND #H'0F,R0 ;Before execution: R0 = H'FFFFFFFF
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "and.b	#imm,@(R0,GBR)",
+insn { "and.b\t#imm,@(R0,GBR)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(R0 + GBR) & (zero extend)imm → (R0 + GBR)" },
+  abstract { "(R0 + GBR) & (zero extend)imm -> (R0 + GBR)" },
   code { "11001101iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -7472,9 +7294,9 @@ and a byte store.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "not	Rm,Rn",
+insn { "not\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "~Rm → Rn" },
+  abstract { "~Rm -> Rn" },
   code { "0110nnnnmmmm0111" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7520,9 +7342,9 @@ NOT R0,R1 ;Before execution: R0 = H'AAAAAAAA
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "or	Rm,Rn",
+insn { "or\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn | Rm → Rn" },
+  abstract { "Rn | Rm -> Rn" },
   code { "0010nnnnmmmm1011" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7568,9 +7390,9 @@ OR R0,R1 ;Before execution: R0 = H'AAAA5555, R1 = H'55550000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "or	#imm,R0",
+insn { "or\t#imm,R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 | (zero extend)imm → R0" },
+  abstract { "R0 | (zero extend)imm -> R0" },
   code { "11001011iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7618,9 +7440,9 @@ OR #H'F0,R0 ;Before execution: R0 = H'00000008
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "or.b	#imm,@(R0,GBR)",
+insn { "or.b\t#imm,@(R0,GBR)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(R0 + GBR) | (zero extend)imm → (R0 + GBR)" },
+  abstract { "(R0 + GBR) | (zero extend)imm -> (R0 + GBR)" },
   code { "11001111iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -7679,11 +7501,11 @@ and a byte store.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "tas.b	@Rn",
+insn { "tas.b\t@Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If (Rn) = 0: 1 → T\nElse: 0 → T\n1 → MSB of (Rn)" },
+  abstract { "If (Rn) = 0: 1 -> T\nElse: 0 -> T\n1 -> MSB of (Rn)" },
   code { "0100nnnn00011011" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "4", SH2A, "3", SH4, "5" },
@@ -7767,11 +7589,11 @@ and a byte store.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "tst	Rm,Rn",
+insn { "tst\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If Rn & Rm = 0: 1 → T\nElse: 0 → T" },
+  abstract { "If Rn & Rm = 0: 1 -> T\nElse: 0 -> T" },
   code { "0010nnnnmmmm1000" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -7822,11 +7644,11 @@ TST R0,R0 ;Before execution: R0 = H'00000000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "tst	#imm,R0",
+insn { "tst\t#imm,R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If R0 & (zero extend)imm = 0: 1 → T\nElse: 0 → T" },
+  abstract { "If R0 & (zero extend)imm = 0: 1 -> T\nElse: 0 -> T" },
   code { "11001000iiiiiiii" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -7880,11 +7702,11 @@ TST #H'80,R0 ;Before execution: R0 = H'FFFFFF7F
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "tst.b	#imm,@(R0,GBR)",
+insn { "tst.b\t#imm,@(R0,GBR)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If (R0 + GBR) & (zero extend)imm = 0: 1 → T\nElse 0: → T" },
+  abstract { "If (R0 + GBR) & (zero extend)imm = 0: 1 -> T\nElse 0: -> T" },
   code { "11001100iiiiiiii" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "2", SH2, "2", SH3, "2", SH4A, "3", SH2A, "3", SH4, "3" },
@@ -7948,9 +7770,9 @@ and a byte store.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "xor	Rm,Rn",
+insn { "xor\tRm,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn ^ Rm → Rn" },
+  abstract { "Rn ^ Rm -> Rn" },
   code { "0010nnnnmmmm1010" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -7996,9 +7818,9 @@ XOR R0,R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'55555555
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "xor	#imm,R0",
+insn { "xor\t#imm,R0",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "R0 ^ (zero extend)imm → R0" },
+  abstract { "R0 ^ (zero extend)imm -> R0" },
   code { "11001010iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -8046,9 +7868,9 @@ XOR #H'F0,R0 ;Before execution: R0 = H'FFFFFFFF
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "xor.b	#imm,@(R0,GBR)",
+insn { "xor.b\t#imm,@(R0,GBR)",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(R0 + GBR) ^ (zero extend)imm → (R0 + GBR)" },
+  abstract { "(R0 + GBR) ^ (zero extend)imm -> (R0 + GBR)" },
   code { "11001110iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -8113,11 +7935,11 @@ insn_blocks.push_back
 (insns { "Shift Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "rotcl	Rn",
+insn { "rotcl\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << T" },
   code { "0100nnnn00100100" },
-  flags { "MSB → T" },
+  flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8137,7 +7959,7 @@ T ← Bit(t);
 Rotates the contents of general register Rn one bit to the left through the
 T bit, and stores the result in Rn. The bit rotated out of the operand is
 transferred to the T bit.
-<br /><img alt="Rotate with Carry Left operation" src="rotcl.svg" height="100" />
+<br /><img src="rotcl.svg" height="100" />
 )"},
 
   note
@@ -8185,11 +8007,11 @@ ROTCL R0 ;Before execution: R0 = H'80000000, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "rotcr	Rn",
+insn { "rotcr\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T >> Rn >> T" },
   code { "0100nnnn00100101" },
-  flags { "LSB → T" },
+  flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8210,7 +8032,7 @@ T ← Bit(t);
 Rotates the contents of general register Rn one bit to the right through the
 T bit, and stores the result in Rn. The bit rotated out of the operand is
 transferred to the T bit.
-<br /><img alt="Rotate with Carry Right" src="rotcr.svg" height="100" />
+<br /><img src="rotcr.svg" height="100" />
 )"},
 
   note
@@ -8259,11 +8081,11 @@ ROTCR R0 ;Before execution: R0 = H'00000001, T = 1
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "rotl	Rn",
+insn { "rotl\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << MSB" },
   code { "0100nnnn00000100" },
-  flags { "MSB → T" },
+  flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8281,7 +8103,7 @@ T ← Bit(t);
 {R"(
 Rotates the contents of general register Rn one bit to the left, and stores the
 result in Rn. The bit rotated out of the operand is transferred to the T bit.
-<br /><img alt="Rotate Left operation" src="rotl.svg" height="100" />
+<br /><img src="rotl.svg" height="100" />
 )"},
 
   note
@@ -8322,11 +8144,11 @@ ROTL R0 ;Before execution: R0 = H'80000000, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "rotr	Rn",
+insn { "rotr\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "LSB >> Rn >> T" },
   code { "0100nnnn00000101" },
-  flags { "LSB → T" },
+  flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8344,7 +8166,7 @@ T ← Bit(t);
 {R"(
 Rotates the contents of general register Rn one bit to the right, and stores the
 result in Rn. The bit rotated out of the operand is transferred to the T bit.
-<br /><img alt="Rotate Right operation" src="rotr.svg" height="100" />
+<br /><img src="rotr.svg" height="100" />
 )"},
 
   note
@@ -8385,9 +8207,9 @@ ROTR R0 ;Before execution: R0 = H'00000001, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shad	Rm,Rn",
+insn { "shad\tRm,Rn",
   SH2A | SH3 | SH4 | SH4A,
-  abstract { "If Rm >= 0: Rn << Rm → Rn\nIf Rm < 0: Rn >> |Rm| → [MSB → Rn]" },
+  abstract { "If Rm >= 0: Rn << Rm -> Rn\nIf Rm < 0: Rn >> abs(Rm) -> [MSB -> Rn]" },
   code { "0100nnnnmmmm1100" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -8465,11 +8287,11 @@ void SHAD (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shal	Rn",
+insn { "shal\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << 0" },
   code { "0100nnnn00100000" },
-  flags { "MSB → T" },
+  flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8488,7 +8310,7 @@ T ← Bit(t);
 Arithmetically shifts the contents of general register Rn one bit to the left
 and stores the result in Rn. The bit shifted out of the operand is transferred
 to the T bit.
-<br /><img alt="Shift Arithmetic Left operation" src="shal.svg" height="100" />
+<br /><img src="shal.svg" height="100" />
 )"},
 
   note
@@ -8523,11 +8345,11 @@ SHAL R0 ;Before execution: R0 = H'80000001, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shar	Rn",
+insn { "shar\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "MSB >> Rn >> T" },
   code { "0100nnnn00100001" },
-  flags { "LSB → T" },
+  flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8546,7 +8368,7 @@ T ← Bit(t);
 Arithmetically shifts the contents of general register Rn one bit to the right
 and stores the result in Rn. The bit shifted out of the operand is transferred
 to the T bit.
-<br /><img alt="Shift Arithmetic Right operation" src="shar.svg" height="100" />
+<br /><img src="shar.svg" height="100" />
 )"},
 
   note
@@ -8594,9 +8416,9 @@ SHAR R0 ;Before execution: R0 = H'80000001, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shld	Rm,Rn",
+insn { "shld\tRm,Rn",
   SH2A | SH3 | SH4 | SH4A,
-  abstract { "If Rm >= 0: Rn << Rm → Rn\nIf Rm < 0: Rn >> |Rm| → [0 → Rn]" },
+  abstract { "If Rm >= 0: Rn << Rm -> Rn\nIf Rm < 0: Rn >> abs(Rm) -> [0 -> Rn]" },
   code { "0100nnnnmmmm1101" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -8667,11 +8489,11 @@ void SHLD (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shll	Rn",
+insn { "shll\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "T << Rn << 0" },
   code { "0100nnnn00000000" },
-  flags { "MSB → T" },
+  flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8690,7 +8512,7 @@ T ← Bit(t);
 Logically shifts the contents of general register Rn one bit to the left and
 stores the result in Rn. The bit shifted out of the operand is transferred to
 the T bit.
-<br /><img alt="Shift Logical Left operation" src="shll.svg" height="100" />
+<br /><img src="shll.svg" height="100" />
 )"},
 
   note
@@ -8725,9 +8547,9 @@ SHLL R0 ;Before execution: R0 = H'80000001, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shll2	Rn",
+insn { "shll2\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn << 2 → Rn" },
+  abstract { "Rn << 2 -> Rn" },
   code { "0100nnnn00001000" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -8744,7 +8566,7 @@ R n ← Register(op1);
 {R"(
 Logically shifts the contents of general register Rn 2 bits to the left and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br /><img alt="Shift Logical Left 2 Bits operation" src="shll2.svg" height="120" />
+<br /><img src="shll2.svg" height="120" />
 )"},
 
   note
@@ -8774,9 +8596,9 @@ SHLL2 R0 ;Before execution: R0 = H'12345678
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shll8	Rn",
+insn { "shll8\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn << 8 → Rn" },
+  abstract { "Rn << 8 -> Rn" },
   code { "0100nnnn00011000" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -8793,7 +8615,7 @@ R n ← Register(op1);
 {R"(
 Logically shifts the contents of general register Rn 8 bits to the left and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br /><img alt="Shift Logical Left 8 Bits operation" src="shll8.svg" height="120" />
+<br /><img src="shll8.svg" height="120" />
 )"},
 
   note
@@ -8823,9 +8645,9 @@ SHLL8 R0 ;Before execution: R0 = H'12345678
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shll16	Rn",
+insn { "shll16\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn << 16 → Rn" },
+  abstract { "Rn << 16 -> Rn" },
   code { "0100nnnn00101000" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -8842,7 +8664,7 @@ R n ← Register(op1);
 {R"(
 Logically shifts the contents of general register Rn 16 bits to the left and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br /><img alt="Shift Logical Left 16 Bits operation" src="shll16.svg" height="120" />
+<br /><img src="shll16.svg" height="120" />
 )"},
 
   note
@@ -8872,11 +8694,11 @@ SHLL16 R0 ;Before execution: R0 = H'12345678
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shlr	Rn",
+insn { "shlr\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   abstract { "0 >> Rn >> T" },
   code { "0100nnnn00000001" },
-  flags { "LSB → T" },
+  flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -8895,7 +8717,7 @@ T ← Bit(t);
 Logically shifts the contents of general register Rn one bit to the right and
 stores the result in Rn. The bit shifted out of the operand is transferred to
 the T bit.
-<br /><img alt="Shift Logical Right operation" src="shlr.svg" height="100" />
+<br /><img src="shlr.svg" height="100" />
 )"},
 
   note
@@ -8931,9 +8753,9 @@ SHLR R0 ;Before execution: R0 = H'80000001, T = 0
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shlr2	Rn",
+insn { "shlr2\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn >> 2 → [0 → Rn]" },
+  abstract { "Rn >> 2 -> [0 -> Rn]" },
   code { "0100nnnn00001001" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -8950,7 +8772,7 @@ R n ← Register(op1);
 {R"(
 Logically shifts the contents of general register Rn 2 bits to the right, and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br /><img alt="Shift Logical Right 2 Bits operation" src="shlr2.svg" height="120" />
+<br /><img src="shlr2.svg" height="120" />
 )"},
 
   note
@@ -8981,9 +8803,9 @@ SHLR2 R0 ;Before execution: R0 = H'12345678
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shlr8	Rn",
+insn { "shlr8\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn >> 8 → [0 → Rn]" },
+  abstract { "Rn >> 8 -> [0 -> Rn]" },
   code { "0100nnnn00011001" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -9000,7 +8822,7 @@ R n ← Register(op1);
 {R"(
 Logically shifts the contents of general register Rn 8 bits to the right, and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br /><img alt="Shift Logical Right 8 Bits operation" src="shlr8.svg" height="120" />
+<br /><img src="shlr8.svg" height="120" />
 )"},
 
   note
@@ -9031,9 +8853,9 @@ SHLR8 R0 ;Before execution: R0 = H'12345678
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "shlr16	Rn",
+insn { "shlr16\tRn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rn >> 16 → [0 → Rn]" },
+  abstract { "Rn >> 16 -> [0 -> Rn]" },
   code { "0100nnnn00101001" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -9050,7 +8872,7 @@ R n ← Register(op1);
 {R"(
 Logically shifts the contents of general register Rn 16 bits to the right and
 stores the result in Rn. The bits shifted out of the operand are discarded.
-<br /><img alt="Shift Logical Right 16 Bits operation" src="shlr16.svg" height="120" />
+<br /><img src="shlr16.svg" height="120" />
 )"},
 
   note
@@ -9087,9 +8909,9 @@ insn_blocks.push_back
 (insns { "Branch Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bf	label",
+insn { "bf\tlabel",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If T = 0: disp × 2 + PC + 4 → PC\nElse: nop" },
+  abstract { "If T = 0: disp * 2 + PC + 4 -> PC\nElse: nop" },
   code { "10001011dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
@@ -9175,10 +8997,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bf/s	label",
+insn { "bf/s\tlabel",
   SH2 | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "If T = 0: disp × 2 + PC + 4 → PC\nElse: nop\n(Delayed branch)" },
+  abstract { "If T = 0: disp * 2 + PC + 4 -> PC\nElse: nop\n(Delayed branch)" },
   code { "10001111dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
@@ -9275,9 +9097,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bt	label",
+insn { "bt\tlabel",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "If T = 1: disp × 2 + PC + 4 → PC\nElse: nop" },
+  abstract { "If T = 1: disp * 2 + PC + 4 -> PC\nElse: nop" },
   code { "10001001dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
@@ -9363,10 +9185,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bt/s	label",
+insn { "bt/s\tlabel",
   SH2 | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "If T = 1: disp × 2 + PC + 4 → PC\nElse: nop\n(Delayed branch)" },
+  abstract { "If T = 1: disp * 2 + PC + 4 -> PC\nElse: nop\n(Delayed branch)" },
   code { "10001101dddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
@@ -9455,10 +9277,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bra	label",
+insn { "bra\tlabel",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "disp × 2 + PC + 4 → PC\n(Delayed branch)" },
+  abstract { "disp * 2 + PC + 4 -> PC\n(Delayed branch)" },
   code { "1010dddddddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
@@ -9532,10 +9354,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "braf	Rm",
+insn { "braf\tRm",
   SH2 | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "Rm + PC + 4 → PC\n(Delayed branch)" },
+  abstract { "Rm + PC + 4 -> PC\n(Delayed branch)" },
   code { "0000mmmm00100011" },
 
   group { SH4A, "BR", SH4, "CO" },
@@ -9602,10 +9424,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bsr	label",
+insn { "bsr\tlabel",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "PC + 4 → PR, disp × 2 + PC + 4 → PC\n(Delayed branch)" },
+  abstract { "PC + 4 -> PR, disp * 2 + PC + 4 -> PC\n(Delayed branch)" },
   code { "1011dddddddddddd" },
 
   group { SH4A, "BR", SH4, "BR" },
@@ -9688,10 +9510,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "bsrf	Rm",
+insn { "bsrf\tRm",
   SH2 | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "PC + 4 → PR, Rm + PC + 4 → PC\n(Delayed branch)" },
+  abstract { "PC + 4 -> PR, Rm + PC + 4 -> PC\n(Delayed branch)" },
   code { "0000mmmm00000011" },
 
   group { SH4A, "BR", SH4, "CO" },
@@ -9766,10 +9588,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "jmp	@Rm",
+insn { "jmp\t@Rm",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "Rm → PC\n(Delayed branch)" },
+  abstract { "Rm -> PC\n(Delayed branch)" },
   code { "0100mmmm00101011" },
 
   group { SH4A, "BR", SH4, "CO" },
@@ -9832,10 +9654,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "jsr	@Rm",
+insn { "jsr\t@Rm",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "PC + 4 → PR, Rm → PC\n(Delayed branch)" },
+  abstract { "PC + 4 -> PR, Rm -> PC\n(Delayed branch)" },
   code { "0100mmmm00001011" },
 
   group { SH4A, "BR", SH4, "CO" },
@@ -9910,9 +9732,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "jsr/n	@Rm",
+insn { "jsr/n\t@Rm",
   SH2A,
-  abstract { "PC + 2 → PR, Rm → PC" },
+  abstract { "PC + 2 -> PR, Rm -> PC" },
   code { "0100mmmm01001011" },
 
   issue { SH2A, "3" },
@@ -9957,9 +9779,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "jsr/n	@@(disp8,TBR)",
+insn { "jsr/n\t@@(disp8,TBR)",
   SH2A,
-  abstract { "PC + 2 → PR, (disp × 4 + TBR) → PC" },
+  abstract { "PC + 2 -> PR, (disp * 4 + TBR) -> PC" },
   code { "10000011dddddddd" },
 
   issue { SH2A, "5" },
@@ -10005,7 +9827,7 @@ Slot illegal instruction exception
 insn { "rts",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
-  abstract { "PR → PC\nDelayed branch" },
+  abstract { "PR -> PC\nDelayed branch" },
   code { "0000000000001011" },
 
   group { SH4A, "BR", SH4, "CO" },
@@ -10079,7 +9901,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rts/n",
   SH2A,
-  abstract { "PR → PC" },
+  abstract { "PR -> PC" },
   code { "0000000001101011" },
 
   issue { SH2A, "3" },
@@ -10120,9 +9942,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "rtv/n	Rm",
+insn { "rtv/n\tRm",
   SH2A,
-  abstract { "Rm → R0, PR → PC" },
+  abstract { "Rm -> R0, PR -> PC" },
   code { "0000mmmm01111011" },
 
   issue { SH2A, "3" },
@@ -10173,7 +9995,7 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrmac",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "0 → MACH, 0 → MACL" },
+  abstract { "0 -> MACH, 0 -> MACL" },
   code { "0000000000101000" },
 
   group { SH4A, "EX", SH4, "CO" },
@@ -10224,9 +10046,9 @@ MAC.W @R0+,@R1+ ;
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrs",
   SH3 | SH4 | SH4A,
-  abstract { "0 → S" },
+  abstract { "0 -> S" },
   code { "0000000001001000" },
-  flags { "0 → S" },
+  flags { "0 -> S" },
 
   group { SH4A, "EX", SH4, "CO" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -10271,9 +10093,9 @@ void CLRS (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrt",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "0 → T" },
+  abstract { "0 -> T" },
   code { "0000000000001000" },
-  flags { "0 → T" },
+  flags { "0 -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -10317,7 +10139,7 @@ CLRT ;Before execution: T = 1
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "icbi	@Rn",
+insn { "icbi\t@Rn",
   SH4A,
   abstract { "Invalidate instruction cache block indicated by logical address" },
   code { "0000nnnn11100011" },
@@ -10371,9 +10193,9 @@ Exceptions may occur when invalidation is not performed.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldbank	@Rm,R0",
+insn { "ldbank\t@Rm,R0",
   SH2A,
-  abstract { "(Specified register bank entry) → R0" },
+  abstract { "(Specified register bank entry) -> R0" },
   code { "0100mmmm11100101" },
 
   issue { SH2A, "6" },
@@ -10416,12 +10238,12 @@ void LDBANK (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,SR",
+insn { "ldc\tRm,SR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "Rm → SR" },
+  abstract { "Rm -> SR" },
   code { "0100mmmm00001110" },
-  flags { "LSB → T" },
+  flags { "LSB -> T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "7", SH2A, "3", SH4, "4" },
@@ -10481,12 +10303,12 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,SR",
+insn { "ldc.l\t@Rm+,SR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "(Rm) → SR, Rm+4 → Rm" },
+  abstract { "(Rm) -> SR, Rm+4 -> Rm" },
   code { "0100mmmm00000111" },
-  flags { "LSB → T" },
+  flags { "LSB -> T" },
 
   group { SH4A, "CO", SH4, "CO" },
   issue { SH1, "1", SH2, "1", SH3, "2", SH4A, "9", SH2A, "5", SH4, "4" },
@@ -10553,9 +10375,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,TBR",
+insn { "ldc\tRm,TBR",
   SH2A,
-  abstract { "Rm → TBR" },
+  abstract { "Rm -> TBR" },
   code { "0100mmmm01001010" },
 
   issue { SH2A, "1" },
@@ -10594,9 +10416,9 @@ void LDCTBR (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,GBR",
+insn { "ldc\tRm,GBR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → GBR" },
+  abstract { "Rm -> GBR" },
   code { "0100mmmm00011110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -10640,9 +10462,9 @@ void LDCGBR (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,GBR",
+insn { "ldc.l\t@Rm+,GBR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → GBR, Rm+4 → Rm" },
+  abstract { "(Rm) -> GBR, Rm+4 -> Rm" },
   code { "0100mmmm00010111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -10694,10 +10516,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,VBR",
+insn { "ldc\tRm,VBR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "Rm → VBR" },
+  abstract { "Rm -> VBR" },
   code { "0100mmmm00101110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -10745,10 +10567,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,VBR",
+insn { "ldc.l\t@Rm+,VBR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "(Rm) → VBR, Rm+4 → Rm" },
+  abstract { "(Rm) -> VBR, Rm+4 -> Rm" },
   code { "0100mmmm00100111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -10804,9 +10626,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,MOD",
+insn { "ldc\tRm,MOD",
   SH_DSP,
-  abstract { "Rm → MOD" },
+  abstract { "Rm -> MOD" },
   code { "0100mmmm01011110" },
 
   issue { SH_DSP, "1" },
@@ -10845,9 +10667,9 @@ void LDCMOD (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,MOD",
+insn { "ldc.l\t@Rm+,MOD",
   SH_DSP,
-  abstract { "(Rm) → MOD, Rm+4 → Rm" },
+  abstract { "(Rm) -> MOD, Rm+4 -> Rm" },
   code { "0100mmmm01010111" },
 
   issue { SH_DSP, "1" },
@@ -10888,9 +10710,9 @@ Data address error
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,RE",
+insn { "ldc\tRm,RE",
   SH_DSP,
-  abstract { "Rm → RE" },
+  abstract { "Rm -> RE" },
   code { "0100mmmm01111110" },
 
   issue { SH_DSP, "1" },
@@ -10929,9 +10751,9 @@ void LDCRE (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,RE",
+insn { "ldc.l\t@Rm+,RE",
   SH_DSP,
-  abstract { "(Rm) → RE, Rm+4 → Rm" },
+  abstract { "(Rm) -> RE, Rm+4 -> Rm" },
   code { "0100mmmm01110111" },
 
   issue { SH_DSP, "1" },
@@ -10971,9 +10793,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,RS",
+insn { "ldc\tRm,RS",
   SH_DSP,
-  abstract { "Rm → RS" },
+  abstract { "Rm -> RS" },
   code { "0100mmmm01101110" },
 
   issue { SH_DSP, "1" },
@@ -11012,9 +10834,9 @@ void LDCRS (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,RS",
+insn { "ldc.l\t@Rm+,RS",
   SH_DSP,
-  abstract { "(Rm) → RS, Rm+4 → Rm" },
+  abstract { "(Rm) -> RS, Rm+4 -> Rm" },
   code { "0100mmmm01100111" },
 
   issue { SH_DSP, "1" },
@@ -11054,10 +10876,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,SGR",
+insn { "ldc\tRm,SGR",
   SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rm → SGR" },
+  abstract { "Rm -> SGR" },
   code { "0100mmmm00111010" },
 
   group { SH4A, "CO" },
@@ -11100,10 +10922,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,SGR",
+insn { "ldc.l\t@Rm+,SGR",
   SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) → SGR, Rm+4 → Rm" },
+  abstract { "(Rm) -> SGR, Rm+4 -> Rm" },
   code { "0100mmmm00110110" },
 
   group { SH4A, "CO" },
@@ -11151,10 +10973,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,SSR",
+insn { "ldc\tRm,SSR",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rm → SSR" },
+  abstract { "Rm -> SSR" },
   code { "0100mmmm00111110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11202,10 +11024,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,SSR",
+insn { "ldc.l\t@Rm+,SSR",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) → SSR, Rm+4 → Rm" },
+  abstract { "(Rm) -> SSR, Rm+4 -> Rm" },
   code { "0100mmmm00110111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11261,10 +11083,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,SPC",
+insn { "ldc\tRm,SPC",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rm → SPC" },
+  abstract { "Rm -> SPC" },
   code { "0100mmmm01001110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11312,10 +11134,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,SPC",
+insn { "ldc.l\t@Rm+,SPC",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) → SPC, Rm+4 → Rm" },
+  abstract { "(Rm) -> SPC, Rm+4 -> Rm" },
   code { "0100mmmm01000111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11371,10 +11193,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,DBR",
+insn { "ldc\tRm,DBR",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rm → DBR" },
+  abstract { "Rm -> DBR" },
   code { "0100mmmm11111010" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -11422,10 +11244,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,DBR",
+insn { "ldc.l\t@Rm+,DBR",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) → DBR, Rm+4 → Rm" },
+  abstract { "(Rm) -> DBR, Rm+4 -> Rm" },
   code { "0100mmmm11110110" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -11481,10 +11303,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc	Rm,Rn_BANK",
+insn { "ldc\tRm,Rn_BANK",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rm → Rn_BANK (n = 0-7)" },
+  abstract { "Rm -> Rn_BANK (n = 0-7)" },
   code { "0100mmmm1nnn1110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11534,10 +11356,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldc.l	@Rm+,Rn_BANK",
+insn { "ldc.l\t@Rm+,Rn_BANK",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) → Rn_BANK, Rm+4 → Rm" },
+  abstract { "(Rm) -> Rn_BANK, Rm+4 -> Rm" },
   code { "0100mmmm1nnn0111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11595,9 +11417,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldre	@(disp,PC)",
+insn { "ldre\t@(disp,PC)",
   SH_DSP,
-  abstract { "disp × 2 + PC → RE" },
+  abstract { "disp * 2 + PC -> RE" },
   code { "10001110dddddddd" },
 
   issue { SH_DSP, "1" },
@@ -11665,9 +11487,9 @@ end:
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ldrs	@(disp,PC)",
+insn { "ldrs\t@(disp,PC)",
   SH_DSP,
-  abstract { "disp × 2 + PC → RS" },
+  abstract { "disp * 2 + PC -> RS" },
   code { "10001100dddddddd" },
 
   issue { SH_DSP, "1" },
@@ -11735,9 +11557,9 @@ end:
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,MACH",
+insn { "lds\tRm,MACH",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → MACH" },
+  abstract { "Rm -> MACH" },
   code { "0100mmmm00001010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11793,9 +11615,9 @@ void LDSMACH (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,MACH",
+insn { "lds.l\t@Rm+,MACH",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → MACH, Rm+4 → Rm" },
+  abstract { "(Rm) -> MACH, Rm+4 -> Rm" },
   code { "0100mmmm00000110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11857,9 +11679,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,MACL",
+insn { "lds\tRm,MACL",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → MACL" },
+  abstract { "Rm -> MACL" },
   code { "0100mmmm00011010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11905,9 +11727,9 @@ void LDSMACL (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,MACL",
+insn { "lds.l\t@Rm+,MACL",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → MACL, Rm+4 → Rm" },
+  abstract { "(Rm) -> MACL, Rm+4 -> Rm" },
   code { "0100mmmm00010110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11961,9 +11783,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,PR",
+insn { "lds\tRm,PR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "Rm → PR" },
+  abstract { "Rm -> PR" },
   code { "0100mmmm00101010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -12010,9 +11832,9 @@ LDS R0,PR ;Before execution: R0 = H'12345678, PR = H'00000000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,PR",
+insn { "lds.l\t@Rm+,PR",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "(Rm) → PR, Rm+4 → Rm" },
+  abstract { "(Rm) -> PR, Rm+4 -> Rm" },
   code { "0100mmmm00100110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -12065,9 +11887,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,DSR",
+insn { "lds\tRm,DSR",
   SH_DSP,
-  abstract { "Rm → DSR" },
+  abstract { "Rm -> DSR" },
   code { "0100mmmm01101010" },
 
   issue { SH_DSP, "1" },
@@ -12106,9 +11928,9 @@ void LDSDSR (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-insn { "lds	Rm,A0",
+insn { "lds\tRm,A0",
   SH_DSP,
-  abstract { "Rm → A0" },
+  abstract { "Rm -> A0" },
   code { "0100mmmm01111010" },
 
   issue { SH_DSP, "1" },
@@ -12153,9 +11975,9 @@ exceptions
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,DSR",
+insn { "lds.l\t@Rm+,DSR",
   SH_DSP,
-  abstract { "(Rm) → DSR, Rm+4 → Rm" },
+  abstract { "(Rm) -> DSR, Rm+4 -> Rm" },
   code { "0100mmmm01100110" },
 
   issue { SH_DSP, "1" },
@@ -12194,9 +12016,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,A0",
+insn { "lds.l\t@Rm+,A0",
   SH_DSP,
-  abstract { "(Rm) → A0, Rm+4 → Rm" },
+  abstract { "(Rm) -> A0, Rm+4 -> Rm" },
   code { "0100mmmm01110110" },
 
   issue { SH_DSP, "1" },
@@ -12243,9 +12065,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,X0",
+insn { "lds\tRm,X0",
   SH_DSP,
-  abstract { "Rm → X0" },
+  abstract { "Rm -> X0" },
   code { "0100mmmm10001010" },
 
   issue { SH_DSP, "1" },
@@ -12284,9 +12106,9 @@ void LDSX0 (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,X0",
+insn { "lds.l\t@Rm+,X0",
   SH_DSP,
-  abstract { "(Rm) → X0, Rm+4 → Rm" },
+  abstract { "(Rm) -> X0, Rm+4 -> Rm" },
   code { "0100nnnn10000110" },
 
   issue { SH_DSP, "1" },
@@ -12326,9 +12148,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,X1",
+insn { "lds\tRm,X1",
   SH_DSP,
-  abstract { "Rm → X1" },
+  abstract { "Rm -> X1" },
   code { "0100mmmm10011010" },
 
   issue { SH_DSP, "1" },
@@ -12367,9 +12189,9 @@ void LDSX1 (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,X1",
+insn { "lds.l\t@Rm+,X1",
   SH_DSP,
-  abstract { "(Rm) → X1, Rm+4 → Rm" },
+  abstract { "(Rm) -> X1, Rm+4 -> Rm" },
   code { "0100nnnn10010110" },
 
   issue { SH_DSP, "1" },
@@ -12410,9 +12232,9 @@ Data address error
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,Y0",
+insn { "lds\tRm,Y0",
   SH_DSP,
-  abstract { "Rm → Y0" },
+  abstract { "Rm -> Y0" },
   code { "0100mmmm10101010" },
 
   issue { SH_DSP, "1" },
@@ -12451,9 +12273,9 @@ void LDSY0 (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,Y0",
+insn { "lds.l\t@Rm+,Y0",
   SH_DSP,
-  abstract { "(Rm) → Y0, Rm+4 → Rm" },
+  abstract { "(Rm) -> Y0, Rm+4 -> Rm" },
   code { "0100nnnn10100110" },
 
   issue { SH_DSP, "1" },
@@ -12494,9 +12316,9 @@ Data address error
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,Y1",
+insn { "lds\tRm,Y1",
   SH_DSP,
-  abstract { "Rm → Y1" },
+  abstract { "Rm -> Y1" },
   code { "0100mmmm10111010" },
 
   issue { SH_DSP, "1" },
@@ -12535,9 +12357,9 @@ void LDSY1 (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,Y1",
+insn { "lds.l\t@Rm+,Y1",
   SH_DSP,
-  abstract { "(Rm) → Y1, Rm+4 → Rm" },
+  abstract { "(Rm) -> Y1, Rm+4 -> Rm" },
   code { "0100nnnn10110110" },
 
   issue { SH_DSP, "1" },
@@ -12580,7 +12402,7 @@ Data address error
 insn { "ldtlb",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "PTEH/PTEL → TLB" },
+  abstract { "PTEH/PTEL -> TLB" },
   code { "0000000000111000" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -12668,9 +12490,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movca.l	R0,@Rn",
+insn { "movca.l\tR0,@Rn",
   SH4 | SH4A,
-  abstract { "R0 → (Rn) (without fetching cache block)" },
+  abstract { "R0 -> (Rn) (without fetching cache block)" },
   code { "0000nnnn11000011" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -12780,7 +12602,7 @@ NOP ;Executes in one cycle
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ocbi	@Rn",
+insn { "ocbi\t@Rn",
   SH4 | SH4A,
   abstract { "Invalidate operand cache block" },
   code { "0000nnnn10010011" },
@@ -12842,7 +12664,7 @@ Note that the above exceptions are generated even if OCBI does not operate.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ocbp	@Rn",
+insn { "ocbp\t@Rn",
   SH4 | SH4A,
   abstract { "Write back and invalidate operand cache block" },
   code { "0000nnnn10100011" },
@@ -12905,7 +12727,7 @@ Note that the above exceptions are generated even if OCBP does not operate.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ocbwb	@Rn",
+insn { "ocbwb\t@Rn",
   SH4 | SH4A,
   abstract { "Write back operand cache block" },
   code { "0000nnnn10110011" },
@@ -12967,9 +12789,9 @@ Note that the above exceptions are generated even if OCBWB does not operate.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pref	@Rn",
+insn { "pref\t@Rn",
   SH2A | SH3 | SH4 | SH4A,
-  abstract { "(Rn) → operand cache" },
+  abstract { "(Rn) -> operand cache" },
   code { "0000nnnn10000011" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -13031,7 +12853,7 @@ Data TLB multiple-hit exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "prefi	@Rn",
+insn { "prefi\t@Rn",
   SH4A,
   abstract { "Reads 32-byte instruction block into instruction cache" },
   code { "0000nnnn11010011" },
@@ -13086,7 +12908,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "resbank",
   SH2A,
-  abstract { "Bank → R0 to R14, GBR, MACH, MACL, PR" },
+  abstract { "Bank -> R0 to R14, GBR, MACH, MACL, PR" },
   code { "0000000001011011" },
 
   issue { SH2A, "9/19" },
@@ -13158,7 +12980,7 @@ void RESBANK (void)
 insn { "rte",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } } },
-  abstract { "Delayed branch\nSH1*,SH2*: stack area → PC/SR\nSH3*,SH4*: SSR/SPC → SR/PC" },
+  abstract { "Delayed branch\nSH1*,SH2*: stack area -> PC/SR\nSH3*,SH4*: SSR/SPC -> SR/PC" },
   code { "0000000000101011" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -13246,9 +13068,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "setrc	Rn",
+insn { "setrc\tRn",
   SH_DSP,
-  abstract { "Rn[11:0] → RC (SR[27:16])" },
+  abstract { "Rn[11:0] -> RC (SR[27:16])" },
   code { "0100mmmm00010100" },
 
   issue { SH_DSP, "1" },
@@ -13263,7 +13085,7 @@ general register Rn are used as the repeat count.
 Set repeat control flags to RF1, RF0 bits of the SR register. Use of the SETRC
 instruction is subject to any limitations. Refer to the DSP Repeat (Loop)
 Control section of the manual for more information.
-<br /><img alt="Set Repeat Count to RC operation" src="setrc.svg" height="140" />
+<br /><img src="setrc.svg" height="140" />
 )"},
 
   note
@@ -13307,9 +13129,9 @@ end:
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "setrc	#imm",
+insn { "setrc\t#imm",
   SH_DSP,
-  abstract { "imm → RC (SR[23:16]), 0 → SR[27:24]" },
+  abstract { "imm -> RC (SR[23:16]), 0 -> SR[27:24]" },
   code { "10000010iiiiiiii" },
 
   issue { SH_DSP, "1" },
@@ -13324,7 +13146,7 @@ is zero-extended and used as the repeat count.
 Set repeat control flags to RF1, RF0 bits of the SR register. Use of the SETRC
 instruction is subject to any limitations. Refer to the DSP Repeat (Loop)
 Control section of the manual for more information.
-<br /><img alt="Set Repeat Count to RC operation" src="setrci.svg" height="140" />
+<br /><img src="setrci.svg" height="140" />
 )"},
 
   note
@@ -13370,9 +13192,9 @@ end:
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sets",
   SH3 | SH4 | SH4A,
-  abstract { "1 → S" },
+  abstract { "1 -> S" },
   code { "0000000001011000" },
-  flags { "1 → S" },
+  flags { "1 -> S" },
 
   group { SH4A, "EX", SH4, "CO" },
   issue { SH3, "1", SH4A, "1", SH4, "1" },
@@ -13416,9 +13238,9 @@ void SETS (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sett",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract { "1 → T" },
+  abstract { "1 -> T" },
   code { "0000000000011000" },
-  flags { "1 → T" },
+  flags { "1 -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
@@ -13523,9 +13345,9 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stbank	R0,@Rn",
+insn { "stbank\tR0,@Rn",
   SH2A,
-  abstract { "R0 → (specified register bank entry)" },
+  abstract { "R0 -> (specified register bank entry)" },
   code { "0100nnnn11100001" },
 
   issue { SH2A, "7" },
@@ -13568,10 +13390,10 @@ void STBANK (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	SR,Rn",
+insn { "stc\tSR,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "SR → Rn" },
+  abstract { "SR -> Rn" },
   code { "0000nnnn00000010" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -13621,10 +13443,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	SR,@-Rn",
+insn { "stc.l\tSR,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "Rn-4 → Rn, SR → (Rn)" },
+  abstract { "Rn-4 -> Rn, SR -> (Rn)" },
   code { "0100nnnn00000011" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -13682,10 +13504,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	TBR,Rn",
+insn { "stc\tTBR,Rn",
   SH2A,
   environments { { { SH2A, "Interrupt Disabled" } } },
-  abstract { "TBR → Rn" },
+  abstract { "TBR -> Rn" },
   code { "0000nnnn01001010" },
 
   issue { SH2A, "1" },
@@ -13725,10 +13547,10 @@ void STCTBR (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	GBR,Rn",
+insn { "stc\tGBR,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "GBR → Rn" },
+  abstract { "GBR -> Rn" },
   code { "0000nnnn00010010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -13772,10 +13594,10 @@ STCGBR (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	GBR,@-Rn",
+insn { "stc.l\tGBR,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, GBR → (Rn)" },
+  abstract { "Rn-4 -> Rn, GBR -> (Rn)" },
   code { "0100nnnn00010011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -13828,10 +13650,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	VBR,Rn",
+insn { "stc\tVBR,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "VBR → Rn" },
+  abstract { "VBR -> Rn" },
   code { "0000nnnn00100010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -13879,10 +13701,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	VBR,@-Rn",
+insn { "stc.l\tVBR,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
-  abstract { "Rn-4 → Rn, VBR → (Rn)" },
+  abstract { "Rn-4 -> Rn, VBR -> (Rn)" },
   code { "0100nnnn00100011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -13939,10 +13761,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	MOD,Rn",
+insn { "stc\tMOD,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "MOD → Rn" },
+  abstract { "MOD -> Rn" },
   code { "0000nnnn01010010" },
 
   issue { SH_DSP, "1" },
@@ -13981,10 +13803,10 @@ void STCMOD (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	MOD,@-Rn",
+insn { "stc.l\tMOD,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, MOD → (Rn)" },
+  abstract { "Rn-4 -> Rn, MOD -> (Rn)" },
   code { "0100nnnn01010011" },
 
   issue { SH_DSP, "1" },
@@ -14025,10 +13847,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	RE,Rn",
+insn { "stc\tRE,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "RE → Rn" },
+  abstract { "RE -> Rn" },
   code { "0000nnnn01110010" },
 
   issue { SH_DSP, "1" },
@@ -14067,10 +13889,10 @@ void STCRE (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	RE,@-Rn",
+insn { "stc.l\tRE,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, RE → (Rn)" },
+  abstract { "Rn-4 -> Rn, RE -> (Rn)" },
   code { "0100nnnn01110011" },
 
   issue { SH_DSP, "1" },
@@ -14110,10 +13932,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	RS,Rn",
+insn { "stc\tRS,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "RS → Rn" },
+  abstract { "RS -> Rn" },
   code { "0000nnnn01100010" },
 
   issue { SH_DSP, "1" },
@@ -14152,10 +13974,10 @@ void STCRS (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	RS,@-Rn",
+insn { "stc.l\tRS,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, RS → (Rn)" },
+  abstract { "Rn-4 -> Rn, RS -> (Rn)" },
   code { "0100nnnn01100011" },
 
   issue { SH_DSP, "1" },
@@ -14195,10 +14017,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	SGR,Rn",
+insn { "stc\tSGR,Rn",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "SGR → Rn" },
+  abstract { "SGR -> Rn" },
   code { "0000nnnn00111010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14246,10 +14068,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	SGR,@-Rn",
+insn { "stc.l\tSGR,@-Rn",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 → Rn, SGR → (Rn)" },
+  abstract { "Rn-4 -> Rn, SGR -> (Rn)" },
   code { "0100nnnn00110010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14306,10 +14128,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	SSR,Rn",
+insn { "stc\tSSR,Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "SSR → Rn" },
+  abstract { "SSR -> Rn" },
   code { "0000nnnn00110010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14357,10 +14179,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	SSR,@-Rn",
+insn { "stc.l\tSSR,@-Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 → Rn, SSR → (Rn)" },
+  abstract { "Rn-4 -> Rn, SSR -> (Rn)" },
   code { "0100nnnn00110011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14417,10 +14239,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	SPC,Rn",
+insn { "stc\tSPC,Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "SPC → Rn" },
+  abstract { "SPC -> Rn" },
   code { "0000nnnn01000010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14468,10 +14290,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	SPC,@-Rn",
+insn { "stc.l\tSPC,@-Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 → Rn, SPC → (Rn)" },
+  abstract { "Rn-4 -> Rn, SPC -> (Rn)" },
   code { "0100nnnn01000011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14528,10 +14350,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	DBR,Rn",
+insn { "stc\tDBR,Rn",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "DBR → Rn" },
+  abstract { "DBR -> Rn" },
   code { "0000nnnn11111010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14579,10 +14401,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	DBR,@-Rn",
+insn { "stc.l\tDBR,@-Rn",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 → Rn, DBR → (Rn)" },
+  abstract { "Rn-4 -> Rn, DBR -> (Rn)" },
   code { "0100nnnn11110010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14639,10 +14461,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc	Rm_BANK,Rn",
+insn { "stc\tRm_BANK,Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rm_BANK → Rn (m = 0-7)" },
+  abstract { "Rm_BANK -> Rn (m = 0-7)" },
   code { "0000nnnn1mmm0010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14691,10 +14513,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "stc.l	Rm_BANK,@-Rn",
+insn { "stc.l\tRm_BANK,@-Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 → Rn, Rm_BANK → (Rn) (m = 0-7)" },
+  abstract { "Rn-4 -> Rn, Rm_BANK -> (Rn) (m = 0-7)" },
   code { "0100nnnn1mmm0011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14752,10 +14574,10 @@ Slot illegal instruction exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	MACH,Rn",
+insn { "sts\tMACH,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "MACH → Rn" },
+  abstract { "MACH -> Rn" },
   code { "0000nnnn00001010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14813,10 +14635,10 @@ STS MACH,R0 ;Before execution: R0 = H'FFFFFFFF, MACH = H'00000000
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	MACH,@-Rn",
+insn { "sts.l\tMACH,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, MACH → (Rn)" },
+  abstract { "Rn-4 -> Rn, MACH -> (Rn)" },
   code { "0100nnnn00000010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14883,10 +14705,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	MACL,Rn",
+insn { "sts\tMACL,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "MACL → Rn" },
+  abstract { "MACL -> Rn" },
   code { "0000nnnn00011010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14930,10 +14752,10 @@ void STSMACL (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	MACL,@-Rn",
+insn { "sts.l\tMACL,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, MACL → (Rn)" },
+  abstract { "Rn-4 -> Rn, MACL -> (Rn)" },
   code { "0100nnnn00010010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14986,10 +14808,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	PR,Rn",
+insn { "sts\tPR,Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "PR → Rn" },
+  abstract { "PR -> Rn" },
   code { "0000nnnn00101010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -15033,10 +14855,10 @@ void STSPR (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	PR,@-Rn",
+insn { "sts.l\tPR,@-Rn",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, PR → (Rn)" },
+  abstract { "Rn-4 -> Rn, PR -> (Rn)" },
   code { "0100nnnn00100010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -15089,10 +14911,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	DSR,Rn",
+insn { "sts\tDSR,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "DSR → Rn" },
+  abstract { "DSR -> Rn" },
   code { "0000nnnn01101010" },
 
   issue { SH_DSP, "1" },
@@ -15130,10 +14952,10 @@ void STSDSR (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	DSR,@-Rn",
+insn { "sts.l\tDSR,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, DSR → (Rn)" },
+  abstract { "Rn-4 -> Rn, DSR -> (Rn)" },
   code { "0100nnnn01100010" },
 
   issue { SH_DSP, "1" },
@@ -15173,10 +14995,10 @@ Data address error
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	A0,Rn",
+insn { "sts\tA0,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "A0 → Rn" },
+  abstract { "A0 -> Rn" },
   code { "0000nnnn01111010" },
 
   issue { SH_DSP, "1" },
@@ -15215,10 +15037,10 @@ void STSA0 (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	A0,@-Rn",
+insn { "sts.l\tA0,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, A0 → (Rn)" },
+  abstract { "Rn-4 -> Rn, A0 -> (Rn)" },
   code { "0100nnnn01110010" },
 
   issue { SH_DSP, "1" },
@@ -15258,10 +15080,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	X0,Rn",
+insn { "sts\tX0,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "X0 → Rn" },
+  abstract { "X0 -> Rn" },
   code { "0000nnnn10001010" },
 
   issue { SH_DSP, "1" },
@@ -15300,10 +15122,10 @@ void STSX0 (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	X0,@-Rn",
+insn { "sts.l\tX0,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, X0 → (Rn)" },
+  abstract { "Rn-4 -> Rn, X0 -> (Rn)" },
   code { "0100nnnn10000010" },
 
   issue { SH_DSP, "1" },
@@ -15343,10 +15165,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	X1,Rn",
+insn { "sts\tX1,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "X1 → Rn" },
+  abstract { "X1 -> Rn" },
   code { "0000nnnn10011010" },
 
   issue { SH_DSP, "1" },
@@ -15385,10 +15207,10 @@ void STSX1 (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	X1,@-Rn",
+insn { "sts.l\tX1,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, X1 → (Rn)" },
+  abstract { "Rn-4 -> Rn, X1 -> (Rn)" },
   code { "0100nnnn10010010" },
 
   issue { SH_DSP, "1" },
@@ -15428,10 +15250,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	Y0,Rn",
+insn { "sts\tY0,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Y0 → Rn" },
+  abstract { "Y0 -> Rn" },
   code { "0000nnnn10101010" },
 
   issue { SH_DSP, "1" },
@@ -15470,10 +15292,10 @@ void STSY0 (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	Y0,@-Rn",
+insn { "sts.l\tY0,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, Y0 → (Rn)" },
+  abstract { "Rn-4 -> Rn, Y0 -> (Rn)" },
   code { "0100nnnn10100010" },
 
   issue { SH_DSP, "1" },
@@ -15513,10 +15335,10 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	Y1,Rn",
+insn { "sts\tY1,Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Y1 → Rn" },
+  abstract { "Y1 -> Rn" },
   code { "0000nnnn10111010" },
 
   issue { SH_DSP, "1" },
@@ -15555,10 +15377,10 @@ void STSY1 (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	Y1,@-Rn",
+insn { "sts.l\tY1,@-Rn",
   SH_DSP,
   environments { { { SH_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 → Rn, Y1 → (Rn)" },
+  abstract { "Rn-4 -> Rn, Y1 -> (Rn)" },
   code { "0100nnnn10110010" },
 
   issue { SH_DSP, "1" },
@@ -15651,10 +15473,10 @@ void SYNCO (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "trapa	#imm",
+insn { "trapa\t#imm",
   SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
-  abstract {R"(SH1*,SH2*: PC/SR → stack area, (imm*4 + VBR) → PC
-SH3*,SH4*: PC/SR → SPC/SSR, imm*4 → TRA, 0x160 → EXPEVT, VBR + 0x0100 → PC)"},
+  abstract {R"(SH1*,SH2*: PC/SR -> stack area, (imm*4 + VBR) -> PC
+SH3*,SH4*: PC/SR -> SPC/SSR, imm*4 -> TRA, 0x160 -> EXPEVT, VBR + 0x0100 -> PC)"},
   code { "11000011iiiiiiii" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -15763,9 +15585,9 @@ insn_blocks.push_back
 (insns { "32 Bit Floating-Point Data Transfer Instructions (FPSCR.SZ = 0)",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	FRm,FRn",
+insn { "fmov\tFRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRm → FRn" },
+  abstract { "FRm -> FRn" },
   code { "1111nnnnmmmm1100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -15816,9 +15638,9 @@ void FMOV (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	@Rm,FRn",
+insn { "fmov.s\t@Rm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "(Rm) → FRn" },
+  abstract { "(Rm) -> FRn" },
   code { "1111nnnnmmmm1000" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -15873,9 +15695,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	FRm,@Rn",
+insn { "fmov.s\tFRm,@Rn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRm → (Rn)" },
+  abstract { "FRm -> (Rn)" },
   code { "1111nnnnmmmm1010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -15932,9 +15754,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	@Rm+,FRn",
+insn { "fmov.s\t@Rm+,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "(Rm) → FRn, Rm+4 → Rm" },
+  abstract { "(Rm) -> FRn, Rm+4 -> Rm" },
   code { "1111nnnnmmmm1001" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -15992,9 +15814,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	FRm,@-Rn",
+insn { "fmov.s\tFRm,@-Rn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "Rn-4 → Rn, FRm → (Rn)" },
+  abstract { "Rn-4 -> Rn, FRm -> (Rn)" },
   code { "1111nnnnmmmm1011" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16054,9 +15876,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	@(R0,Rm),FRn",
+insn { "fmov.s\t@(R0,Rm),FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "(R0 + Rm) → FRn" },
+  abstract { "(R0 + Rm) -> FRn" },
   code { "1111nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16111,9 +15933,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	FRm,@(R0,Rn)",
+insn { "fmov.s\tFRm,@(R0,Rn)",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRm → (R0 + Rn)" },
+  abstract { "FRm -> (R0 + Rn)" },
   code { "1111nnnnmmmm0111" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16169,9 +15991,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	@(disp12,Rm),FRn",
+insn { "fmov.s\t@(disp12,Rm),FRn",
   SH2A,
-  abstract { "(disp × 4 + Rm) → FRn" },
+  abstract { "(disp * 4 + Rm) -> FRn" },
   code { "0011nnnnmmmm0001 0111dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -16211,9 +16033,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.s	FRm,@(disp12,Rn)",
+insn { "fmov.s\tFRm,@(disp12,Rn)",
   SH2A,
-  abstract { "FRm → (disp × 4 + Rn)" },
+  abstract { "FRm -> (disp * 4 + Rn)" },
   code { "0011nnnnmmmm0001 0011dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -16258,9 +16080,9 @@ insn_blocks.push_back
 (insns { "64 Bit Floating-Point Data Transfer Instructions (FPSCR.SZ = 1)",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	DRm,DRn",
+insn { "fmov\tDRm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "DRm → DRn" },
+  abstract { "DRm -> DRn" },
   code { "1111nnn0mmm01100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16311,9 +16133,9 @@ void FMOV_DR (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	DRm,XDn",
+insn { "fmov\tDRm,XDn",
   SH4 | SH4A,
-  abstract { "DRm → XDn" },
+  abstract { "DRm -> XDn" },
   code { "1111nnn1mmm01100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16364,9 +16186,9 @@ void FMOV_DRXD (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	XDm,DRn",
+insn { "fmov\tXDm,DRn",
   SH4 | SH4A,
-  abstract { "XDm → DRn" },
+  abstract { "XDm -> DRn" },
   code { "1111nnn0mmm11100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16417,9 +16239,9 @@ void FMOV_XDDR (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	XDm,XDn",
+insn { "fmov\tXDm,XDn",
   SH4 | SH4A,
-  abstract { "XDm → XDn" },
+  abstract { "XDm -> XDn" },
   code { "1111nnn1mmm11100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16458,9 +16280,9 @@ void FMOV_XDXD (int m, int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	@Rm,DRn",
+insn { "fmov\t@Rm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "(Rm) → DRn" },
+  abstract { "(Rm) -> DRn" },
   code { "1111nnn0mmmm1000" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16515,9 +16337,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	@Rm,XDn",
+insn { "fmov\t@Rm,XDn",
   SH4 | SH4A,
-  abstract { "(Rm) → XDn" },
+  abstract { "(Rm) -> XDn" },
   code { "1111nnn1mmmm1000" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16574,9 +16396,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	DRm,@Rn",
+insn { "fmov\tDRm,@Rn",
   SH4 | SH4A | SH2A,
-  abstract { "DRm → (Rn)" },
+  abstract { "DRm -> (Rn)" },
   code { "1111nnnnmmm01010" },
   mnemonic { "FMOV.D?" },
 
@@ -16634,9 +16456,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	XDm,@Rn",
+insn { "fmov\tXDm,@Rn",
   SH4 | SH4A,
-  abstract { "XDm → (Rn)" },
+  abstract { "XDm -> (Rn)" },
   code { "1111nnnnmmm11010" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16695,9 +16517,9 @@ Initial page write exception
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	@Rm+,DRn",
+insn { "fmov\t@Rm+,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "(Rm) → DRn, Rm + 8 → Rm" },
+  abstract { "(Rm) -> DRn, Rm+8 -> Rm" },
   code { "1111nnn0mmmm1001" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16757,9 +16579,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	@Rm+,XDn",
+insn { "fmov\t@Rm+,XDn",
   SH4 | SH4A,
-  abstract { "(Rm) → XDn, Rm+8 → Rm" },
+  abstract { "(Rm) -> XDn, Rm+8 -> Rm" },
   code { "1111nnn1mmmm1001" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16820,9 +16642,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	DRm,@-Rn",
+insn { "fmov\tDRm,@-Rn",
   SH4 | SH4A | SH2A,
-  abstract { "Rn-8 → Rn, DRm → (Rn)" },
+  abstract { "Rn-8 -> Rn, DRm -> (Rn)" },
   code { "1111nnnnmmm01011" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16884,9 +16706,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	XDm,@-Rn",
+insn { "fmov\tXDm,@-Rn",
   SH4 | SH4A,
-  abstract { "Rn-8 → Rn, (Rn) → XDm" },
+  abstract { "Rn-8 -> Rn, (Rn) -> XDm" },
   code { "1111nnnnmmm11011" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16949,9 +16771,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	@(R0,Rm),DRn",
+insn { "fmov\t@(R0,Rm),DRn",
   SH4 | SH4A | SH2A,
-  abstract { "(R0 + Rm) → DRn" },
+  abstract { "(R0 + Rm) -> DRn" },
   code { "1111nnn0mmmm0110" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -17007,9 +16829,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	@(R0,Rm),XDn",
+insn { "fmov\t@(R0,Rm),XDn",
   SH4 | SH4A,
-  abstract { "(R0 + Rm) → XDn" },
+  abstract { "(R0 + Rm) -> XDn" },
   code { "1111nnn1mmmm0110" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -17066,9 +16888,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	DRm,@(R0,Rn)",
+insn { "fmov\tDRm,@(R0,Rn)",
   SH4 | SH4A | SH2A,
-  abstract { "DRm → (R0 + Rn)" },
+  abstract { "DRm -> (R0 + Rn)" },
   code { "1111nnnnmmm00111" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -17125,9 +16947,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov	XDm,@(R0,Rn)",
+insn { "fmov\tXDm,@(R0,Rn)",
   SH4 | SH4A,
-  abstract { "XDm → (R0 + Rn)" },
+  abstract { "XDm -> (R0 + Rn)" },
   code { "1111nnnnmmm10111" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -17185,9 +17007,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	@(disp12,Rm),DRn",
+insn { "fmov.d\t@(disp12,Rm),DRn",
   SH2A,
-  abstract { "(disp × 8 + Rm) → DRn" },
+  abstract { "(disp * 8 + Rm) -> DRn" },
   code { "0011nnn0mmmm0001 0111dddddddddddd" },
 
   issue { SH2A, "2" },
@@ -17227,9 +17049,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmov.d	DRm,@(disp12,Rn)",
+insn { "fmov.d\tDRm,@(disp12,Rn)",
   SH2A,
-  abstract { "DRm → (disp × 8 + Rn)" },
+  abstract { "DRm -> (disp * 8 + Rn)" },
   code { "0011nnnnmmm00001 0011dddddddddddd" },
 
   issue { SH2A, "2" },
@@ -17279,9 +17101,9 @@ insn_blocks.push_back
 (insns { "Floating-Point Single-Precision Instructions (FPSCR.PR = 0)",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fldi0	FRn",
+insn { "fldi0\tFRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "0x00000000 → FRn" },
+  abstract { "0x00000000 -> FRn" },
   code { "1111nnnn10001101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -17333,9 +17155,9 @@ void FLDI0 (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fldi1	FRn",
+insn { "fldi1\tFRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "0x3F800000 → FRn" },
+  abstract { "0x3F800000 -> FRn" },
   code { "1111nnnn10011101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -17387,9 +17209,9 @@ void FLDI1 (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "flds	FRm,FPUL",
+insn { "flds\tFRm,FPUL",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRm → FPUL" },
+  abstract { "FRm -> FPUL" },
   code { "1111mmmm00011101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -17439,9 +17261,9 @@ void FLDS (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fsts	FPUL,FRn",
+insn { "fsts\tFPUL,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FPUL → FRn" },
+  abstract { "FPUL -> FRn" },
   code { "1111nnnn00001101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -17490,9 +17312,9 @@ void FSTS (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fabs	FRn",
+insn { "fabs\tFRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRn & 0x7FFFFFFF → FRn" },
+  abstract { "FRn & 0x7FFFFFFF -> FRn" },
   code { "1111nnnn01011101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -17550,9 +17372,9 @@ void FABS (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fneg	FRn",
+insn { "fneg\tFRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRn ^ 0x80000000 → FRn" },
+  abstract { "FRn ^ 0x80000000 -> FRn" },
   code { "1111nnnn01001101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -17610,9 +17432,9 @@ void FNEG (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fadd	FRm,FRn",
+insn { "fadd\tFRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRn + FRm → FRn" },
+  abstract { "FRn + FRm -> FRn" },
   code { "1111nnnnmmmm0000" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -17764,9 +17586,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fsub	FRm,FRn",
+insn { "fsub\tFRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRn - FRm → FRn" },
+  abstract { "FRn - FRm -> FRn" },
   code { "1111nnnnmmmm0001" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -17918,9 +17740,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmul	FRm,FRn",
+insn { "fmul\tFRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRn × FRm → FRn" },
+  abstract { "FRn * FRm -> FRn" },
   code { "1111nnnnmmmm0010" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -18068,9 +17890,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmac	FR0,FRm,FRn",
+insn { "fmac\tFR0,FRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FR0 × FRm + FRn → FRn" },
+  abstract { "FR0 * FRm + FRn -> FRn" },
   code { "1111nnnnmmmm1110" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -18364,9 +18186,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fdiv	FRm,FRn",
+insn { "fdiv\tFRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FRn / FRm → FRn" },
+  abstract { "FRn / FRm -> FRn" },
   code { "1111nnnnmmmm0011" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -18569,9 +18391,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fsqrt	FRn",
+insn { "fsqrt\tFRn",
   SH3E, SH4 | SH4A | SH2A,
-  abstract { "sqrt (FRn) → FRn" },
+  abstract { "sqrt(FRn) -> FRn" },
   code { "1111nnnn01101101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -18703,11 +18525,11 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fcmp/eq	FRm,FRn",
+insn { "fcmp/eq\tFRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "If FRn = FRm: 1 → T\nElse: 0 → T" },
+  abstract { "If FRn = FRm: 1 -> T\nElse: 0 -> T" },
   code { "1111nnnnmmmm0100" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
@@ -18847,11 +18669,11 @@ void fcmp_invalid (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fcmp/gt	FRm,FRn",
+insn { "fcmp/gt\tFRm,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "If FRn > FRm: 1 → T\nElse: 0 → T" },
+  abstract { "If FRn > FRm: 1 -> T\nElse: 0 -> T" },
   code { "1111nnnnmmmm0101" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
@@ -18929,9 +18751,9 @@ Invalid operation
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "float	FPUL,FRn",
+insn { "float\tFPUL,FRn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "(float)FPUL → FRn" },
+  abstract { "(float)FPUL -> FRn" },
   code { "1111nnnn00101101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -19003,9 +18825,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ftrc	FRm,FPUL",
+insn { "ftrc\tFRm,FPUL",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "(long)FRm → FPUL" },
+  abstract { "(long)FRm -> FPUL" },
   code { "1111mmmm00111101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -19117,9 +18939,9 @@ Invalid operation
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fipr	FVm,FVn",
+insn { "fipr\tFVm,FVn",
   SH4 | SH4A,
-  abstract { "inner_product (FVm, FVn) → FR[n+3]" },
+  abstract { "inner_product (FVm, FVn) -> FR[n+3]" },
   code { "1111nnmm11101101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -19221,9 +19043,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ftrv	XMTRX,FVn",
+insn { "ftrv\tXMTRX,FVn",
   SH4 | SH4A,
-  abstract { "transform_vector (XMTRX, FVn) → FVn" },
+  abstract { "transform_vector (XMTRX, FVn) -> FVn" },
   code { "1111nn0111111101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -19235,7 +19057,7 @@ insn { "ftrv	XMTRX,FVn",
   description
 {R"(
 Takes the contents of floating-point registers XF0 to XF15 indicated by XMTRX
-as a 4-row &times 4-column matrix, takes the contents of floating-point
+as a 4-row × 4-column matrix, takes the contents of floating-point
 registers FR[n] to FR[n + 3] indicated by FVn as a 4-dimensional vector,
 multiplies the array by the vector, and stores the results in FV[n].
 
@@ -19283,7 +19105,7 @@ updated. Appropriate processing should therefore be performed by software.
 
   note
 {R"(
-A 4-dimensional matrix &times matrix transformation can be realized by four FTRV
+A 4-dimensional matrix × matrix transformation can be realized by four FTRV
 instructions, where every FTRV calculates a column of the result matrix.  The
 resulting matrix can be set to the XMTRX registers by toggling the FPSCR.FR bit
 to switch register banks without copying them.
@@ -19351,9 +19173,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fsrra	FRn",
+insn { "fsrra\tFRn",
   SH4A,
-  abstract { "1.0 / sqrt (FRn) → FRn" },
+  abstract { "1.0 / sqrt (FRn) -> FRn" },
   code { "1111nnnn01111101" },
 
   group { SH4A, "FE" },
@@ -19455,9 +19277,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fsca	FPUL,DRn",
+insn { "fsca\tFPUL,DRn",
   SH4A,
-  abstract { "sin (FPUL) → FRn\ncos (FPUL) → FR[n+1]" },
+  abstract { "sine (FPUL) -> FRn\ncosine (FPUL) -> FR[n+1]" },
   code { "1111nnn011111101" },
 
   group { SH4A, "FE" },
@@ -19479,12 +19301,12 @@ The input angle is specified as a signed fraction in twos complement.  The
 result of sin and cos is a single-precision floating-point number.
 <br />
 0x7FFFFFFF to 0x00000001:
-360&times;2<sup>15</sup>&minus;360/2<sup>16</sup> to 360/2<sup>16</sup> degrees
+360 × 2<sup>15</sup>−360 ÷ 2<sup>16</sup> to 360 ÷ 2<sup>16</sup> degrees
 <br />
 0x00000000: 0 degree
 <br />
 0xFFFFFFFF to 0x80000000:
-&minus;360/2<sup>16</sup> to &minus;360&times2<sup>15</sup> degrees
+−360 ÷ 2<sup>16</sup> to −360 × 2<sup>15</sup> degrees
 )"},
 
   note
@@ -19534,9 +19356,9 @@ insn_blocks.push_back
 (insns { "Floating-Point Double-Precision Instructions (FPSCR.PR = 1)",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fabs	DRn",
+insn { "fabs\tDRn",
   SH4 | SH4A | SH2A,
-  abstract { "DRn & 0x7FFFFFFFFFFFFFFF → DRn" },
+  abstract { "DRn & 0x7FFFFFFFFFFFFFFF -> DRn" },
   code { "1111nnn001011101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -19594,9 +19416,9 @@ void FABS (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fneg	DRn",
+insn { "fneg\tDRn",
   SH4 | SH4A | SH2A,
-  abstract { "DRn ^ 0x8000000000000000 → DRn" },
+  abstract { "DRn ^ 0x8000000000000000 -> DRn" },
   code { "1111nnn001001101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -19653,9 +19475,9 @@ void FNEG (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fadd	DRm,DRn",
+insn { "fadd\tDRm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "DRn + DRm → DRn" },
+  abstract { "DRn + DRm -> DRn" },
   code { "1111nnn0mmm00000" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -19806,9 +19628,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fsub	DRm,DRn",
+insn { "fsub\tDRm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "DRn - DRm → DRn" },
+  abstract { "DRn - DRm -> DRn" },
   code { "1111nnn0mmm00001" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -19958,9 +19780,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fmul	DRm,DRn",
+insn { "fmul\tDRm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "DRn × DRm → DRn" },
+  abstract { "DRn * DRm -> DRn" },
   code { "1111nnn0mmm00010" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -20103,9 +19925,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fdiv	DRm,DRn",
+insn { "fdiv\tDRm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "DRn / DRm → DRn" },
+  abstract { "DRn / DRm -> DRn" },
   code { "1111nnn0mmm00011" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -20311,9 +20133,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fsqrt	DRn",
+insn { "fsqrt\tDRn",
   SH4 | SH4A | SH2A,
-  abstract { "sqrt (DRn) → DRn" },
+  abstract { "sqrt(DRn) -> DRn" },
   code { "1111nnn001101101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -20448,11 +20270,11 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fcmp/eq	DRm,DRn",
+insn { "fcmp/eq\tDRm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "If DRn = DRm: 1 → T\nElse: 0 → T" },
+  abstract { "If DRn = DRm: 1 -> T\nElse: 0 -> T" },
   code { "1111nnn0mmm00100" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "FE", SH4, "CO" },
   issue { SH4A, "1", SH2A, "2", SH4, "2" },
@@ -20586,11 +20408,11 @@ Invalid operation
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fcmp/gt	DRm,DRn",
+insn { "fcmp/gt\tDRm,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "If DRn > DRm: 1 → T\nElse: 0 → T" },
+  abstract { "If DRn > DRm: 1 -> T\nElse: 0 -> T" },
   code { "1111nnn0mmm00101" },
-  flags { "Result → T" },
+  flags { "Result -> T" },
 
   group { SH4A, "FE", SH4, "CO" },
   issue { SH4A, "1", SH2A, "2", SH4, "2" },
@@ -20667,9 +20489,9 @@ Invalid operation
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "float	FPUL,DRn",
+insn { "float\tFPUL,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "(double)FPUL → DRn" },
+  abstract { "(double)FPUL -> DRn" },
   code { "1111nnn000101101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -20730,9 +20552,9 @@ void FLOAT_double (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ftrc	DRm,FPUL",
+insn { "ftrc\tDRm,FPUL",
   SH4 | SH4A | SH2A,
-  abstract { "(long)DRm → FPUL" },
+  abstract { "(long)DRm -> FPUL" },
   code { "1111mmm000111101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -20841,9 +20663,9 @@ Invalid operation
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fcnvds	DRm,FPUL",
+insn { "fcnvds\tDRm,FPUL",
   SH4 | SH4A | SH2A,
-  abstract { "double_to_float (DRm) → FPUL" },
+  abstract { "double_to_float (DRm) -> FPUL" },
   code { "1111mmm010111101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -20996,9 +20818,9 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "fcnvsd	FPUL,DRn",
+insn { "fcnvsd\tFPUL,DRn",
   SH4 | SH4A | SH2A,
-  abstract { "float_to_double (FPUL) → DRn" },
+  abstract { "float_to_double (FPUL) -> DRn" },
   code { "1111nnn010101101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -21122,9 +20944,9 @@ insn_blocks.push_back
 (insns { "Floating-Point Control Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,FPSCR",
+insn { "lds\tRm,FPSCR",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "Rm → FPSCR" },
+  abstract { "Rm -> FPSCR" },
   code { "0100mmmm01101010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -21183,9 +21005,9 @@ void LDSFPSCR (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	FPSCR,Rn",
+insn { "sts\tFPSCR,Rn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FPSCR → Rn" },
+  abstract { "FPSCR -> Rn" },
   code { "0000nnnn01101010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -21232,9 +21054,9 @@ void STSFPSCR (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,FPSCR",
+insn { "lds.l\t@Rm+,FPSCR",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "(Rm) → FPSCR, Rm+4 → Rm" },
+  abstract { "(Rm) -> FPSCR, Rm+4 -> Rm" },
   code { "0100mmmm01100110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -21301,9 +21123,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	FPSCR,@-Rn",
+insn { "sts.l\tFPSCR,@-Rn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "Rn-4 → Rn, FPSCR → (Rn)" },
+  abstract { "Rn-4 -> Rn, FPSCR -> (Rn)" },
   code { "0100nnnn01100010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -21356,9 +21178,9 @@ Initial page write exception
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds	Rm,FPUL",
+insn { "lds\tRm,FPUL",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "Rm → FPUL" },
+  abstract { "Rm -> FPUL" },
   code { "0100mmmm01011010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -21408,9 +21230,9 @@ void LDSFPUL (int m)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts	FPUL,Rn",
+insn { "sts\tFPUL,Rn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "FPUL → Rn" },
+  abstract { "FPUL -> Rn" },
   code { "0000nnnn01011010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -21452,9 +21274,9 @@ void STSFPUL (int n)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "lds.l	@Rm+,FPUL",
+insn { "lds.l\t@Rm+,FPUL",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "(Rm) → FPUL, Rm+4 → Rm" },
+  abstract { "(Rm) -> FPUL, Rm+4 -> Rm" },
   code { "0100mmmm01010110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -21511,9 +21333,9 @@ Data address error
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "sts.l	FPUL,@-Rn",
+insn { "sts.l\tFPUL,@-Rn",
   SH2E | SH3E | SH4 | SH4A | SH2A,
-  abstract { "Rn-4 → Rn, FPUL → (Rn)" },
+  abstract { "Rn-4 -> Rn, FPUL -> (Rn)" },
   code { "0100nnnn01010010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -21559,7 +21381,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "frchg",
   SH4 | SH4A,
-  abstract { "If FPSCR.PR = 0: ~FPSCR.FR → FPSCR.FR\nElse: Undefined Operation" },
+  abstract { "If FPSCR.PR = 0: ~FPSCR.FR -> FPSCR.FR\nElse: Undefined Operation" },
   code { "1111101111111101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -21622,7 +21444,7 @@ void FRCHG (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fschg",
   SH2A | SH4 | SH4A,
-  abstract { "If FPSCR.PR = 0: ~FPSCR.SZ → FPSCR.SZ\nElse: Undefined Operation" },
+  abstract { "If FPSCR.PR = 0: ~FPSCR.SZ -> FPSCR.SZ\nElse: Undefined Operation" },
   code { "1111001111111101" },
 
   group { SH4A, "FE", SH4, "FE" },
@@ -21684,7 +21506,7 @@ void FSCHG (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fpchg",
   SH4A,
-  abstract { "~FPSCR.PR → FPSCR.PR" },
+  abstract { "~FPSCR.PR -> FPSCR.PR" },
   code { "1111011111111101" },
 
   group { SH4A, "FE" },
@@ -21768,9 +21590,9 @@ No access operation for X memory.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movx.w	@Ax,Dx",
+insn { "movx.w\t@Ax,Dx",
   SH_DSP,
-  abstract { "(Ax) → MSW of Dx, 0 → LSW of Dx" },
+  abstract { "(Ax) -> MSW of Dx, 0 -> LSW of Dx" },
   code { "111100A*D*0*01**" },
 
   issue { SH_DSP, "1" },
@@ -21813,9 +21635,9 @@ MOVX.W  @R4,X0   ! Before execution: R4 = 0x08010000, @R4 = 0x5555, X0 = 0x12345
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movx.w	@Ax+,Dx",
+insn { "movx.w\t@Ax+,Dx",
   SH_DSP,
-  abstract { "(Ax) → MSW of Dx, 0 → LSW of Dx, Ax+2 → Ax" },
+  abstract { "(Ax) -> MSW of Dx, 0 -> LSW of Dx, Ax+2 -> Ax" },
   code { "111100A*D*0*10**" },
 
   issue { SH_DSP, "1" },
@@ -21858,9 +21680,9 @@ MOVX.W  @R4+,X0  ! Before execution: R4 = 0x08010000, @R4 = 0x5555, X0 = 0x12345
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movx.w	@Ax+Ix,Dx",
+insn { "movx.w\t@Ax+Ix,Dx",
   SH_DSP,
-  abstract { "(Ax) → MSW of Dx, 0 → LSW of Dx, Ax+Ix → Ax" },
+  abstract { "(Ax) -> MSW of Dx, 0 -> LSW of Dx, Ax+Ix -> Ax" },
   code { "111100A*D*0*11**" },
 
   issue { SH_DSP, "1" },
@@ -21902,9 +21724,9 @@ LSW = Low-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movx.w	Da,@Ax",
+insn { "movx.w\tDa,@Ax",
   SH_DSP,
-  abstract { "MSW of Da → (Ax)" },
+  abstract { "MSW of Da -> (Ax)" },
   code { "111100A*D*1*01**" },
 
   issue { SH_DSP, "1" },
@@ -21943,9 +21765,9 @@ MSW = High-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movx.w	Da,@Ax+",
+insn { "movx.w\tDa,@Ax+",
   SH_DSP,
-  abstract { "MSW of Da → (Ax), Ax+2 → Ax" },
+  abstract { "MSW of Da -> (Ax), Ax+2 -> Ax" },
   code { "111100A*D*1*10**" },
 
   issue { SH_DSP, "1" },
@@ -21984,9 +21806,9 @@ MSW = High-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movx.w	Da,@Ax+Ix",
+insn { "movx.w\tDa,@Ax+Ix",
   SH_DSP,
-  abstract { "MSW of Da → (Ax), Ax+Ix → Ax" },
+  abstract { "MSW of Da -> (Ax), Ax+Ix -> Ax" },
   code { "111100A*D*1*11**" },
 
   issue { SH_DSP, "1" },
@@ -22062,9 +21884,9 @@ No access operation for Y memory.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movy.w	@Ay,Dy",
+insn { "movy.w\t@Ay,Dy",
   SH_DSP,
-  abstract { "(Ay) → MSW of Dy, 0 → LSW of Dy" },
+  abstract { "(Ay) -> MSW of Dy, 0 -> LSW of Dy" },
   code { "111100*A*D*0**01" },
 
   issue { SH_DSP, "1" },
@@ -22106,9 +21928,9 @@ LSW = Low-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movy.w	@Ay+,Dy",
+insn { "movy.w\t@Ay+,Dy",
   SH_DSP,
-  abstract { "(Ay) → MSW of Dy, 0 → LSW of Dy, Ay+2 → Ay" },
+  abstract { "(Ay) -> MSW of Dy, 0 -> LSW of Dy, Ay+2 -> Ay" },
   code { "111100*A*D*0**10" },
 
   issue { SH_DSP, "1" },
@@ -22150,9 +21972,9 @@ LSW = Low-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movy.w	@Ay+Iy,Dy",
+insn { "movy.w\t@Ay+Iy,Dy",
   SH_DSP,
-  abstract { "(Ay) → MSW of Dy, 0 → LSW of Dy, Ay+Iy → Ay" },
+  abstract { "(Ay) -> MSW of Dy, 0 -> LSW of Dy, Ay+Iy -> Ay" },
   code { "111100*A*D*0**11" },
 
   issue { SH_DSP, "1" },
@@ -22194,9 +22016,9 @@ LSW = Low-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movy.w	Da,@Ay",
+insn { "movy.w\tDa,@Ay",
   SH_DSP,
-  abstract { "MSW of Da → (Ay)" },
+  abstract { "MSW of Da -> (Ay)" },
   code { "111100*A*D*1**01" },
 
   issue { SH_DSP, "1" },
@@ -22235,9 +22057,9 @@ MSW = High-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movy.w	Da,@Ay+",
+insn { "movy.w\tDa,@Ay+",
   SH_DSP,
-  abstract { "MSW of Da → (Ay), Ay+2 → Ay" },
+  abstract { "MSW of Da -> (Ay), Ay+2 -> Ay" },
   code { "111100*A*D*1**10" },
 
   issue { SH_DSP, "1" },
@@ -22276,9 +22098,9 @@ MSW = High-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movy.w	Da,@Ay+Iy",
+insn { "movy.w\tDa,@Ay+Iy",
   SH_DSP,
-  abstract { "MSW of Da → (Ay), Ay+Iy → Ay" },
+  abstract { "MSW of Da -> (Ay), Ay+Iy -> Ay" },
   code { "111100*A*D*1**11" },
 
   issue { SH_DSP, "1" },
@@ -22317,9 +22139,9 @@ MSW = High-order word of operand.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	@-As,Ds",
+insn { "movs.w\t@-As,Ds",
   SH_DSP,
-  abstract { "As-2 → As, (As) → MSW of Ds, 0 → LSW of Ds" },
+  abstract { "As-2 -> As, (As) -> MSW of Ds, 0 -> LSW of Ds" },
   code { "111101AADDDD0000" },
 
   issue { SH_DSP, "1" },
@@ -22357,9 +22179,9 @@ guard bits, the sign is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	@As,Ds",
+insn { "movs.w\t@As,Ds",
   SH_DSP,
-  abstract { "(As) → MSW of Ds, 0 → LSW of Ds" },
+  abstract { "(As) -> MSW of Ds, 0 -> LSW of Ds" },
   code { "111101AADDDD0100" },
 
   issue { SH_DSP, "1" },
@@ -22397,9 +22219,9 @@ guard bits, the sign is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	@As+,Ds",
+insn { "movs.w\t@As+,Ds",
   SH_DSP,
-  abstract { "(As) → MSW of Ds, 0 → LSW of Ds, As+2 → As" },
+  abstract { "(As) -> MSW of Ds, 0 -> LSW of Ds, As+2 -> As" },
   code { "111101AADDDD1000" },
 
   issue { SH_DSP, "1" },
@@ -22437,9 +22259,9 @@ guard bits, the sign is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	@As+Ix,Ds",
+insn { "movs.w\t@As+Ix,Ds",
   SH_DSP,
-  abstract { "(As) → MSW of Ds, 0 → LSW of DS, As+Ix → As" },
+  abstract { "(As) -> MSW of Ds, 0 -> LSW of DS, As+Ix -> As" },
   code { "111101AADDDD1100" },
 
   issue { SH_DSP, "1" },
@@ -22477,9 +22299,9 @@ guard bits, the sign is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	Ds,@-As",
+insn { "movs.w\tDs,@-As",
   SH_DSP,
-  abstract { "As-2 → As, MSW of Ds → (As)" },
+  abstract { "As-2 -> As, MSW of Ds -> (As)" },
   code { "111101AADDDD0001" },
 
   issue { SH_DSP, "1" },
@@ -22516,9 +22338,9 @@ sign extended and stored as a word.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	Ds,@As",
+insn { "movs.w\tDs,@As",
   SH_DSP,
-  abstract { "MSW of Ds → (As)" },
+  abstract { "MSW of Ds -> (As)" },
   code { "111101AADDDD0101" },
 
   issue { SH_DSP, "1" },
@@ -22555,9 +22377,9 @@ sign extended and stored as a word.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	Ds,@As+",
+insn { "movs.w\tDs,@As+",
   SH_DSP,
-  abstract { "MSW of Ds → (As), As+2 → As" },
+  abstract { "MSW of Ds -> (As), As+2 -> As" },
   code { "111101AADDDD1001" },
 
   issue { SH_DSP, "1" },
@@ -22594,9 +22416,9 @@ sign extended and stored as a word.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.w	Ds,@As+Is",
+insn { "movs.w\tDs,@As+Is",
   SH_DSP,
-  abstract { "MSW of DS → (As), As+Is → As" },
+  abstract { "MSW of DS -> (As), As+Is -> As" },
   code { "111101AADDDD1101" },
 
   issue { SH_DSP, "1" },
@@ -22633,9 +22455,9 @@ sign extended and stored as a word.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	@-As,Ds",
+insn { "movs.l\t@-As,Ds",
   SH_DSP,
-  abstract { "As-4 → As, (As) → Ds" },
+  abstract { "As-4 -> As, (As) -> Ds" },
   code { "111101AADDDD0010" },
 
   issue { SH_DSP, "1" },
@@ -22672,9 +22494,9 @@ is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	@As,Ds",
+insn { "movs.l\t@As,Ds",
   SH_DSP,
-  abstract { "(As) → Ds" },
+  abstract { "(As) -> Ds" },
   code { "111101AADDDD0110" },
 
   issue { SH_DSP, "1" },
@@ -22711,9 +22533,9 @@ is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	@As+,Ds",
+insn { "movs.l\t@As+,Ds",
   SH_DSP,
-  abstract { "(As) → Ds, As+4 → As" },
+  abstract { "(As) -> Ds, As+4 -> As" },
   code { "111101AADDDD1010" },
 
   issue { SH_DSP, "1" },
@@ -22750,9 +22572,9 @@ is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	@As+Is,Ds",
+insn { "movs.l\t@As+Is,Ds",
   SH_DSP,
-  abstract { "(As) → Ds, As+Is → As" },
+  abstract { "(As) -> Ds, As+Is -> As" },
   code { "111101AADDDD1110" },
 
   issue { SH_DSP, "1" },
@@ -22789,9 +22611,9 @@ is extended and stored in the guard bits.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	Ds,@-As",
+insn { "movs.l\tDs,@-As",
   SH_DSP,
-  abstract { "As-4 → As, Ds → (As)" },
+  abstract { "As-4 -> As, Ds -> (As)" },
   code { "111101AADDDD0011" },
 
   issue { SH_DSP, "1" },
@@ -22828,9 +22650,9 @@ sign extended and stored as a word.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	Ds,@As",
+insn { "movs.l\tDs,@As",
   SH_DSP,
-  abstract { "Ds → (As)" },
+  abstract { "Ds -> (As)" },
   code { "111101AADDDD0111" },
 
   issue { SH_DSP, "1" },
@@ -22867,9 +22689,9 @@ sign extended and stored as a word.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	Ds,@As+",
+insn { "movs.l\tDs,@As+",
   SH_DSP,
-  abstract { "Ds → (As), As+4 → As" },
+  abstract { "Ds -> (As), As+4 -> As" },
   code { "111101AADDDD1011" },
 
   issue { SH_DSP, "1" },
@@ -22906,9 +22728,9 @@ sign extended and stored as a word.
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "movs.l	Ds,@As+Is",
+insn { "movs.l\tDs,@As+Is",
   SH_DSP,
-  abstract { "Ds → (As), As+Is → As" },
+  abstract { "Ds -> (As), As+Is -> As" },
   code { "111101AADDDD1111" },
 
   issue { SH_DSP, "1" },
@@ -22951,11 +22773,11 @@ insn_blocks.push_back
 (insns { "DSP ALU Arithmetic Operation Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pabs		Sx,Dz",
+insn { "pabs\tSx,Dz",
   SH_DSP,
-  abstract { "If Sx >= 0: Sx → Dz\nIf Sx < 0: 0 - Sx → Dz" },
+  abstract { "If Sx >= 0: Sx -> Dz\nIf Sx < 0: 0 - Sx -> Dz" },
   code { "111110********** 10001000xx00zzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -23056,11 +22878,11 @@ void pabs_sx (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pabs		Sy,Dz",
+insn { "pabs\tSy,Dz",
   SH_DSP,
-  abstract { "If Sy >= 0: Sy → Dz\nIf Sy < 0: 0 - Sy → Dz" },
+  abstract { "If Sy >= 0: Sy -> Dz\nIf Sy < 0: 0 - Sy -> Dz" },
   code { "111110********** 1010100000yyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -23156,11 +22978,11 @@ void pabs_sy (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "padd		Sx,Sy,Dz",
+insn { "padd\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx + Sy → Dz" },
+  abstract { "Sx + Sy -> Dz" },
   code { "111110********** 10110001xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -23263,9 +23085,9 @@ PADD   X0,Y0,A0   NOPX   NOPY    ! Before execution: X0 = 0x22222222, Y0 = 0x333
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct padd	Sx,Sy,Dz",
+insn { "dct padd\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx + Sy → Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx + Sy -> Dz\nElse: nop" },
   code { "111110********** 10110010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -23380,9 +23202,9 @@ void padd_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf padd	Sx,Sy,Dz",
+insn { "dcf padd\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx + Sy → Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx + Sy -> Dz\nElse: nop" },
   code { "111110********** 10110011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -23497,11 +23319,11 @@ void padd_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "padd		Sx,Sy,Du\npmuls		Se,Sf,Dg",
+insn { "padd\tSx,Sy,Du\npmuls\tSe,Sf,Dg",
   SH_DSP,
-  abstract { "Sx + Sy → Du\nMSW of Se × MSW of Sf → Dg" },
+  abstract { "Sx + Sy -> Du\nMSW of Se * MSW of Sf -> Dg" },
   code { "111110********** 0111eeffxxyygguu" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -23589,11 +23411,11 @@ PADD  A0,M0,A0  PMULS X0,YO,MO  NOPX  NOPY
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "paddc		Sx,Sy,Dz",
+insn { "paddc\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx + Sy + DC → Dz" },
+  abstract { "Sx + Sy + DC -> Dz" },
   code { "111110********** 10110000xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -23706,11 +23528,11 @@ PADDC X0,Y0,M0  NOPX  NOPY   ! Before execution: X0 = 0x33333333, Y0 = 0x5555555
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pclr		Dz",
+insn { "pclr\tDz",
   SH_DSP,
-  abstract { "0x00000000 → Dz" },
+  abstract { "0x00000000 -> Dz" },
   code { "111110********** 100011010000zzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -23762,9 +23584,9 @@ PCLR  A0  NOPX  NOPY   ! Before execution: A0 = 0xFF87654321
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pclr	Dz",
+insn { "dct pclr\tDz",
   SH_DSP,
-  abstract { "If DC = 1: 0x00000000 → Dz\nElse: nop" },
+  abstract { "If DC = 1: 0x00000000 -> Dz\nElse: nop" },
   code { "111110********** 100011100000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -23804,9 +23626,9 @@ void pclr_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pclr	Dz",
+insn { "dcf pclr\tDz",
   SH_DSP,
-  abstract { "If DC = 0: 0x00000000 → Dz\nElse: nop" },
+  abstract { "If DC = 0: 0x00000000 -> Dz\nElse: nop" },
   code { "111110********** 100011110000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -23846,11 +23668,11 @@ void pclr_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pcmp		Sx,Sy",
+insn { "pcmp\tSx,Sy",
   SH_DSP,
   abstract { "Sx - Sy" },
   code { "111110********** 10000100xxyy0000" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -23959,11 +23781,11 @@ PCMP  X0,Y0  NOPX  NOPY  ! Before execution: X0 = 0x22222222, Y0 = 0x33333333
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pcopy		Sx,Dz",
+insn { "pcopy\tSx,Dz",
   SH_DSP,
-  abstract { "Sx → Dz" },
+  abstract { "Sx -> Dz" },
   code { "111110********** 11011001xx00zzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -24043,11 +23865,11 @@ void pcopy_sx (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pcopy		Sy,Dz",
+insn { "pcopy\tSy,Dz",
   SH_DSP,
-  abstract { "Sy → Dz" },
+  abstract { "Sy -> Dz" },
   code { "111110********** 1111100100yyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -24122,9 +23944,9 @@ PCOPY  X0,A0  NOPX  NOPY  ! Before execution: X0 = 0x55555555, A0 = 0xFFFFFFFF
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pcopy	Sx,Dz",
+insn { "dct pcopy\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx → Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx -> Dz\nElse: nop" },
   code { "111110********** 11011010xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -24219,9 +24041,9 @@ void pcopy_sx_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pcopy	Sy,Dz",
+insn { "dct pcopy\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sy → Dz\nElse: nop" },
+  abstract { "If DC = 1: Sy -> Dz\nElse: nop" },
   code { "111110********** 1111101000yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -24311,9 +24133,9 @@ void pcopy_sy_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pcopy	Sx,Dz",
+insn { "dcf pcopy\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx → Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx -> Dz\nElse: nop" },
   code { "111110********** 11011011xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -24408,9 +24230,9 @@ void pcopy_sx_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pcopy	Sy,Dz",
+insn { "dcf pcopy\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sy → Dz\nElse: nop" },
+  abstract { "If DC = 0: Sy -> Dz\nElse: nop" },
   code { "111110********** 1111101100yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -24500,11 +24322,11 @@ void pcopy_sy_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pneg		Sx,Dz",
+insn { "pneg\tSx,Dz",
   SH_DSP,
-  abstract { "0 - Sx → Dz" },
+  abstract { "0 - Sx -> Dz" },
   code { "111110********** 11001001xx00zzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -24585,11 +24407,11 @@ void pneg_sx (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pneg		Sy,Dz",
+insn { "pneg\tSy,Dz",
   SH_DSP,
-  abstract { "0 - Sy → Dz" },
+  abstract { "0 - Sy -> Dz" },
   code { "111110********** 1110100100yyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -24665,9 +24487,9 @@ void pneg_sy (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pneg	Sx,Dz",
+insn { "dct pneg\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: 0 - Sx → Dz\nElse: nop" },
+  abstract { "If DC = 1: 0 - Sx -> Dz\nElse: nop" },
   code { "111110********** 11001010xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -24763,9 +24585,9 @@ void pneg_sx_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pneg	Sy,Dz",
+insn { "dct pneg\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: 0 - Sy → Dz\nElse: nop" },
+  abstract { "If DC = 1: 0 - Sy -> Dz\nElse: nop" },
   code { "111110********** 1110101000yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -24856,9 +24678,9 @@ void pneg_sy_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pneg	Sx,Dz",
+insn { "dcf pneg\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: 0 - Sx → Dz\nElse: nop" },
+  abstract { "If DC = 0: 0 - Sx -> Dz\nElse: nop" },
   code { "111110********** 11001011xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -24954,9 +24776,9 @@ void pneg_sx_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pneg	Sy,Dz",
+insn { "dcf pneg\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: 0 - Sy → Dz\nElse: nop" },
+  abstract { "If DC = 0: 0 - Sy -> Dz\nElse: nop" },
   code { "111110********** 1110101100yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -25047,11 +24869,11 @@ void pneg_sy_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "psub		Sx,Sy,Dz",
+insn { "psub\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx - Sy → Dz" },
+  abstract { "Sx - Sy -> Dz" },
   code { "111110********** 10100001xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -25154,9 +24976,9 @@ PSUB  X0,Y0,A0  NOPX  NOPY  ! Before execution: X0 = 0x55555555, Y0 = 0x33333333
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct psub	Sx,Sy,Dz",
+insn { "dct psub\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx - Sy → Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx - Sy -> Dz\nElse: nop" },
   code { "111110********** 10100010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -25273,9 +25095,9 @@ void psub_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf psub 	Sx,Sy,Dz",
+insn { "dcf psub \tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx - Sy → Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx - Sy -> Dz\nElse: nop" },
   code { "111110********** 10100011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -25392,11 +25214,11 @@ void psub_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "psub		Sx,Sy,Du\npmuls		Se,Sf,Dg",
+insn { "psub\tSx,Sy,Du\npmuls\tSe,Sf,Dg",
   SH_DSP,
-  abstract { "Sx - Sy → Du\nMSW of Se × MSW of Sf → Dg" },
+  abstract { "Sx - Sy -> Du\nMSW of Se * MSW of Sf -> Dg" },
   code { "111110********** 0110eeffxxyygguu" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -25484,11 +25306,11 @@ PSUB  A0,M0,A0  PMULS X0,Y0,M0  NOPX  NOPY
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "psubc		Sx,Sy,Dz",
+insn { "psubc\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx - Sy - DC → Dz" },
+  abstract { "Sx − Sy - DC -> Dz" },
   code { "111110********** 10100000xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -25594,11 +25416,11 @@ PSUBC X0,Y0,M0  NOPX  NOPY  ! Before execution: X0 = 0x33333333, Y0 = 0x55555555
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pdec		Sx,Dz",
+insn { "pdec\tSx,Dz",
   SH_DSP,
-  abstract { "MSW of Sx - 1 → MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sx - 1 -> MSW of Dz, clear LSW of Dz" },
   code { "111110********** 10001001xx00zzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -25680,11 +25502,11 @@ void pdec_sx (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pdec		Sy,Dz",
+insn { "pdec\tSy,Dz",
   SH_DSP,
-  abstract { "MSW of Sy - 1 → MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sy - 1 -> MSW of Dz, clear LSW of Dz" },
   code { "111110********** 1010100100yyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -25761,9 +25583,9 @@ void pdec_sy (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pdec	Sx,Dz",
+insn { "dct pdec\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sx - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sx - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10001010xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -25861,9 +25683,9 @@ void pdec_sx_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pdec	Sy,Dz",
+insn { "dct pdec\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sy - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sy - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1010101000yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -25956,9 +25778,9 @@ void pdec_sy_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pdec	Sx,Dz",
+insn { "dcf pdec\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sx - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sx - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10001011xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -26056,9 +25878,9 @@ void pdec_sx_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pdec	Sy,Dz",
+insn { "dcf pdec\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sy - 1 → MSW of DZ, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sy - 1 -> MSW of DZ, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1010101100yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -26151,11 +25973,11 @@ void pdec_sy_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pinc		Sx,Dz",
+insn { "pinc\tSx,Dz",
   SH_DSP,
-  abstract { "MSW of Sy + 1 → MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz" },
   code { "111110********** 10011001xx00zzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -26232,11 +26054,11 @@ void pinc_sx (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pinc		Sy,Dz",
+insn { "pinc\tSy,Dz",
   SH_DSP,
-  abstract { "MSW of Sy + 1 → MSW of Dz, clear LSW of Dz" },
+  abstract { "MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz" },
   code { "111110********** 1011100100yyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -26308,9 +26130,9 @@ void pinc_sy (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pinc	Sx,Dz",
+insn { "dct pinc\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sx + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sx + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011010xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -26404,9 +26226,9 @@ void pinc_sx_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pinc	Sy,Dz",
+insn { "dct pinc\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MSW of Sy + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011101000yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -26495,9 +26317,9 @@ void pinc_sy_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pinc	Sx,Dz",
+insn { "dcf pinc\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sx + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sx + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011011xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -26591,9 +26413,9 @@ void pinc_sx_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pinc	Sy,Dz",
+insn { "dcf pinc\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MSW of Sy + 1 → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: MSW of Sy + 1 -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011101100yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -26682,11 +26504,11 @@ void pinc_sy_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pdmsb		Sx,Dz",
+insn { "pdmsb\tSx,Dz",
   SH_DSP,
-  abstract { "Sx data MSB position → MSW of Dz, clear LSW of Dz" },
+  abstract { "Sx data MSB position -> MSW of Dz, clear LSW of Dz" },
   code { "111110********** 10011101xx00zzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -26778,11 +26600,11 @@ void pdmsb_sx (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pdmsb		Sy,Dz",
+insn { "pdmsb\tSy,Dz",
   SH_DSP,
-  abstract { "Sy data MSB position → MSW of Dz, clear LSW of Dz" },
+  abstract { "Sy data MSB position -> MSW of Dz, clear LSW of Dz" },
   code { "111110********** 1011110100yyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -26869,9 +26691,9 @@ void pdmsb_sy (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pdmsb	Sx,Dz",
+insn { "dct pdmsb\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011110xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -26978,9 +26800,9 @@ void pdmsb_sx_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pdmsb	Sy,Dz",
+insn { "dct pdmsb\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sy data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sy data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011111000yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -27082,9 +26904,9 @@ void pdmsb_sy_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pdmsb	Sx,Dz",
+insn { "dcf pdmsb\tSx,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10011111xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -27191,9 +27013,9 @@ void pdmsb_sx_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pdmsb	Sy,Dz",
+insn { "dcf pdmsb\tSy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sy data MSB position → MSW of Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sy data MSB position -> MSW of Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 1011111100yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -27295,9 +27117,9 @@ void pdmsb_sy_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "prnd		Sx,Dz",
+insn { "prnd\tSx,Dz",
   SH_DSP,
-  abstract { "Sx + 0x00008000 → Dz, clear LSW of Dz" },
+  abstract { "Sx + 0x00008000 -> Dz, clear LSW of Dz" },
   code { "111110********** 10011000xx00zzzz" },
 
   issue { SH_DSP, "1" },
@@ -27377,9 +27199,9 @@ void prnd_sx (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "prnd		Sy,Dz",
+insn { "prnd\tSy,Dz",
   SH_DSP,
-  abstract { "Sy + 0x00008000 → Dz, clear LSW of Dz" },
+  abstract { "Sy + 0x00008000 -> Dz, clear LSW of Dz" },
   code { "111110********** 1011100000yyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -27460,11 +27282,11 @@ insn_blocks.push_back
 (insns { "DSP ALU Logical Operation Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pand		Sx,Sy,Dz",
+insn { "pand\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx & Sy → Dz, clear LSW of Dz" },
+  abstract { "Sx & Sy -> Dz, clear LSW of Dz" },
   code { "111110********** 10010101xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -27559,9 +27381,9 @@ void pand (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pand	Sx,Sy,Dz",
+insn { "dct pand\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx & Sy → Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx & Sy -> Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10010110xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -27652,9 +27474,9 @@ void pand_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pand	Sx,Sy,Dz",
+insn { "dcf pand\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx & Sy → Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx & Sy -> Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10010111xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -27745,11 +27567,11 @@ void pand_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "por		Sx,Sy,Dz",
+insn { "por\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx | Sy → Dz, clear LSW of Dz" },
+  abstract { "Sx | Sy -> Dz, clear LSW of Dz" },
   code { "111110********** 10110101xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -27844,9 +27666,9 @@ void por (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct por		Sx,Sy,Dz",
+insn { "dct por\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx | Sy → Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx | Sy -> Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10110110xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -27937,9 +27759,9 @@ void por_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf por		Sx,Sy,Dz",
+insn { "dcf por\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx | Sy → Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx | Sy -> Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10110111xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -28030,11 +27852,11 @@ void por_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pxor		Sx,Sy,Dz",
+insn { "pxor\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "Sx ^ Sy → Dz, clear LSW of Dz" },
+  abstract { "Sx ^ Sy -> Dz, clear LSW of Dz" },
   code { "111110********** 10100101xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -28129,9 +27951,9 @@ void pxor (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pxor	Sx,Sy,Dz",
+insn { "dct pxor\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1: Sx ^ Sy → Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 1: Sx ^ Sy -> Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10100110xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -28222,9 +28044,9 @@ void pxor_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pxor	Sx,Sy,Dz",
+insn { "dcf pxor\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0: Sx ^ Sy → Dz, clear LSW of Dz\nElse: nop" },
+  abstract { "If DC = 0: Sx ^ Sy -> Dz, clear LSW of Dz\nElse: nop" },
   code { "111110********** 10100111xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -28321,9 +28143,9 @@ insn_blocks.push_back
 (insns { "DSP Fixed Decimal Point Multiplication Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pmuls	Se,Sf,Dg",
+insn { "pmuls\tSe,Sf,Dg",
   SH_DSP,
-  abstract { "MSW of Se × MSW of Sf → Dg" },
+  abstract { "MSW of Se * MSW of Sf -> Dg" },
   code { "111110********** 0100eeff0000gg00" },
 
   issue { SH_DSP, "1" },
@@ -28443,11 +28265,11 @@ insn_blocks.push_back
 (insns { "DSP Shift Operation Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "psha		Sx,Sy,Dz",
+insn { "psha\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If Sy >= 0: Sx << Sy → Dz\nIf Sy < 0: Sx >> Sy → Dz" },
+  abstract { "If Sy >= 0: Sx << Sy -> Dz\nIf Sy < 0: Sx >> Sy -> Dz" },
   code { "111110********** 10010001xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -28584,9 +28406,9 @@ void psha (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct psha	Sx,Sy,Dz",
+insn { "dct psha\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1 & Sy >= 0: Sx << Sy → Dz\nIf DC = 1 & Sy < 0: Sx >> Sy → Dz\nIf DC = 0: nop" },
+  abstract { "If DC = 1 & Sy >= 0: Sx << Sy -> Dz\nIf DC = 1 & Sy < 0: Sx >> Sy -> Dz\nIf DC = 0: nop" },
   code { "111110********** 10010010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -28739,9 +28561,9 @@ void psha_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf psha	Sx,Sy,Dz",
+insn { "dcf psha\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0 & Sy >= 0: Sx << Sy → Dz\nIf DC = 0 & Sy < 0: Sx >> Sy → Dz\nIf DC = 1: nop" },
+  abstract { "If DC = 0 & Sy >= 0: Sx << Sy -> Dz\nIf DC = 0 & Sy < 0: Sx >> Sy -> Dz\nIf DC = 1: nop" },
   code { "111110********** 10010011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -28894,11 +28716,11 @@ void psha_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "psha		#imm,Dz",
+insn { "psha\t#imm,Dz",
   SH_DSP,
-  abstract { "If imm >= 0: Dz << imm → Dz\nIf imm < 0: Dz >> imm → Dz" },
+  abstract { "If imm >= 0: Dz << imm -> Dz\nIf imm < 0: Dz >> imm -> Dz" },
   code { "111110********** 00000iiiiiiizzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -29004,11 +28826,11 @@ void psha_imm (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pshl		Sx,Sy,Dz",
+insn { "pshl\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If Sy >= 0: Sx << Sy → Dz, clear LSW of Dz\nIf Sy < 0: Sx >> Sy → Dz, clear LSW of Dz" },
+  abstract { "If Sy >= 0: Sx << Sy -> Dz, clear LSW of Dz\nIf Sy < 0: Sx >> Sy -> Dz, clear LSW of Dz" },
   code { "111110********** 10000001xxyyzzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -29127,9 +28949,9 @@ void pshl (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct pshl	Sx,Sy,Dz",
+insn { "dct pshl\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 1 & Sy >= 0: Sx << Sy → Dz, clear LSW of Dz\nIf DC = 1 & Sy < 0: Sx >> Sy → Dz, clear LSW of Dz\nIf DC = 0: nop" },
+  abstract { "If DC = 1 & Sy >= 0: Sx << Sy -> Dz, clear LSW of Dz\nIf DC = 1 & Sy < 0: Sx >> Sy -> Dz, clear LSW of Dz\nIf DC = 0: nop" },
   code { "111110********** 10000010xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -29246,9 +29068,9 @@ void pshl_dct
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf pshl	Sx,Sy,Dz",
+insn { "dcf pshl\tSx,Sy,Dz",
   SH_DSP,
-  abstract { "If DC = 0 & Sy >= 0: Sx << Sy → Dz, clear LSW of Dz\nIf DC = 0 & Sy < 0: Sx >> Sy → Dz, clear LSW of Dz\nIf DC = 1: nop" },
+  abstract { "If DC = 0 & Sy >= 0: Sx << Sy -> Dz, clear LSW of Dz\nIf DC = 0 & Sy < 0: Sx >> Sy -> Dz, clear LSW of Dz\nIf DC = 1: nop" },
   code { "111110********** 10000011xxyyzzzz" },
 
   issue { SH_DSP, "1" },
@@ -29366,11 +29188,11 @@ void pshl_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "pshl		#imm,Dz",
+insn { "pshl\t#imm,Dz",
   SH_DSP,
-  abstract { "If imm >= 0: Dz << imm → Dz, clear LSW of Dz\nIf imm < 0: Dz >> imm, clear LSW of Dz" },
+  abstract { "If imm >= 0: Dz << imm -> Dz, clear LSW of Dz\nIf imm < 0: Dz >> imm, clear LSW of Dz" },
   code { "111110********** 00010iiiiiiizzzz" },
-  flags { "Update → DC" },
+  flags { "Update -> DC" },
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
@@ -29476,9 +29298,9 @@ insn_blocks.push_back
 (insns { "DSP System Control Instructions",
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "plds		Dz,MACH",
+insn { "plds\tDz,MACH",
   SH_DSP,
-  abstract { "Dz → MACH" },
+  abstract { "Dz -> MACH" },
   code { "111110********** 111011010000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29518,9 +29340,9 @@ void plds_mach (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "plds		Dz,MACL",
+insn { "plds\tDz,MACL",
   SH_DSP,
-  abstract { "Dz → MACL" },
+  abstract { "Dz -> MACL" },
   code { "111110********** 111111010000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29560,9 +29382,9 @@ void plds_macl (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct plds	Dz,MACH",
+insn { "dct plds\tDz,MACH",
   SH_DSP,
-  abstract { "If DC = 1: Dz → MACH\nElse: nop" },
+  abstract { "If DC = 1: Dz -> MACH\nElse: nop" },
   code { "111110********** 111011100000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29604,9 +29426,9 @@ void plds_mach_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct plds	Dz,MACL",
+insn { "dct plds\tDz,MACL",
   SH_DSP,
-  abstract { "If DC = 1: Dz → MACL\nElse: nop" },
+  abstract { "If DC = 1: Dz -> MACL\nElse: nop" },
   code { "111110********** 111111100000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29648,9 +29470,9 @@ void plds_macl_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf plds	Dz,MACH",
+insn { "dcf plds\tDz,MACH",
   SH_DSP,
-  abstract { "If DC = 0: Dz → MACH\nElse: nop" },
+  abstract { "If DC = 0: Dz -> MACH\nElse: nop" },
   code { "111110********** 111011110000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29692,9 +29514,9 @@ void plds_mach_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf plds	Dz,MACL",
+insn { "dcf plds\tDz,MACL",
   SH_DSP,
-  abstract { "If DC = 0: Dz → MACL\nElse: nop" },
+  abstract { "If DC = 0: Dz -> MACL\nElse: nop" },
   code { "111110********** 111111110000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29736,9 +29558,9 @@ void plds_macl_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "psts		MACH,Dz",
+insn { "psts\tMACH,Dz",
   SH_DSP,
-  abstract { "MACH → Dz" },
+  abstract { "MACH -> Dz" },
   code { "111110********** 110011010000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29790,9 +29612,9 @@ void psts_mach (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "psts		MACL,Dz",
+insn { "psts\tMACL,Dz",
   SH_DSP,
-  abstract { "MACL → Dz" },
+  abstract { "MACL -> Dz" },
   code { "111110********** 110111010000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29844,9 +29666,9 @@ void psts_macl (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct psts	MACH,Dz",
+insn { "dct psts\tMACH,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MACH → Dz\nElse: nop" },
+  abstract { "If DC = 1: MACH -> Dz\nElse: nop" },
   code { "111110********** 110011100000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29902,9 +29724,9 @@ void psts_mach_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dct psts	MACL,Dz",
+insn { "dct psts\tMACL,Dz",
   SH_DSP,
-  abstract { "If DC = 1: MACL → Dz\nElse: nop" },
+  abstract { "If DC = 1: MACL -> Dz\nElse: nop" },
   code { "111110********** 110111100000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -29960,9 +29782,9 @@ void psts_macl_dct (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf psts	MACH,Dz",
+insn { "dcf psts\tMACH,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MACH → Dz\nElse: nop" },
+  abstract { "If DC = 0: MACH -> Dz\nElse: nop" },
   code { "111110********** 110011110000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -30018,9 +29840,9 @@ void psts_mach_dcf (void)
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "dcf psts	MACL,Dz",
+insn { "dcf psts\tMACL,Dz",
   SH_DSP,
-  abstract { "If DC = 0: MACL → Dz\nElse: nop" },
+  abstract { "If DC = 0: MACL -> Dz\nElse: nop" },
   code { "111110********** 110111110000zzzz" },
 
   issue { SH_DSP, "1" },
@@ -30078,26 +29900,354 @@ void psts_macl_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 });
 
+  return fix_list(std::move(insn_blocks));
+}
+
+
+using namespace std::literals::string_literals;
+
+constexpr bool operator ==(const environment_t& a, const environment_t& b)
+  { return a.cpus == b.cpus && a.property == b.property; }
+
+
+static const std::array<std::pair<std::string_view, std::string_view>, 26> unicode_symbols =
+{
+  {
+    { ">", "&gt;" }, // because we use the < character
+    { "<", "&lt;" }, // because we use the > character
+    { "=", "&equal;" }, // because we use the = character
+    { "/", "&divide;" }, // because we use the = character
+    { "≥", "<var title=\"greater than or equal\"></var>" },
+    { "≤", "<var title=\"less than or equal\"></var>" },
+    { "&lt;&lt;", "<var title=\"shift bits left\"></var>" },
+    { "&gt;&gt;", "<var title=\"shift bits right\"></var>" },
+    { "&gt;", "<var title=\"greater than\"></var>" },
+    { "&lt;", "<var title=\"less than\"></var>" },
+    { "&equal;", "<var title=\"equal\"></var>" },
+    { "∀", "<var title=\"for all\"></var>" },
+    { "-", "<var title=\"subtract\"></var>" },
+    { "−", "<var title=\"subtract\"></var>" },
+    { "+", "<var title=\"add\"></var>" },
+    { "×", "<var title=\"multiply\"></var>" },
+    { "÷", "<var title=\"divide\"></var>" },
+    { "&divide;", "<var title=\"divide\"></var>" },
+    { "∨", "<var title=\"binary or\"></var>" },
+    { "∧", "<var title=\"binary and\"></var>" },
+    { "→", "<var title=\"store into (right)\"></var>" },
+    { "←", "<var title=\"store into (left)\"></var>" },
+    { "⊕", "<var title=\"binary xor\"></var>" },
+    { "~", "<var title=\"binary not\"></var>" },
+    { "PC’’","<var title=\"double prime\">PC</var>"},
+    { "PC’", "<var title=\"prime\">PC</var>"},
+  }
+};
+
+static const std::array<std::pair<std::string_view, std::string_view>, 21> typeable_symbols =
+{
+  {
+    { ">", "&gt;" }, // because we use the < character
+    { "<", "&lt;" }, // because we use the > character
+    { "=", "&equal;" }, // because we use the = character
+    { "/", "&divide;" }, // because we use the = character
+    { "-&gt;", "<var title=\"store into (right)\"></var>" },
+    { "&lt;-", "<var title=\"store into (left)\"></var>" },
+    { "&gt;&equal;", "<var title=\"greater than or equal\"></var>" },
+    { "&lt;&equal;", "<var title=\"less than or equal\"></var>" },
+    { "&equal;", "<var title=\"equal\"></var>" },
+    { "&lt;&lt;", "<var title=\"shift bits left\"></var>" },
+    { "&gt;&gt;", "<var title=\"shift bits right\"></var>" },
+    { "&gt;", "<var title=\"greater than\"></var>" },
+    { "&lt;", "<var title=\"less than\"></var>" },
+    { "^", "<var title=\"binary xor\"></var>" },
+    { "~", "<var title=\"binary not\"></var>" },
+    { "*", "<var title=\"multiply\"></var>" },
+    { "-", "<var title=\"subtract\"></var>" },
+    { "+", "<var title=\"add\"></var>" },
+    { "&divide;", "<var title=\"divide\"></var>" },
+    { "&", "<var title=\"binary and\"></var>" },
+    { "|", "<var title=\"binary or\"></var>" },
+  }
+};
+
+static const std::array<std::pair<const char*, const char*>, 2> typeable_patterns =
+{
+  {
+    { "abs\\(([^\\)]+)\\)", "<var title=\"absolute value\">\\1</var>" },
+    { "sqrt\\(([^\\)]+)\\)", "<var title=\"square root\">\\1</var>" },
+  }
+};
+
+template<typename T>
+void replace_symbols(std::string& data, const T& symbols)
+{
+  if(!data.empty())
+    for(const auto& spair : symbols)
+    {
+      auto pos = data.begin();
+      while(pos = std::search(pos, data.end(), spair.first.begin(), spair.first.end()),
+            pos != data.end())
+      {
+         pos = data.erase(pos, pos + spair.first.size());
+         pos = data.insert(pos, spair.second.begin(), spair.second.end());
+         pos = std::next(pos, spair.second.size());
+      }
+    }
+}
+
+template<typename T>
+void replace_patterns(std::string& data, const T& patterns)
+{
+  if(!data.empty())
+    for(const auto& spair : patterns)
+      data = std::regex_replace(data,
+                                std::regex(spair.first, std::regex_constants::extended),
+                                spair.second,
+                                std::regex_constants::format_sed);
+}
+
+void fix_format(std::string& format, std::size_t fixed_width)
+{
+  std::string::iterator pos;
+  do
+  {
+    pos = std::find(format.begin(), format.end(), '\t');
+    if(pos != format.end())
+    {
+      std::size_t tabpos = std::distance(format.begin(), pos);
+      format.erase(tabpos, 1);
+      if(tabpos > fixed_width)
+        tabpos -= format.rfind('\n', tabpos) + 1;
+      format.insert(pos, fixed_width - tabpos, ' ');
+    }
+  } while (pos != format.end());
+}
+
+std::list<insns> fix_list(std::list<insns>&& insn_blocks)
+{
+  struct instruction_info_t
+  {
+    std::string mnemonic_regex;
+    std::string name;
+    std::string classification;
+    std::list<environment_t> environments;
+    std::list<citation_t> citations;
+  };
+
+  std::list<instruction_info_t> name_data =
+  {
+    { "STS", "Store System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 231 }, { SH4A_DOC, 425 } } },
+    { "STS", "Store from FPU System Register", "System Control Instruction", {}, { { SH4A_DOC, 453 } } },
+    { "FMOV", "Floating-point Move", "Floating-Point Instruction", {}, { { SH4A_DOC, 497 } } },
+    { "FMOV", "Floating-point Move Extension", "Floating-Point Instruction", {}, { { SH4A_DOC, 501 } } },
+    { "LDC", "Load to Control Register", "System Control Instruction", {}, { { SH4A_DOC, 337 } } },
+    { "LDC", "Load to Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 165 }, { SH4A_DOC, 449 } } },
+    { "LDS", "Load to System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 172 }, { SH4A_DOC, 342 } } },
+    { "LDS", "Load to FPU System register", "System Control Instruction", {}, { { SH4A_DOC, 450 } } },
+    { "BRAF", "Branch Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 133 }, { SH4A_DOC, 307 } } },
+    { "BRA", "Branch", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 131 }, { SH4A_DOC, 305 } } },
+    { "BSRF", "Branch to Subroutine Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 137 }, { SH4A_DOC, 445 } } },
+    { "BSR", "Branch to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 135 }, { SH4A_DOC, 443 } } },
+    { "JMP", "Jump", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 162 }, { SH4A_DOC, 336 } } },
+    { "JSR", "Jump to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 163 }, { SH4A_DOC, 447 } } },
+    { "RTE", "Return from Exception", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 212 }, { SH4A_DOC, 401 } } },
+    { "RTS", "Return from Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 214 }, { SH4A_DOC, 403 } } },
+    { "STC", "Store Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 228 }, { SH4A_DOC, 420 }, { SH4A_DOC, 452 } } },
+    { "SLEEP", "Sleep", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 227 }, { SH4A_DOC, 419 } } },
+    { "LDTLB", "Load PTEH/PTEL to TLB", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH4A_DOC, 344 } } },
+// no environment instructions below
+    { "MOV", "Move Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 183 }, { SH4A_DOC, 353 } } },
+    { "MOV", "Move Constant Value", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 189 }, { SH4A_DOC, 359 } } },
+    { "MOV", "Move Global Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 191 }, { SH4A_DOC, 362 } } },
+    { "MOV", "Move Structure Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 194 }, { SH4A_DOC, 365 } } },
+    { "ADDC", "Add with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 124 }, { SH4A_DOC, 296 } } },
+    { "ADDV", "ADD with `V Flag` Overflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 125 }, { SH4A_DOC, 297 } } },
+    { "ADD", "Add binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 123 }, { SH4A_DOC, 294 } } },
+    { "AND", "AND Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 126 }, { SH4A_DOC, 299 } } },
+    { "BF/S", "Branch if False with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 129 }, { SH4A_DOC, 303 } } },
+    { "BF", "Branch if False", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 128 }, { SH4A_DOC, 301 } } },
+    { "BT/S", "Branch if True with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 140 }, { SH4A_DOC, 310 } } },
+    { "BT", "Branch if True", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 139 }, { SH4A_DOC, 308 } } },
+    { "CLRMAC", "Clear MAC Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 142 }, { SH4A_DOC, 312 } } },
+    { "CLRS", "Clear S Bit", "System Control Instruction", {}, { { SH4A_DOC, 313 } } },
+    { "CLRT", "Clear T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 143 }, { SH4A_DOC, 314 } } },
+    { "CMP/EQ", "Compare If Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/GE", "Compare If Signed Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/GT", "Compare If Signed Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/HI", "Compare If Unsigned Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/HS", "Compare If Unsigned Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/PL", "Compare If Signed Greater Than Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/PZ", "Compare If Signed Greater Than or Equal To Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "CMP/STR", "Compare If Strings Equal", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
+    { "DIV0S", "Divide `Step 0` as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 148 }, { SH4A_DOC, 319 } } },
+    { "DIV0U", "Divide `Step 0` as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 149 }, { SH4A_DOC, 320 } } },
+    { "DIV1", "Divide 1 Step", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 150 }, { SH4A_DOC, 321 } } },
+    { "DMULS\\.L", "Double-length Multiply as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 155 }, { SH4A_DOC, 326 } } },
+    { "DMULU\\.L", "Double-length Multiply as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 157 }, { SH4A_DOC, 328 } } },
+    { "DT", "Decrement and Test", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 159 }, { SH4A_DOC, 330 } } },
+    { "EXTS", "Extend as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 160 }, { SH4A_DOC, 331 } } },
+    { "EXTU", "Extend as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 161 }, { SH4A_DOC, 333 } } },
+    { "ICBI", "Instruction Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 335 } } },
+    { "LDRE", "Load Effective Address to RE Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 168 } } },
+    { "LDRS", "Load Effective Address to RS Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 170 } } },
+    { "MAC\\.L", "Multiply and Accumulate Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 177 }, { SH4A_DOC, 346 } } },
+    { "MAC\\.W", "Multiply and Accumulate Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 180 }, { SH4A_DOC, 350 } } },
+    { "MOVA", "Move Effective Address", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 197 }, { SH4A_DOC, 369 } } },
+    { "MOVT", "Move T Bit", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 198 }, { SH4A_DOC, 376 } } },
+    { "MUL\\.L", "Multiply Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 199 }, { SH4A_DOC, 379 } } },
+    { "MULS\\.W", "Multiply as Signed Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 200 }, { SH4A_DOC, 380 } } },
+    { "MULU\\.W", "Multiply as Unsigned Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 201 }, { SH4A_DOC, 381 } } },
+    { "MOVCA\\.L", "Move with Cache Block Allocation", "Data Transfer Instruction", {}, { { SH4A_DOC, 371 } } },
+    { "MOVCO", "Move Conditional", "Data Transfer Instruction", {}, { { SH4A_DOC, 372 } } },
+    { "MOVLI", "Move Linked", "Data Transfer Instruction", {}, { { SH4A_DOC, 374 } } },
+    { "MOVUA", "Move Unaligned", "Data Transfer Instruction", {}, { { SH4A_DOC, 377 } } },
+    { "NEGC", "Negate with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 203 }, { SH4A_DOC, 383 } } },
+    { "NEG", "Negate", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 202 }, { SH4A_DOC, 382 } } },
+    { "NOP", "No Operation", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 204 }, { SH4A_DOC, 384 } } },
+    { "NOT", "NOT-Logical Complement", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 205 }, { SH4A_DOC, 385 } } },
+    { "OR", "OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 206 }, { SH4A_DOC, 389 } } },
+    { "PREFI", "Prefetch Instruction Cache Block", "Data Transfer Instruction", {}, { { SH4A_DOC, 394 } } },
+    { "PREF", "Prefetch Data to Cache", "Data Transfer Instruction", {}, { { SH4A_DOC, 391 } } },
+    { "ROTCL", "Rotate with Carry Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 208 }, { SH4A_DOC, 397 } } },
+    { "ROTCR", "Rotate with Carry Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 209 }, { SH4A_DOC, 398 } } },
+    { "ROTL", "Rotate Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 210 }, { SH4A_DOC, 399 } } },
+    { "ROTR", "Rotate Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 211 }, { SH4A_DOC, 400 } } },
+    { "SETRC", "Set Repeat Count to RC", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 216 } } },
+    { "SETS", "Set S Bit", "System Control Instruction", {}, { { SH4A_DOC, 405 } } },
+    { "SETT", "Set T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 218 }, { SH4A_DOC, 406 } } },
+    { "SHAD", "Shift Arithmetic Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 407 } } },
+    { "SHAL", "Shift Arithmetic Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 219 }, { SH4A_DOC, 409 } } },
+    { "SHAR", "Shift Arithmetic Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 220 }, { SH4A_DOC, 410 } } },
+    { "SHLD", "Shift Logical Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 411 } } },
+    { "SHLL([281][6]?)", "Shift Logical Left \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 222 }, { SH4A_DOC, 414 } } },
+    { "SHLL", "Shift Logical Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 221 }, { SH4A_DOC, 413 } } },
+    { "SHLR([281][6]?)", "Shift Logical Right \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 225 }, { SH4A_DOC, 417 } } },
+    { "SHLR", "Shift Logical Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 224 }, { SH4A_DOC, 416 } } },
+    { "SUBC", "Subtract with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 237 }, { SH4A_DOC, 428 } } },
+    { "SUBV", "Subtract with `V Flag` Underflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 238 }, { SH4A_DOC, 429 } } },
+    { "SUB", "Subtract Binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 236 }, { SH4A_DOC, 427 } } },
+    { "SWAP", "Swap Register Halves", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 239 }, { SH4A_DOC, 431 } } },
+    { "SYNCO", "Synchronize Data Operation", "Data Transfer Instruction", {}, { { SH4A_DOC, 433 } } },
+    { "TAS", "Test and Set", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 241 }, { SH4A_DOC, 434 } } },
+    { "TRAPA", "Trap Always", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 242 }, { SH4A_DOC, 436 } } },
+    { "TST", "Test Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 243 }, { SH4A_DOC, 438 } } },
+    { "XOR", "Exclusive OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 245 }, { SH4A_DOC, 440 } } },
+    { "XTRCT", "Extract", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 247 }, { SH4A_DOC, 442 } } },
+    { "MOVS", "Move Single Data between Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 255 } } },
+    { "MOVX", "Move between X Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 257 } } },
+    { "MOVY", "Move between Y Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 258 } } },
+    { "NOPX", "No Access Operation for X Memory", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 260 } } },
+    { "PABS", "Absolute", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 278 } } },
+    { "DC[TF] PADD", "Addition with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 282 } } },
+    { "PADDC", "Addition with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 291 } } },
+    { "PADD PMULS", "Addition & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 286 } } },
+    { "DC[TF] PAND", "Logical AND", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 294 } } },
+    { "DC[TF] PCLR", "Clear", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 298 } } },
+    { "PCMP", "Compare Two Data", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 301 } } },
+    { "DC[TF] PCOPY", "Copy with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 303 } } },
+    { "DC[TF] PDEC", "Decrement by 1", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 307 } } },
+    { "DC[TF] PDMSB", "Detect MSB with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 312 } } },
+    { "DC[TF] PINC", "Increment by 1 with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 317 } } },
+    { "DC[TF] PLDS", "Load System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 322 } } },
+    { "PMULS", "Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 326 } } },
+    { "DC[TF] PNEG", "Negate", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 329 } } },
+    { "DC[TF] POR", "Logical OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 334 } } },
+    { "PRND", "Rounding", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 338 } } },
+    { "DC[TF] PSHA", "Shift Arithmetically with Condition", "DSP Arithmetic Shift Instruction", {}, { { SH1_2_DSP_DOC, 342 } } },
+    { "DC[TF] PSHL", "Shift Logically with Condition", "DSP Logical Shift Instruction", {}, { { SH1_2_DSP_DOC, 350 } } },
+    { "DC[TF] PSTS", "Store System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 357 } } },
+    { "DC[TF] PSUB", "Subtract with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 362 } } },
+    { "PSUB PMULS", "Subtraction & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 367 } } },
+    { "PSUBC", "Subtraction with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 372 } } },
+    { "DC[TF] PXOR", "Logical Exclusive OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 375 } } },
+    { "OCBI", "Operand Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 386 } } },
+    { "OCBP", "Operand Cache Block Purge", "Data Transfer Instruction", {}, { { SH4A_DOC, 387 } } },
+    { "OCBWB", "Operand Cache Block Write Back", "Data Transfer Instruction", {}, { { SH4A_DOC, 388 } } },
+    { "FABS", "Floating-point Absolute Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 467 } } },
+    { "FADD", "Floating-point ADD", "Floating-Point Instruction", {}, { { SH4A_DOC, 468 } } },
+    { "FCMP", "Floating-point Compare", "Floating-Point Instruction", {}, { { SH4A_DOC, 471 } } },
+    { "FCNVDS", "Floating-point Convert Double to Single Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 475 } } },
+    { "FCNVSD", "Floating-point Convert Single to Double Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 478 } } },
+    { "FDIV", "Floating-point Divide", "Floating-Point Instruction", {}, { { SH4A_DOC, 480 } } },
+    { "FIPR", "Floating-point Inner Product", "Floating-Point Instruction", {}, { { SH4A_DOC, 484 } } },
+    { "FLDI0", "Floating-point Load Immediate 0.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 486 } } },
+    { "FLDI1", "Floating-point Load Immediate 1.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 487 } } },
+    { "FLDS", "Floating-point Load to System register", "Floating-Point Instruction", {}, { { SH4A_DOC, 488 } } },
+    { "FLOAT", "Floating-point Convert from Integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 489 } } },
+    { "FMAC", "Floating-point Multiply and Accumulate", "Floating-Point Instruction", {}, { { SH4A_DOC, 491 } } },
+    { "FMUL", "Floating-point Multiply", "Floating-Point Instruction", {}, { { SH4A_DOC, 504 } } },
+    { "FNEG", "Floating-point Negate Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 507 } } },
+    { "FPCHG", "Pr-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 508 } } },
+    { "FRCHG", "FR-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 509 } } },
+    { "FSCA", "Floating Point Sine And Cosine Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 510 } } },
+    { "FSCHG", "Sz-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 512 } } },
+    { "FSQRT", "Floating-point Square Root", "Floating-Point Instruction", {}, { { SH4A_DOC, 513 } } },
+    { "FSRRA", "Floating Point Square Reciprocal Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 516 } } },
+    { "FSTS", "Floating-point Store System Register", "Floating-Point Instruction", {}, { { SH4A_DOC, 518 } } },
+    { "FSUB", "Floating-point Subtract", "Floating-Point Instruction", {}, { { SH4A_DOC, 519 } } },
+    { "FTRC", "Floating-point Truncate and Convert to integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 522 } } },
+    { "FTRV", "Floating-point Transform Vector", "Floating-Point Instruction", {}, { { SH4A_DOC, 525 } } },
+  };
+
+  for(instruction_info_t& info : name_data)
+  {
+    std::transform(info.mnemonic_regex.begin(), info.mnemonic_regex.end(), info.mnemonic_regex.begin(),
+                   [](char c){ return std::tolower(c); }); // convert to lowercase
+    info.mnemonic_regex.insert(0, 1, '^'); // add regex string start
+    info.mnemonic_regex.append("[\\S]*"); // add "not whitespace" matching to end
+  }
+
+/* FILL IN MISSING DATA / FIX INPUT DATA */
 
   for(insns& block : insn_blocks)
   {
     for(insn& instruction : block)
     {
+
       auto& fmt = instruction.data<format>();
       auto& n = instruction.data<name>();
       auto& e = instruction.data<environments>();
       for(const instruction_info_t& info : name_data)
       {
         std::smatch match;
-        if(std::regex_search(fmt, match, std::regex(instruction.data<mnemonic>(), std::regex_constants::extended)) &&
+        if(std::regex_search(fmt, match, std::regex(info.mnemonic_regex, std::regex_constants::extended)) &&
            (n.empty() || n == info.name) &&
            e == environments { info.environments })
         {
+          if(n.empty())
+            n = { info.name };
+          instruction.data<mnemonic>() = { match.str() };
           instruction.data<citations>() = { info.citations };
+          instruction.data<classification>() = { info.classification };
+          break;
         }
-
       }
+    }
+  }
 
+
+  for(insns& block : insn_blocks)
+  {
+    for(insn& instruction : block)
+    {
+      fix_format(instruction.data<format>(), 10); // replace tabs with spaces
+      replace_symbols(instruction.data<abstract>(), typeable_symbols);
+      replace_patterns(instruction.data<abstract>(), typeable_patterns);
+      replace_symbols(instruction.data<brief>(), unicode_symbols);
+      replace_symbols(instruction.data<flags>(), typeable_symbols);
+      /*
+      replace_symbols(instruction.data<name>());
+      replace_symbols(instruction.data<restriction>());
+      replace_symbols(instruction.data<classification>());
+      replace_symbols(instruction.data<mnemonic>());
+      replace_symbols(instruction.data<mnemonic_origin>());
+      replace_symbols(instruction.data<code>());
+      replace_symbols(instruction.data<flags>());
+      replace_symbols(instruction.data<description>());
+      replace_symbols(instruction.data<note>());
+      replace_symbols(instruction.data<operation>());
+      replace_symbols(instruction.data<example>());
+      replace_symbols(instruction.data<exceptions>());
+      */
     }
   }
 
