@@ -1,12 +1,9 @@
 #pragma once
 
-#include <iostream>
 #include <cstdint>
 #include <string>
 #include <list>
-#include <array>
 #include <tuple>
-#include <functional>
 
 
 #if __cplusplus < 202002L
@@ -130,16 +127,8 @@ struct exceptions       : std::string {};
  add: FIPR,FTRV brief
 
   mnemonic { "FMOV.D" }, // ??
-
-  name { "Load to FPU System register" },
-
-  restriction { "
-" },
-  brief
-{R"(
-
-)"},
 */
+
 struct insn
 {
   insn(void) {}

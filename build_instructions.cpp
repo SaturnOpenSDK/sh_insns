@@ -1,14 +1,5 @@
 #include "build_instructions.h"
 
-#include <iostream>
-#include <list>
-#include <string>
-#include <algorithm>
-#include <regex>
-
-
-std::list<insns> fix_list(std::list<insns>&& insn_blocks);
-
 std::list<insns> build_insn_blocks (void)
 {
   std::list<insns> insn_blocks;
@@ -107,22 +98,17 @@ void MOVI (int i, int n)
 {R"(
 1000 MOV #H'80,R1 ;R1 = H'FFFFFF80
 1002 MOV.W IMM,R2 ;R2 = H'FFFF9ABC, IMM means @(H'08,PC)
-1004 ADD #–1,R0 ;
-1006 TST R0,R0 ;← PC location used for address calculation for the
-MOV.W instruction
+1004 ADD #-1,R0 ;
+1006 TST R0,R0 ;← PC location used for address calculation for the MOV.W instruction
 1008 MOVT R13 ;
 100A BRA NEXT ;Delayed branch instruction
 100C MOV.L @(4,PC),R3 ;R3 = H'12345678
-100E IMM
-.data.w H'9ABC ;
-1010
-.data.w H'1234 ;
-1012 NEXT JMP @R3 ;Branch destination of the BRA instruction
-1014 CMP/EQ #0,R0 ;← PC location used for address calculation for the
-;MOV.L instruction
+100E IMM: .data.w H'9ABC ;
+1010 .data.w H'1234 ;
+1012 NEXT: JMP @R3 ;Branch destination of the BRA instruction
+1014 CMP/EQ #0,R0 ;← PC location used for address calculation for the MOV.L instruction
 .align 4 ;
-1018
-.data.l H'12345678 ;
+1018 .data.l H'12345678 ;
 )"},
 
   exceptions
@@ -283,11 +269,10 @@ void MOVA (int d)
 1008 MOV.B @R0,R1 ;R1 = “X” ← PC location after correcting the lowest two bits
 100A ADD R4,R5 ;← Original PC location for address calculation for the MOVA instruction
 .align 4
-100C STR:
-.sdata “XYZP12”
+100C STR:.sdata “XYZP12”
 ...............
-2002 BRA TRGET ;Delayed branch instruction
-2004 MOVA @(0,PC),R0 ;Address of TRGET + 2 → R0
+2002 BRA TARGET ;Delayed branch instruction
+2004 MOVA @(0,PC),R0 ;Address of TARGET + 2 → R0
 2006 NOP ;
 )"},
 
@@ -907,8 +892,7 @@ Transfers the source operand to the destination.
 
   note
 {R"(
-MOV.L @R0+,R1 ;Before execution: R0 = H'12345670
-;After execution: R0 = H'12345674, R1 = @H'12345670
+
 )"},
 
   operation
@@ -927,7 +911,8 @@ void MOVLP (int m, int n)
 
   example
 {R"(
-
+ MOV.L @R0+,R1 ;Before execution: R0 = H'12345670
+ ;After execution: R0 = H'12345674, R1 = @H'12345670
 )"},
 
   exceptions
@@ -1034,7 +1019,7 @@ void MOVWM (int m, int n)
 
   example
 {R"(
-MOV.W R0,@–R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'FFFF7F80
+MOV.W R0,@-R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'FFFF7F80
 ;After execution: R1 = H'FFFF7F7E, @R1 = H'AAAA
 )"},
 
@@ -5045,7 +5030,7 @@ void CMPSTR (int m, int n)
 )"},
 
   example
-{R"(
+{R"(#NOREFORMAT
 cmp/str  r2,r3    ! r2 = "ABCD", r3 = "XYCZ"
 bt       target   ! T = 1, so branch is taken.
 )"},
@@ -6379,11 +6364,9 @@ MAC.L @R0+,@R1+ ;
 STS MACL,R0 ;Store result into R0
 ...............
 .align 2 ;
-TBLM
-.data.l H'1234ABCD ;
+TBLM: .data.l H'1234ABCD ;
 .data.l H'5678EF01 ;
-TBLN
-.data.l H'0123ABCD ;
+TBLN: .data.l H'0123ABCD ;
 .data.l H'4567DEF0 ;
 )"},
 
@@ -6560,11 +6543,9 @@ MAC.W @R0+,@R1+ ;
 STS MACL,R0 ;Store result into R0
 ...............
 .align 2 ;
-TBLM
-.data.w H'1234 ;
+TBLM: .data.w H'1234 ;
 .data.w H'5678 ;
-TBLN
-.data.w H'0123 ;
+TBLN: .data.w H'0123 ;
 .data.w H'4567 ;
 )"},
 
@@ -8982,12 +8963,12 @@ void BF (int d)
   example
 {R"(
 CLRT ;T is always cleared to 0
-BT TRGET_T ;Does not branch, because T = 0
-BF TRGET_F ;Branches to TRGET_F, because T = 0
+BT TARGET_T ;Does not branch, because T = 0
+BF TARGET_F ;Branches to TARGET_F, because T = 0
 NOP ;
-NOP ;← The PC location is used to calculate the branch destination
-.......... ;  address of the BF instruction
-TRGET_F: ;← Branch destination of the BF instruction
+NOP ;← The PC location is used to calculate the branch destination address of the BF instruction
+..........
+TARGET_F: ;← Branch destination of the BF instruction
 )"},
 
   exceptions
@@ -9081,13 +9062,13 @@ void BFS (int d)
   example
 {R"(
 CLRT ;T is always 0
-BT/S TRGET_T ;Does not branch, because T = 0
+BT/S TARGET_T ;Does not branch, because T = 0
 NOP ;
-BF/S TRGET_F ;Branches to TRGET_F, because T = 0
+BF/S TARGET_F ;Branches to TARGET_F, because T = 0
 ADD R0,R1 ;Executed before branch .
-NOP ;← The PC location is used to calculate the branch destination
-.......... ;  address of the BF/S instruction
-TRGET_F: ;← Branch destination of the BF/S instruction
+NOP ;← The PC location is used to calculate the branch destination address of the BF/S instruction
+..........
+TARGET_F: ;← Branch destination of the BF/S instruction
 )"},
 
   exceptions
@@ -9170,12 +9151,12 @@ void BT (int d)
   example
 {R"(
 SETT ;T is always 1
-BF TRGET_F ;Does not branch, because T = 1
-BT TRGET_T ;Branches to TRGET_T, because T = 1
+BF TARGET_F ;Does not branch, because T = 1
+BT TARGET_T ;Branches to TARGET_T, because T = 1
 NOP ;
-NOP ;← The PC location is used to calculate the branch destination
-.......... ;  address of the BT instruction
-TRGET_T: ;← Branch destination of the BT instruction
+NOP ;← The PC location is used to calculate the branch destination address of the BT instruction
+..........
+TARGET_T: ;← Branch destination of the BT instruction
 )"},
 
   exceptions
@@ -9265,8 +9246,8 @@ BF/S TARGET_F ;Does not branch, because T = 1
 NOP ;
 BT/S TARGET_T ;Branches to TARGET, because T = 1
 ADD R0,R1 ;Executes before branching.
-NOP ;← The PC location is used to calculate the branch destination
-.......... ;  address of the BT/S instruction
+NOP ;← The PC location is used to calculate the branch destination address of the BT/S instruction
+..........
 TARGET_T: ;← Branch destination of the BT/S instruction
 )"},
 
@@ -9340,11 +9321,11 @@ void BRA (int d)
 
   example
 {R"(
-BRA TRGET ;Branches to TRGET
+BRA TARGET ;Branches to TARGET
 ADD R0,R1 ;Executes ADD before branching
-NOP ;← The PC location is used to calculate the branch destination
-.......... ;address of the BRA instruction
-TRGET: ;← Branch destination of the BRA instruction
+NOP ;← The PC location is used to calculate the branch destination address of the BRA instruction
+..........
+TARGET: ;← Branch destination of the BRA instruction
 )"},
 
   exceptions
@@ -9407,11 +9388,10 @@ void BRAF (int m)
   example
 {R"(
 MOV.L #(TARGET-BSRF_PC),R0 ;Sets displacement.
-BRA TRGET ;Branches to TARGET
+BRA TARGET ;Branches to TARGET
 ADD R0,R1 ;Executes ADD before branching
 BRAF_PC: ;← The PC location is used to calculate the
-;branch destination address of the BRAF
-;instruction
+;  branch destination address of the BRAF instruction
 NOP
 ....................
 TARGET: ;← Branch destination of the BRAF instruction
@@ -9490,14 +9470,14 @@ void BSR (int d)
 
   example
 {R"(
-BSR TRGET ;Branches to TRGET
+BSR TARGET ;Branches to TARGET
 MOV R3,R4 ;Executes the MOV instruction before branching
 ADD R0,R1 ;← The PC location is used to calculate the branch destination
-;address of the BSR instruction (return address for when the
-;subroutine procedure is completed (PR data))
+;  address of the BSR instruction (return address for when the
+;  subroutine procedure is completed (PR data))
 .......
 .......
-TRGET: ;← Procedure entrance
+TARGET: ;← Procedure entrance
 MOV R2,R3 ;
 RTS ;Returns to the above ADD instruction
 MOV #1,R0 ;Executes MOV before branching
@@ -9570,8 +9550,7 @@ MOV.L #(TARGET-BSRF_PC),R0 ;Sets displacement.
 BRSF R0 ;Branches to TARGET
 MOV R3,R4 ;Executes the MOV instruction before
 branching
-BSRF_PC: ;← The PC location is used to calculate the
-;  branch destination with BSRF.
+BSRF_PC: ;← The PC location is used to calculate the branch destination with BSRF.
 ADD R0,R1
 .....
 .....
@@ -9637,14 +9616,13 @@ void JMP (int m)
 
   example
 {R"(
-MOV.L JMP_TABLE,R0 ;Address of R0 = TRGET
-JMP @R0 ;Branches to TRGET
+MOV.L JMP_TABLE,R0 ;Address of R0 = TARGET
+JMP @R0 ;Branches to TARGET
 MOV R0,R1 ;Executes MOV before branching
 .align 4
-JMP_TABLE:
-.data.l TRGET ;Jump table
+JMP_TABLE: .data.l TARGET ;Jump table
 .................
-TRGET: ADD #1,R1 ;← Branch destination
+TARGET: ADD #1,R1 ;← Branch destination
 )"},
 
   exceptions
@@ -9710,16 +9688,14 @@ void JSR (int m)
 
   example
 {R"(
-MOV.L JSR_TABLE,R0 ;Address of R0 = TRGET
-JSR @R0 ;Branches to TRGET
+MOV.L JSR_TABLE,R0 ;Address of R0 = TARGET
+JSR @R0 ;Branches to TARGET
 XOR R1,R1 ;Executes XOR before branching
-ADD R0,R1 ;← Return address for when the subroutine
-;  procedure is completed (PR data)
+ADD R0,R1 ;← Return address for when the subroutine procedure is completed (PR data)
 ...........
 .align 4
-JSR_TABLE:
-.data.l TRGET ;Jump table
-TRGET: NOP ;← Procedure entrance
+JSR_TABLE:.data.l TARGET ;Jump table
+TARGET: NOP ;← Procedure entrance
 MOV R2,R3 ;
 RTS ;Returns to the above ADD instruction
 MOV #70,R1 ;Executes MOV before RTS
@@ -9815,6 +9791,7 @@ void JSRNM (int d)
 
   example
 {R"(
+
 )"},
 
   exceptions
@@ -9879,15 +9856,14 @@ void RTS (void)
 
   example
 {R"(
-MOV.L TABLE,R3 ;R3 = Address of TRGET
-JSR @R3 ;Branches to TRGET
+MOV.L TABLE,R3 ;R3 = Address of TARGET
+JSR @R3 ;Branches to TARGET
 NOP ;Executes NOP before branching
-ADD R0,R1 ;← Return address for when the subroutine procedure is
-completed (PR data)
+ADD R0,R1 ;← Return address for when the subroutine procedure is completed (PR data)
 .............
-TABLE: .data.l TRGET ;Jump table
+TABLE: .data.l TARGET ;Jump table
 .............
-TRGET: MOV R1,R0 ;← Procedure entrance
+TARGET: MOV R1,R0 ;← Procedure entrance
 RTS ;PR data → PC
 MOV #12,R0 ;Executes MOV before branching
 )"},
@@ -11665,8 +11641,8 @@ void LDSMMACH (int m)
 
   example
 {R"(
-LDS.L @R15+,MACL ;Before execution: R15 = H'10000000
-                 ;After execution:  R15 = H'10000004, MACL = @H'10000000
+ LDS.L @R15+,MACL ;Before execution: R15 = H'10000000
+ ;After execution: R15 = H'10000004, MACL = @H'1000000
 )"},
 
   exceptions
@@ -11943,12 +11919,12 @@ insn { "lds\tRm,A0",
 Stores the source operand into the DSP register A0.
 )"},
 
-note
+  note
 {R"(
 
 )"},
 
-operation
+  operation
 {R"(
 void LDSA0 (long m)
 {
@@ -11963,12 +11939,12 @@ void LDSA0 (long m)
 }
 )"},
 
-example
+  example
 {R"(
 
 )"},
 
-exceptions
+  exceptions
 {R"(
 
 )"},
@@ -13226,7 +13202,8 @@ void SETS (void)
 
   example
 {R"(
-
+SETS ;Before execution: S = 0
+;After execution: S = 1
 )"},
 
   exceptions
@@ -14896,7 +14873,7 @@ void STSMPR (int n)
 
   example
 {R"(
-STS.L PR,@–R15 ;Before execution: R15 = H'10000004
+STS.L PR,@-R15 ;Before execution: R15 = H'10000004
 ;After execution: R15 = H'10000000, @R15 = PR
 )"},
 
@@ -21624,8 +21601,8 @@ LSW = Low-order word of operand.
 
   example
 {R"(
-MOVX.W  @R4,X0   ! Before execution: R4 = 0x08010000, @R4 = 0x5555, X0 = 0x12345678
-                 ! After execution:  R4 = 0x08010000, X0 = 0x55550000
+ MOVX.W @R4+,X0 ;Before execution: R4=H'08010000, @R4=H'5555, X0=H'12345678
+ ;After execution: R4=H'08010002, X0=H'55550000
 )"},
 
   exceptions
@@ -21669,8 +21646,7 @@ LSW = Low-order word of operand.
 
   example
 {R"(
-MOVX.W  @R4+,X0  ! Before execution: R4 = 0x08010000, @R4 = 0x5555, X0 = 0x12345678
-                 ! After execution:  R4 = 0x08010002, X0 = 0x55550000
+
 )"},
 
   exceptions
@@ -22868,7 +22844,10 @@ void pabs_sx (void)
 
   example
 {R"(
-
+ PABS X0, M0 NOPX NOPY ;Before execution: X0=H'33333333, M0=H'12345678
+ ;After execution: X0=H'33333333, M0=H'33333333
+ PABS X1, X1 NOPX NOPY ;Before execution: X1=H'DDDDDDDD
+ ;After execution: X1=H'22222223
 )"},
 
   exceptions
@@ -23074,8 +23053,8 @@ void padd (void)
 
   example
 {R"(
-PADD   X0,Y0,A0   NOPX   NOPY    ! Before execution: X0 = 0x22222222, Y0 = 0x33333333, A0 = 0x123456789A
-                                 ! After execution:  X0 = 0x22222222, Y0 = 0x33333333, A0 = 0x0055555555
+ PADD X0,Y0,A0 NOPX NOPY ;Before execution: X0=H'22222222, Y0=H'33333333, A0=H'123456789A
+ ;After execution: X0=H'22222222, Y0=H'33333333, A0=H'0055555555
 )"},
 
   exceptions
@@ -23399,9 +23378,9 @@ void padd_pmuls (void)
 
   example
 {R"(
-PADD  A0,M0,A0  PMULS X0,YO,MO  NOPX  NOPY
-                ! Before execution:  X0 = 0x00020000, Y0 = 0x00030000, M0 = 0x22222222, A0 = 0x0055555555
-                ! After execution: X0 = 0x00020000, Y0 = 0x00030000, M0 = 0x0000000C, A0 = 0x0077777777
+ PADD A0,M0,A0 PMULS X0,YO,MO NOPX NOPY
+ ;Before execution: X0=H'00020000, Y0=H'00030000, M0=H'22222222, A0=H'0055555555
+ ;After execution: X0=H'00020000, Y0=H'00030000, M0=H'0000000C, A0=H'0077777777
 )"},
 
   exceptions
@@ -23513,12 +23492,10 @@ void paddc (void)
 
   example
 {R"(
-PADDC X0,Y0,M0  NOPX  NOPY   ! Before execution: X0 = 0xB3333333, Y0 = 0x55555555 M0 = 0x12345678, DC = 0
-                             ! After execution: X0 = 0xB3333333, Y0 = 0x55555555 M0 = 0x08888888, DC = 1
-
-
-PADDC X0,Y0,M0  NOPX  NOPY   ! Before execution: X0 = 0x33333333, Y0 = 0x55555555 M0 = 0x12345678, DC = 1
-                             ! After execution: X0 = 0x33333333, Y0 = 0x55555555 M0 = 0x88888889, DC = 0
+ PADDC X0,Y0,M0 NOPX NOPY ;Before execution: X0=H'B3333333, Y0=H'55555555 M0=H' 12345678, DC=0
+ ;After execution: X0=H'B3333333, Y0=H'55555555 M0=H'08888888, DC=1
+ PADDC X0,Y0,M0 NOPX NOPY ;Before execution: X0=H'33333333, Y0=H'55555555 M0=H' 12345678, DC=1
+ ;After execution: X0=H'33333333, Y0=H'55555555 M0=H'88888889, DC=0
 )"},
 
   exceptions
@@ -23573,8 +23550,8 @@ void pclr (void)
 
   example
 {R"(
-PCLR  A0  NOPX  NOPY   ! Before execution: A0 = 0xFF87654321
-                       ! After execution: A0 = 0x0000000000
+ PCLR A0 NOPX NOPY ;Before execution: A0=H'FF87654321
+ ;After execution: A0=H'0000000000
 )"},
 
   exceptions
@@ -23769,9 +23746,8 @@ void pcmp (void)
 
   example
 {R"(
-PCMP  X0,Y0  NOPX  NOPY  ! Before execution: X0 = 0x22222222, Y0 = 0x33333333
-                         ! After execution: X0 = 0x22222222, Y0 = 0x33333333
-                         !                  N = 1, Z = 0, V = 0, GT = 0
+ PCMP X0, Y0 NOPX NOPY ;Before execution: X0=H'22222222, Y0=H'33333333
+ ;After execution: X0=H'22222222, Y0=H'33333333 N=1, Z=0, V=0, GT=0
 )"},
 
   exceptions
@@ -23933,8 +23909,8 @@ void pcopy_sy (void)
 
   example
 {R"(
-PCOPY  X0,A0  NOPX  NOPY  ! Before execution: X0 = 0x55555555, A0 = 0xFFFFFFFF
-                          ! After execution: X0 = 0x55555555, A0 = 0x0055555555
+ PCOPY X0, A0 NOPX NOPY ;Before execution: X0=H'55555555, A0=H'FFFFFFFF
+ ;After execution: X0=H'55555555, A0=H'0055555555
 )"},
 
   exceptions
@@ -24397,7 +24373,10 @@ void pneg_sx (void)
 
   example
 {R"(
-
+ PNEG X0,A0 NOPX NOPY ;Before execution: X0=H'55555555, A0=H'A987654321
+ ;After execution: X0=H'55555555, A0=H'FFAAAAAAAB
+ PNEG X1,Y1 NOPX NOPY ;Before execution: Y1=H'99999999
+ ;After execution: Y1=H'66666667
 )"},
 
   exceptions
@@ -24965,8 +24944,8 @@ void psub (void)
 
   example
 {R"(
-PSUB  X0,Y0,A0  NOPX  NOPY  ! Before execution: X0 = 0x55555555, Y0 = 0x33333333, A0 = 0x123456789A
-                            ! After execution: X0 = 0x55555555, Y0 = 0x33333333, A0 = 0x0022222222
+ PSUB X0,Y0,A0 NOPX NOPY ;Before execution: X0=H'55555555, Y0=H'33333333, A0=H'123456789A
+ ;After execution: X0=H'55555555, Y0=H'33333333, A0=H'0022222222
 )"},
 
   exceptions
@@ -25294,9 +25273,8 @@ void psub_pmuls (void)
 
   example
 {R"(
-PSUB  A0,M0,A0  PMULS X0,Y0,M0  NOPX  NOPY
-            ! Before execution: X0 = 0x00020000, Y0 = 0xFFFE0000, M0 = 0x33333333, A0 = 0x0022222222
-            ! After execution: X0 = 0x00020000, Y0 = 0xFFFE0000, M0 = 0xFFFFFFF8, A0 = 0x55555555
+ PSUB A0,M0,A0 PMULS X0,Y0,M0 NOPX NOPY ;Before execution: X0=H'00020000, Y0=H'FFFE0000, M0=H'33333333, A0=H'0022222222
+ ;After execution: X0=H'00020000, Y0=H'FFFE0000, M0=H'FFFFFFF8, A0=H'55555555
 )"},
 
   exceptions
@@ -25402,11 +25380,10 @@ void psubc (void)
 
   example
 {R"(
-PSUBC X0,Y0,M0  NOPX  NOPY  ! Before execution: X0 = 0x33333333, Y0 = 0x55555555 M0 = 0x0012345678, DC = 0
-                            ! After execution: X0 = 0x33333333, Y0 = 0x55555555 M0 = 0xFFDDDDDDDE, DC = 1
-
-PSUBC X0,Y0,M0  NOPX  NOPY  ! Before execution: X0 = 0x33333333, Y0 = 0x55555555 M0 = 0x0012345678, DC = 1
-                            ! After execution: X0 = 0x33333333, Y0 = 0x55555555 M0 = 0xFFDDDDDDDD, DC = 1
+ PSUBC X0,Y0,M0 NOPX NOPY ;Before execution: X0=H'33333333, Y0=H'55555555 M0=H'00 12345678, DC=0
+ ;After execution: X0=H'33333333, Y0=H'55555555 M0=H'FFDDDDDDDE, DC=1
+ PSUBC X0,Y0,M0 NOPX NOPY ;Before execution: X0=H'33333333, Y0=H'55555555 M0=H'00 12345678, DC=1
+ ;After execution: X0=H'33333333, Y0=H'55555555 M0=H'FFDDDDDDDD, DC=1
 )"},
 
   exceptions
@@ -25492,7 +25469,10 @@ void pdec_sx (void)
 
   example
 {R"(
-
+ PDEC X0,M0 NOPX NOPY ;Before execution: X0=H'0052330F, M0=H'12345678
+ ;After execution: X0=H'0052330F, M0=H'00510000
+ PDEC X1,X1 NOPX NOPY ;Before execution: X1=H'FC342855
+ ;After execution: X1=H'FC330000
 )"},
 
   exceptions
@@ -26044,7 +26024,10 @@ void pinc_sx (void)
 
   example
 {R"(
-
+ PINC X0,M0 NOPX NOPY ;Before execution: X0=H'0052330F, M0=H'12345678
+ ;After execution: X0=H'0052330F, M0=H'00530000
+ PINC X1,X1 NOPX NOPY ;Before execution: X1=H'FC342855
+ ;After execution: X1=H'FC350000
 )"},
 
   exceptions
@@ -26590,7 +26573,10 @@ void pdmsb_sx (void)
 
   example
 {R"(
-
+ PDMSB X0,M0 NOPX NOPY ;Before execution: X0=H'0052330F, M0=H'12345678
+ ;After execution: X0=H'0052330F, M0=H'00080000
+ PDMSB X1,X1 NOPX NOPY ;Before execution: X1=H'FC342855
+ ;After execution: X1=H'00050000
 )"},
 
   exceptions
@@ -27189,7 +27175,10 @@ void prnd_sx (void)
 
   example
 {R"(
-
+ PRND X0,M0 NOPX NOPY ;Before execution: X0=H'0052330F, M0=H'12345678
+ ;After execution: X0=H'0052330F, M0=H'00520000
+ PRND X1,X1 NOPX NOPY ;Before execution: X1=H'FC34C087
+ ;After execution: X1=H'FC350000
 )"},
 
   exceptions
@@ -27371,7 +27360,8 @@ void pand (void)
 
   example
 {R"(
-
+ PAND X0,Y0,A0 NOPX NOPY ;Before execution: X0=H'33333333, Y0=H'55555555 A0=H'123456789A
+ ;After execution: X0=H'33333333, Y0=H'55555555 A0=H'0011110000
 )"},
 
   exceptions
@@ -27656,7 +27646,8 @@ void por (void)
 
   example
 {R"(
-
+ POR X0,Y0,A0 NOPX NOPY ;Before execution: X0=H'33333333, Y0=H'55555555 A0=H'123456789A
+ ;After execution: X0=H'33333333, Y0=H'55555555 A0=H'127777789A
 )"},
 
   exceptions
@@ -27941,7 +27932,8 @@ void pxor (void)
 
   example
 {R"(
-
+ PXOR X0,Y0,A0 NOPX NOPY ;Before execution: X0=H'33333333, Y0=H'55555555 A0=H'123456789A
+ ;After execution: X0=H'33333333, Y0=H'55555555 A0=H'0066660000
 )"},
 
   exceptions
@@ -28249,7 +28241,10 @@ void pmuls (void)
 
   example
 {R"(
-
+ PMULS X0,Y0,M0 NOPX NOPY ;Before execution: X0=H'00010000, Y0=H'00020000, M0=H'33333333
+ ;After execution: X0=H'00010000, Y0=H'00020000, M0=H'00000004
+ PMULS X1,Y1,A0 NOPX NOPY ;Before execution: X1=H'FFFE2222, Y1=H'0001AAAA, A0=H'4444444444
+ ;After execution: X1=H'FFFE2222, Y1=H'0001AAAA, A0=H'FFFFFFFFFC
 )"},
 
   exceptions
@@ -28396,7 +28391,12 @@ void psha (void)
 
   example
 {R"(
-
+ SHA X0,Y0,A0 NOPX NOPY ;Before execution: X0=H'88888888, Y0=H'00020000,
+ A0=H'123456789A
+ ;After execution: X0=H'88888888, Y0=H'00020000,
+ A0=H'FE22222222
+ PSHA X0,Y0,X0 NOPX NOPY ;Before execution: X0=H'33333333, Y0=H'FFFF0000
+ ;After execution: X0=H'19999999, Y0=H'FFFE0000
 )"},
 
   exceptions
@@ -28816,7 +28816,8 @@ void psha_imm (void)
 
   example
 {R"(
-
+ PSHL #7,A1 NOPX NOPY ;Before execution: A1=H'55555555
+ ;After execution: A1=H'AA800000
 )"},
 
   exceptions
@@ -28939,7 +28940,12 @@ void pshl (void)
 
   example
 {R"(
-
+ PSHL X0,Y0,A0 NOPX NOPY ;Before execution: X0=H'22222222, Y0=H'00030000,
+ A0=H'123456789A
+ ;After execution: X0=H'22222222, Y0=H'00030000,
+ A0=H'0011100000
+ PSHL X1,Y1,X1 NOPX NOPY ;Before execution: X1=H'CCCCCCCC, Y1=H'FFFE0000
+ ;After execution: X1=H'33330000, Y1=H'FFFE0000
 )"},
 
   exceptions
@@ -29282,7 +29288,8 @@ void pshl_imm (void)
 
   example
 {R"(
-
+ PSHA #-5,A1 NOPX NOPY ;Before execution: A1=H'AAAAAAAAAA
+ ;After execution: A1=H'FD55555555
 )"},
 
   exceptions
@@ -29330,7 +29337,8 @@ void plds_mach (void)
 
   example
 {R"(
-
+ PLDS A0,MACH NOPX NOPY ;Before execution: A0=H'123456789A, MACH=H'66666666
+ ; After execution: A0=H'123456789A, MACH=H'3456789A
 )"},
 
   exceptions
@@ -29602,7 +29610,8 @@ void psts_mach (void)
 
   example
 {R"(
-
+ PSTS MACH,A0 NOPX NOPY ;Before execution: A0=H'123456789A, MACH=H'88888888
+ ;After execution: A0=H'FF88888888, MACH=H'88888888
 )"},
 
   exceptions
@@ -29899,357 +29908,6 @@ void psts_macl_dcf (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 });
-
-  return fix_list(std::move(insn_blocks));
-}
-
-
-using namespace std::literals::string_literals;
-
-constexpr bool operator ==(const environment_t& a, const environment_t& b)
-  { return a.cpus == b.cpus && a.property == b.property; }
-
-
-static const std::array<std::pair<std::string_view, std::string_view>, 26> unicode_symbols =
-{
-  {
-    { ">", "&gt;" }, // because we use the < character
-    { "<", "&lt;" }, // because we use the > character
-    { "=", "&equal;" }, // because we use the = character
-    { "/", "&divide;" }, // because we use the = character
-    { "≥", "<var title=\"greater than or equal\"></var>" },
-    { "≤", "<var title=\"less than or equal\"></var>" },
-    { "&lt;&lt;", "<var title=\"shift bits left\"></var>" },
-    { "&gt;&gt;", "<var title=\"shift bits right\"></var>" },
-    { "&gt;", "<var title=\"greater than\"></var>" },
-    { "&lt;", "<var title=\"less than\"></var>" },
-    { "&equal;", "<var title=\"equal\"></var>" },
-    { "∀", "<var title=\"for all\"></var>" },
-    { "-", "<var title=\"subtract\"></var>" },
-    { "−", "<var title=\"subtract\"></var>" },
-    { "+", "<var title=\"add\"></var>" },
-    { "×", "<var title=\"multiply\"></var>" },
-    { "÷", "<var title=\"divide\"></var>" },
-    { "&divide;", "<var title=\"divide\"></var>" },
-    { "∨", "<var title=\"binary or\"></var>" },
-    { "∧", "<var title=\"binary and\"></var>" },
-    { "→", "<var title=\"store into (right)\"></var>" },
-    { "←", "<var title=\"store into (left)\"></var>" },
-    { "⊕", "<var title=\"binary xor\"></var>" },
-    { "~", "<var title=\"binary not\"></var>" },
-    { "PC’’","<var title=\"double prime\">PC</var>"},
-    { "PC’", "<var title=\"prime\">PC</var>"},
-  }
-};
-
-static const std::array<std::pair<std::string_view, std::string_view>, 21> typeable_symbols =
-{
-  {
-    { ">", "&gt;" }, // because we use the < character
-    { "<", "&lt;" }, // because we use the > character
-    { "=", "&equal;" }, // because we use the = character
-    { "/", "&divide;" }, // because we use the = character
-    { "-&gt;", "<var title=\"store into (right)\"></var>" },
-    { "&lt;-", "<var title=\"store into (left)\"></var>" },
-    { "&gt;&equal;", "<var title=\"greater than or equal\"></var>" },
-    { "&lt;&equal;", "<var title=\"less than or equal\"></var>" },
-    { "&equal;", "<var title=\"equal\"></var>" },
-    { "&lt;&lt;", "<var title=\"shift bits left\"></var>" },
-    { "&gt;&gt;", "<var title=\"shift bits right\"></var>" },
-    { "&gt;", "<var title=\"greater than\"></var>" },
-    { "&lt;", "<var title=\"less than\"></var>" },
-    { "^", "<var title=\"binary xor\"></var>" },
-    { "~", "<var title=\"binary not\"></var>" },
-    { "*", "<var title=\"multiply\"></var>" },
-    { "-", "<var title=\"subtract\"></var>" },
-    { "+", "<var title=\"add\"></var>" },
-    { "&divide;", "<var title=\"divide\"></var>" },
-    { "&", "<var title=\"binary and\"></var>" },
-    { "|", "<var title=\"binary or\"></var>" },
-  }
-};
-
-static const std::array<std::pair<const char*, const char*>, 2> typeable_patterns =
-{
-  {
-    { "abs\\(([^\\)]+)\\)", "<var title=\"absolute value\">\\1</var>" },
-    { "sqrt\\(([^\\)]+)\\)", "<var title=\"square root\">\\1</var>" },
-  }
-};
-
-template<typename T>
-void replace_symbols(std::string& data, const T& symbols)
-{
-  if(!data.empty())
-    for(const auto& spair : symbols)
-    {
-      auto pos = data.begin();
-      while(pos = std::search(pos, data.end(), spair.first.begin(), spair.first.end()),
-            pos != data.end())
-      {
-         pos = data.erase(pos, pos + spair.first.size());
-         pos = data.insert(pos, spair.second.begin(), spair.second.end());
-         pos = std::next(pos, spair.second.size());
-      }
-    }
-}
-
-template<typename T>
-void replace_patterns(std::string& data, const T& patterns)
-{
-  if(!data.empty())
-    for(const auto& spair : patterns)
-      data = std::regex_replace(data,
-                                std::regex(spair.first, std::regex_constants::extended),
-                                spair.second,
-                                std::regex_constants::format_sed);
-}
-
-void fix_format(std::string& format, std::size_t fixed_width)
-{
-  std::string::iterator pos;
-  do
-  {
-    pos = std::find(format.begin(), format.end(), '\t');
-    if(pos != format.end())
-    {
-      std::size_t tabpos = std::distance(format.begin(), pos);
-      format.erase(tabpos, 1);
-      if(tabpos > fixed_width)
-        tabpos -= format.rfind('\n', tabpos) + 1;
-      format.insert(pos, fixed_width - tabpos, ' ');
-    }
-  } while (pos != format.end());
-}
-
-std::list<insns> fix_list(std::list<insns>&& insn_blocks)
-{
-  struct instruction_info_t
-  {
-    std::string mnemonic_regex;
-    std::string name;
-    std::string classification;
-    std::list<environment_t> environments;
-    std::list<citation_t> citations;
-  };
-
-  std::list<instruction_info_t> name_data =
-  {
-    { "STS", "Store System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 231 }, { SH4A_DOC, 425 } } },
-    { "STS", "Store from FPU System Register", "System Control Instruction", {}, { { SH4A_DOC, 453 } } },
-    { "FMOV", "Floating-point Move", "Floating-Point Instruction", {}, { { SH4A_DOC, 497 } } },
-    { "FMOV", "Floating-point Move Extension", "Floating-Point Instruction", {}, { { SH4A_DOC, 501 } } },
-    { "LDC", "Load to Control Register", "System Control Instruction", {}, { { SH4A_DOC, 337 } } },
-    { "LDC", "Load to Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 165 }, { SH4A_DOC, 449 } } },
-    { "LDS", "Load to System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 172 }, { SH4A_DOC, 342 } } },
-    { "LDS", "Load to FPU System register", "System Control Instruction", {}, { { SH4A_DOC, 450 } } },
-    { "BRAF", "Branch Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 133 }, { SH4A_DOC, 307 } } },
-    { "BRA", "Branch", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 131 }, { SH4A_DOC, 305 } } },
-    { "BSRF", "Branch to Subroutine Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 137 }, { SH4A_DOC, 445 } } },
-    { "BSR", "Branch to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 135 }, { SH4A_DOC, 443 } } },
-    { "JMP", "Jump", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 162 }, { SH4A_DOC, 336 } } },
-    { "JSR", "Jump to Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 163 }, { SH4A_DOC, 447 } } },
-    { "RTE", "Return from Exception", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 212 }, { SH4A_DOC, 401 } } },
-    { "RTS", "Return from Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 214 }, { SH4A_DOC, 403 } } },
-    { "STC", "Store Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 228 }, { SH4A_DOC, 420 }, { SH4A_DOC, 452 } } },
-    { "SLEEP", "Sleep", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 227 }, { SH4A_DOC, 419 } } },
-    { "LDTLB", "Load PTEH/PTEL to TLB", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH4A_DOC, 344 } } },
-// no environment instructions below
-    { "MOV", "Move Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 183 }, { SH4A_DOC, 353 } } },
-    { "MOV", "Move Constant Value", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 189 }, { SH4A_DOC, 359 } } },
-    { "MOV", "Move Global Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 191 }, { SH4A_DOC, 362 } } },
-    { "MOV", "Move Structure Data", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 194 }, { SH4A_DOC, 365 } } },
-    { "ADDC", "Add with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 124 }, { SH4A_DOC, 296 } } },
-    { "ADDV", "ADD with `V Flag` Overflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 125 }, { SH4A_DOC, 297 } } },
-    { "ADD", "Add binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 123 }, { SH4A_DOC, 294 } } },
-    { "AND", "AND Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 126 }, { SH4A_DOC, 299 } } },
-    { "BF/S", "Branch if False with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 129 }, { SH4A_DOC, 303 } } },
-    { "BF", "Branch if False", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 128 }, { SH4A_DOC, 301 } } },
-    { "BT/S", "Branch if True with Delay Slot", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 140 }, { SH4A_DOC, 310 } } },
-    { "BT", "Branch if True", "Branch Instruction", {}, { { SH1_2_DSP_DOC, 139 }, { SH4A_DOC, 308 } } },
-    { "CLRMAC", "Clear MAC Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 142 }, { SH4A_DOC, 312 } } },
-    { "CLRS", "Clear S Bit", "System Control Instruction", {}, { { SH4A_DOC, 313 } } },
-    { "CLRT", "Clear T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 143 }, { SH4A_DOC, 314 } } },
-    { "CMP/EQ", "Compare If Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/GE", "Compare If Signed Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/GT", "Compare If Signed Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/HI", "Compare If Unsigned Greater Than", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/HS", "Compare If Unsigned Greater Than or Equal To", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/PL", "Compare If Signed Greater Than Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/PZ", "Compare If Signed Greater Than or Equal To Zero", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "CMP/STR", "Compare If Strings Equal", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 144 }, { SH4A_DOC, 315 } } },
-    { "DIV0S", "Divide `Step 0` as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 148 }, { SH4A_DOC, 319 } } },
-    { "DIV0U", "Divide `Step 0` as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 149 }, { SH4A_DOC, 320 } } },
-    { "DIV1", "Divide 1 Step", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 150 }, { SH4A_DOC, 321 } } },
-    { "DMULS\\.L", "Double-length Multiply as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 155 }, { SH4A_DOC, 326 } } },
-    { "DMULU\\.L", "Double-length Multiply as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 157 }, { SH4A_DOC, 328 } } },
-    { "DT", "Decrement and Test", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 159 }, { SH4A_DOC, 330 } } },
-    { "EXTS", "Extend as Signed", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 160 }, { SH4A_DOC, 331 } } },
-    { "EXTU", "Extend as Unsigned", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 161 }, { SH4A_DOC, 333 } } },
-    { "ICBI", "Instruction Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 335 } } },
-    { "LDRE", "Load Effective Address to RE Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 168 } } },
-    { "LDRS", "Load Effective Address to RS Register", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 170 } } },
-    { "MAC\\.L", "Multiply and Accumulate Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 177 }, { SH4A_DOC, 346 } } },
-    { "MAC\\.W", "Multiply and Accumulate Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 180 }, { SH4A_DOC, 350 } } },
-    { "MOVA", "Move Effective Address", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 197 }, { SH4A_DOC, 369 } } },
-    { "MOVT", "Move T Bit", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 198 }, { SH4A_DOC, 376 } } },
-    { "MUL\\.L", "Multiply Long", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 199 }, { SH4A_DOC, 379 } } },
-    { "MULS\\.W", "Multiply as Signed Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 200 }, { SH4A_DOC, 380 } } },
-    { "MULU\\.W", "Multiply as Unsigned Word", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 201 }, { SH4A_DOC, 381 } } },
-    { "MOVCA\\.L", "Move with Cache Block Allocation", "Data Transfer Instruction", {}, { { SH4A_DOC, 371 } } },
-    { "MOVCO", "Move Conditional", "Data Transfer Instruction", {}, { { SH4A_DOC, 372 } } },
-    { "MOVLI", "Move Linked", "Data Transfer Instruction", {}, { { SH4A_DOC, 374 } } },
-    { "MOVUA", "Move Unaligned", "Data Transfer Instruction", {}, { { SH4A_DOC, 377 } } },
-    { "NEGC", "Negate with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 203 }, { SH4A_DOC, 383 } } },
-    { "NEG", "Negate", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 202 }, { SH4A_DOC, 382 } } },
-    { "NOP", "No Operation", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 204 }, { SH4A_DOC, 384 } } },
-    { "NOT", "NOT-Logical Complement", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 205 }, { SH4A_DOC, 385 } } },
-    { "OR", "OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 206 }, { SH4A_DOC, 389 } } },
-    { "PREFI", "Prefetch Instruction Cache Block", "Data Transfer Instruction", {}, { { SH4A_DOC, 394 } } },
-    { "PREF", "Prefetch Data to Cache", "Data Transfer Instruction", {}, { { SH4A_DOC, 391 } } },
-    { "ROTCL", "Rotate with Carry Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 208 }, { SH4A_DOC, 397 } } },
-    { "ROTCR", "Rotate with Carry Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 209 }, { SH4A_DOC, 398 } } },
-    { "ROTL", "Rotate Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 210 }, { SH4A_DOC, 399 } } },
-    { "ROTR", "Rotate Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 211 }, { SH4A_DOC, 400 } } },
-    { "SETRC", "Set Repeat Count to RC", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 216 } } },
-    { "SETS", "Set S Bit", "System Control Instruction", {}, { { SH4A_DOC, 405 } } },
-    { "SETT", "Set T Bit", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 218 }, { SH4A_DOC, 406 } } },
-    { "SHAD", "Shift Arithmetic Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 407 } } },
-    { "SHAL", "Shift Arithmetic Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 219 }, { SH4A_DOC, 409 } } },
-    { "SHAR", "Shift Arithmetic Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 220 }, { SH4A_DOC, 410 } } },
-    { "SHLD", "Shift Logical Dynamically", "Shift Instruction", {}, { { SH4A_DOC, 411 } } },
-    { "SHLL([281][6]?)", "Shift Logical Left \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 222 }, { SH4A_DOC, 414 } } },
-    { "SHLL", "Shift Logical Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 221 }, { SH4A_DOC, 413 } } },
-    { "SHLR([281][6]?)", "Shift Logical Right \\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 225 }, { SH4A_DOC, 417 } } },
-    { "SHLR", "Shift Logical Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 224 }, { SH4A_DOC, 416 } } },
-    { "SUBC", "Subtract with Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 237 }, { SH4A_DOC, 428 } } },
-    { "SUBV", "Subtract with `V Flag` Underflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 238 }, { SH4A_DOC, 429 } } },
-    { "SUB", "Subtract Binary", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 236 }, { SH4A_DOC, 427 } } },
-    { "SWAP", "Swap Register Halves", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 239 }, { SH4A_DOC, 431 } } },
-    { "SYNCO", "Synchronize Data Operation", "Data Transfer Instruction", {}, { { SH4A_DOC, 433 } } },
-    { "TAS", "Test and Set", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 241 }, { SH4A_DOC, 434 } } },
-    { "TRAPA", "Trap Always", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 242 }, { SH4A_DOC, 436 } } },
-    { "TST", "Test Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 243 }, { SH4A_DOC, 438 } } },
-    { "XOR", "Exclusive OR Logical", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 245 }, { SH4A_DOC, 440 } } },
-    { "XTRCT", "Extract", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 247 }, { SH4A_DOC, 442 } } },
-    { "MOVS", "Move Single Data between Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 255 } } },
-    { "MOVX", "Move between X Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 257 } } },
-    { "MOVY", "Move between Y Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 258 } } },
-    { "NOPX", "No Access Operation for X Memory", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 260 } } },
-    { "PABS", "Absolute", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 278 } } },
-    { "DC[TF] PADD", "Addition with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 282 } } },
-    { "PADDC", "Addition with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 291 } } },
-    { "PADD PMULS", "Addition & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 286 } } },
-    { "DC[TF] PAND", "Logical AND", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 294 } } },
-    { "DC[TF] PCLR", "Clear", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 298 } } },
-    { "PCMP", "Compare Two Data", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 301 } } },
-    { "DC[TF] PCOPY", "Copy with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 303 } } },
-    { "DC[TF] PDEC", "Decrement by 1", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 307 } } },
-    { "DC[TF] PDMSB", "Detect MSB with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 312 } } },
-    { "DC[TF] PINC", "Increment by 1 with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 317 } } },
-    { "DC[TF] PLDS", "Load System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 322 } } },
-    { "PMULS", "Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 326 } } },
-    { "DC[TF] PNEG", "Negate", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 329 } } },
-    { "DC[TF] POR", "Logical OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 334 } } },
-    { "PRND", "Rounding", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 338 } } },
-    { "DC[TF] PSHA", "Shift Arithmetically with Condition", "DSP Arithmetic Shift Instruction", {}, { { SH1_2_DSP_DOC, 342 } } },
-    { "DC[TF] PSHL", "Shift Logically with Condition", "DSP Logical Shift Instruction", {}, { { SH1_2_DSP_DOC, 350 } } },
-    { "DC[TF] PSTS", "Store System Register", "DSP System Control Instruction", {}, { { SH1_2_DSP_DOC, 357 } } },
-    { "DC[TF] PSUB", "Subtract with Condition", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 362 } } },
-    { "PSUB PMULS", "Subtraction & Multiply Signed by Signed", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 367 } } },
-    { "PSUBC", "Subtraction with Carry", "DSP Arithmetic Operation Instruction", {}, { { SH1_2_DSP_DOC, 372 } } },
-    { "DC[TF] PXOR", "Logical Exclusive OR", "DSP Logical Operation Instruction", {}, { { SH1_2_DSP_DOC, 375 } } },
-    { "OCBI", "Operand Cache Block Invalidate", "Data Transfer Instruction", {}, { { SH4A_DOC, 386 } } },
-    { "OCBP", "Operand Cache Block Purge", "Data Transfer Instruction", {}, { { SH4A_DOC, 387 } } },
-    { "OCBWB", "Operand Cache Block Write Back", "Data Transfer Instruction", {}, { { SH4A_DOC, 388 } } },
-    { "FABS", "Floating-point Absolute Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 467 } } },
-    { "FADD", "Floating-point ADD", "Floating-Point Instruction", {}, { { SH4A_DOC, 468 } } },
-    { "FCMP", "Floating-point Compare", "Floating-Point Instruction", {}, { { SH4A_DOC, 471 } } },
-    { "FCNVDS", "Floating-point Convert Double to Single Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 475 } } },
-    { "FCNVSD", "Floating-point Convert Single to Double Precision", "Floating-Point Instruction", {}, { { SH4A_DOC, 478 } } },
-    { "FDIV", "Floating-point Divide", "Floating-Point Instruction", {}, { { SH4A_DOC, 480 } } },
-    { "FIPR", "Floating-point Inner Product", "Floating-Point Instruction", {}, { { SH4A_DOC, 484 } } },
-    { "FLDI0", "Floating-point Load Immediate 0.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 486 } } },
-    { "FLDI1", "Floating-point Load Immediate 1.0", "Floating-Point Instruction", {}, { { SH4A_DOC, 487 } } },
-    { "FLDS", "Floating-point Load to System register", "Floating-Point Instruction", {}, { { SH4A_DOC, 488 } } },
-    { "FLOAT", "Floating-point Convert from Integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 489 } } },
-    { "FMAC", "Floating-point Multiply and Accumulate", "Floating-Point Instruction", {}, { { SH4A_DOC, 491 } } },
-    { "FMUL", "Floating-point Multiply", "Floating-Point Instruction", {}, { { SH4A_DOC, 504 } } },
-    { "FNEG", "Floating-point Negate Value", "Floating-Point Instruction", {}, { { SH4A_DOC, 507 } } },
-    { "FPCHG", "Pr-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 508 } } },
-    { "FRCHG", "FR-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 509 } } },
-    { "FSCA", "Floating Point Sine And Cosine Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 510 } } },
-    { "FSCHG", "Sz-bit Change", "Floating-Point Instruction", {}, { { SH4A_DOC, 512 } } },
-    { "FSQRT", "Floating-point Square Root", "Floating-Point Instruction", {}, { { SH4A_DOC, 513 } } },
-    { "FSRRA", "Floating Point Square Reciprocal Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 516 } } },
-    { "FSTS", "Floating-point Store System Register", "Floating-Point Instruction", {}, { { SH4A_DOC, 518 } } },
-    { "FSUB", "Floating-point Subtract", "Floating-Point Instruction", {}, { { SH4A_DOC, 519 } } },
-    { "FTRC", "Floating-point Truncate and Convert to integer", "Floating-Point Instruction", {}, { { SH4A_DOC, 522 } } },
-    { "FTRV", "Floating-point Transform Vector", "Floating-Point Instruction", {}, { { SH4A_DOC, 525 } } },
-  };
-
-  for(instruction_info_t& info : name_data)
-  {
-    std::transform(info.mnemonic_regex.begin(), info.mnemonic_regex.end(), info.mnemonic_regex.begin(),
-                   [](char c){ return std::tolower(c); }); // convert to lowercase
-    info.mnemonic_regex.insert(0, 1, '^'); // add regex string start
-    info.mnemonic_regex.append("[\\S]*"); // add "not whitespace" matching to end
-  }
-
-/* FILL IN MISSING DATA / FIX INPUT DATA */
-
-  for(insns& block : insn_blocks)
-  {
-    for(insn& instruction : block)
-    {
-
-      auto& fmt = instruction.data<format>();
-      auto& n = instruction.data<name>();
-      auto& e = instruction.data<environments>();
-      for(const instruction_info_t& info : name_data)
-      {
-        std::smatch match;
-        if(std::regex_search(fmt, match, std::regex(info.mnemonic_regex, std::regex_constants::extended)) &&
-           (n.empty() || n == info.name) &&
-           e == environments { info.environments })
-        {
-          if(n.empty())
-            n = { info.name };
-          instruction.data<mnemonic>() = { match.str() };
-          instruction.data<citations>() = { info.citations };
-          instruction.data<classification>() = { info.classification };
-          break;
-        }
-      }
-    }
-  }
-
-
-  for(insns& block : insn_blocks)
-  {
-    for(insn& instruction : block)
-    {
-      fix_format(instruction.data<format>(), 10); // replace tabs with spaces
-      replace_symbols(instruction.data<abstract>(), typeable_symbols);
-      replace_patterns(instruction.data<abstract>(), typeable_patterns);
-      replace_symbols(instruction.data<brief>(), unicode_symbols);
-      replace_symbols(instruction.data<flags>(), typeable_symbols);
-      /*
-      replace_symbols(instruction.data<name>());
-      replace_symbols(instruction.data<restriction>());
-      replace_symbols(instruction.data<classification>());
-      replace_symbols(instruction.data<mnemonic>());
-      replace_symbols(instruction.data<mnemonic_origin>());
-      replace_symbols(instruction.data<code>());
-      replace_symbols(instruction.data<flags>());
-      replace_symbols(instruction.data<description>());
-      replace_symbols(instruction.data<note>());
-      replace_symbols(instruction.data<operation>());
-      replace_symbols(instruction.data<example>());
-      replace_symbols(instruction.data<exceptions>());
-      */
-    }
-  }
 
   return insn_blocks;
 }

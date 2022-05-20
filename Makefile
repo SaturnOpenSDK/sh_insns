@@ -49,7 +49,8 @@ endif
 
 SOURCES = \
 	sh_insns.cpp \
-	build_instructions.cpp
+	build_instructions.cpp \
+	post_processing.cpp
 
 OBJS := $(SOURCES:.s=.o)
 OBJS := $(OBJS:.c=.o)

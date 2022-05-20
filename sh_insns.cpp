@@ -27,6 +27,7 @@ along with this software; see the file LICENSE.  If not see
 #include <algorithm>
 
 #include "build_instructions.h"
+#include "post_processing.h"
 
 using namespace std::literals;
 using namespace std::string_view_literals;
@@ -50,7 +51,7 @@ static isa_property isa_name = isa_property
 
 std::string fix_id(std::string id)
 {
-  std::replace_if(id.begin(), id.end(),[](unsigned char c) -> bool { return c == ' '; }, '_');
+  std::replace_if(std::begin(id), std::end(id),[](unsigned char c) -> bool { return c == ' '; }, '_');
   return id;
 }
 
@@ -64,129 +65,46 @@ std::string fix_html(std::string html)
   return html;
 }
 
-void print_section_title(std::string_view title)
-{
-  std::cout << "<span title=\"section\">" << title << "</span>" << std::endl
-            << "<br />" << std::endl;
-}
-
-bool skip_endlines(std::string& val)
+bool trim_endlines(std::string& val)
 {
   auto is_endline = [](unsigned char c) -> bool { return c == '\n'; };
-  auto pos = std::find_if_not(val.begin(), val.end(), is_endline); // move past initial line break
-  bool end = pos != val.end();
-  if(end)
-    val.erase(val.begin(), pos);
-  return end;
+  if(!val.empty())
+  {
+    auto pos = std::find_if_not(std::begin(val), std::end(val), is_endline); // forward search
+    val.erase(std::begin(val), pos);
+  }
+  if(!val.empty())
+  {
+    auto pos = std::find_if_not(std::rbegin(val), std::rend(val), is_endline); // backwards search
+    val.erase(pos.base(), std::end(val));
+  }
+  return !val.empty();
 }
 
 // ----------------------------------------------------------------------------
 
 void print_list_section (std::string_view title, std::string val)
 {
-  if(skip_endlines(val))
+  if(trim_endlines(val))
   {
-    val.erase(val.find_last_of('\n')); // remove trailing newline
     val.insert(0, "  <var>").append("</var>");
-    for(auto pos = val.find('\n'); pos != std::string::npos; pos = val.find('\n', pos + sizeof("</var>\n  <var>")))
+
+    for(auto pos = val.find('\n'); pos != std::string::npos; pos = val.find('\n', pos + "</var>\n  <var>"sv.size()))
       val.replace(pos, 1, "</var>\n  <var>");
-    print_section_title(title);
-    std::cout << "<span title=\"list\">" << std::endl
+
+    std::cout << "<span title=\"section\">" << title << "</span>" << std::endl
+              << "<span title=\"list\">" << std::endl
               << val << std::endl
               << "</span>" << std::endl;
   }
 }
 
-void print_code_section (std::string_view title, std::string val)
+void print_span_section (std::string_view word_title, std::string tag_title, std::string val)
 {
-  if(skip_endlines(val))
+  if(trim_endlines(val))
   {
-    print_section_title(title);
-    std::cout << "<span title=\"code\">" << fix_html(val) << "</span>"<< std::endl;
-  }
-}
-
-void print_note_section (std::string title, std::string val)
-{
-  if(skip_endlines(val))
-  {
-    print_section_title(title);
-    std::cout << "<br />";
-    auto target = "<img src="sv;
-    if (auto pos = std::search(val.begin(), val.end(), std::default_searcher(target.begin(), target.end()));
-        pos != val.end())
-      std::cout << std::string(val.begin(), pos) << "<img alt=\"" << title << "\" class=\"image_filter\" src=" << std::string(pos + target.size(), val.end());
-    else
-      std::cout << val;
-    std::cout << "<br /><br />" << std::endl;
-  }
-}
-
-void print_assembly_section (std::string_view title, std::string val)
-{
-  static_assert ("#NOREFORMAT"sv.size() == 11, "oh snap");
-
-  if(skip_endlines(val))
-  {
-    print_section_title(title);
-    auto noreformat = "#NOREFORMAT"sv;
-
-    if(!val.compare(0, noreformat.size(), noreformat))
-      std::cout << "<span title=\"assembly\">"
-                << fix_html(val.substr(noreformat.size()))
-                << "</span>" << std::endl;
-    else
-    {
-
-      auto is_endline = [](unsigned char c) -> bool { return c == '\n'; };
-      auto to_lowercase = [](unsigned char c) -> unsigned char { return std::tolower(c); };
-
-      std::cout << std::setfill(' ') << std::left;
-      std::cout << "<span title=\"assembly\">";
-      std::regex_replace(val.begin(), val.begin(), val.end(), std::regex("H'([[:xdigit:]]+)", std::regex_constants::extended), "0x\\1", std::regex_constants::format_sed);
-      std::regex_replace(val.begin(), val.begin(), val.end(), std::regex("R([[:digit:]]{1,2})", std::regex_constants::extended), "r\\1", std::regex_constants::format_sed);
-      auto pos = val.begin(); // chopped off part of the string, so start from the beginning
-
-      auto is_mnemonic = [](unsigned char c) -> unsigned char{ return std::isalpha(c) || c == '.' ; };
-      auto is_comment_or_EOL = [](unsigned char c) -> unsigned char{ return c == ';' || c == '\n' ; };
-      do
-      {
-        if(*pos == '\n')
-        {
-          std::cout << std::endl;
-        }
-        else
-        {
-          auto next = std::find_if_not(pos, val.end(), is_mnemonic);
-          std::transform(pos, next, pos, to_lowercase);
-          std::cout << std::setw(6) << std::string(pos, next);
-
-          pos = next;
-
-          if(*pos != ';' && *pos != '\n')
-          {
-            next = std::find_if(pos, val.end(), is_comment_or_EOL);
-            std::transform(pos, next, pos, to_lowercase);
-            if(*next == ';')
-              std::cout << std::setw(9) << std::string(pos, next) << "! ";
-            else
-              std::cout << std::string(pos, next);
-            pos = next;
-          }
-          if(*pos == ';' && *pos != '\n')
-          {
-            pos = std::next(pos);
-            next = std::find_if(pos, val.end(), is_endline); // move past initial line break
-            std::cout << std::string(pos, next);
-
-            pos = next;
-          }
-          if(*pos == '\n')
-            std::cout << std::endl;
-        }
-      } while(pos = std::next(pos), pos != val.end());
-      std::cout << "</span>" << std::endl;
-    }
+    std::cout << "<span title=\"section\">" << word_title << "</span>" << std::endl
+              << "<span title=\"" << tag_title << "\">" << val << "</span>"<< std::endl;
   }
 }
 
@@ -196,7 +114,7 @@ std::string print_list(const isa_property& prop, const std::string& newtext)
   std::string r;
   for(const auto& val : prop)
     if(!val.empty())
-      r += std::regex_replace(std::string(val), std::regex(val.begin(), val.end(), std::regex_constants::basic), newtext, std::regex_constants::format_sed);
+      r += std::regex_replace(std::string(val), std::regex(std::begin(val), std::end(val), std::regex_constants::basic), newtext, std::regex_constants::format_sed);
   return r;
 }
 
@@ -259,22 +177,22 @@ std::string colorize_code(std::string_view code)
   uint8_t count = 0, spaces = 0;
   char current = '\0';
 
-  for(auto pos = code.begin(); pos != code.end(); pos = std::next(pos))
+  for(auto pos = std::begin(code); pos != std::end(code); pos = std::next(pos))
   {
     r.push_back(*pos);
     ++count;
 
-    if(*pos == ' ' && std::next(pos) != code.end())
+    if(*pos == ' ' && std::next(pos) != std::end(code))
     {
       ++spaces;
       continue;
     }
     current = *pos;
 
-    if(std::next(pos) == code.end() ||
+    if(std::next(pos) == std::end(code) ||
        operand_type(current) != operand_type(*std::next(pos)))
     {
-      auto total = std::count(code.begin(), code.end(), current); // find the total number of occurances in the whole string
+      auto total = std::count(std::begin(code), std::end(code), current); // find the total number of occurances in the whole string
       std::string tag = "<span title=\"";
       switch(operand_type(current))
       {
@@ -331,7 +249,7 @@ std::string colorize_code(std::string_view code)
       }
       tag.append("\">");
 
-      r.insert(std::prev(r.end(), count - spaces), tag.begin(), tag.end());
+      r.insert(std::prev(std::end(r), count - spaces), std::begin(tag), std::end(tag));
       r.append("</span>");
       count = 0;
       spaces = 0;
@@ -426,10 +344,10 @@ R"html(<!DOCTYPE html>
     --cycle-grid-active-text-color: #000000;
   }
 
-  span[title='Ignored']                          { color: goldenrod; }
-  span[title='Opcode Identifier']                { color: dodgerblue; }
-  span[title='A']                                { color: darkgreen; }
-  span[title='D']                                { color: darkmagenta; }
+  span[title="Ignored"]                          { color: goldenrod; }
+  span[title="Opcode Identifier"]                { color: dodgerblue; }
+  span[title="A"]                                { color: darkgreen; }
+  span[title="D"]                                { color: darkmagenta; }
   span[title^='Unsigned Immediate Data']         { color: darkturquoise; }
   span[title^='Signed Immediate Data']           { color: darkturquoise; }
   span[title^='Source Register']                 { color: aquamarine; }
@@ -471,10 +389,10 @@ R"html(<!DOCTYPE html>
     --cycle-grid-active-text-color: #FFFFFF;
   }
 
-  span[title='Ignored']                          { color: gold; }
-  span[title='Opcode Identifier']                { color: #55ff55; }
-  span[title='A']                                { color: lightseagreen; }
-  span[title='D']                                { color: olive; }
+  span[title="Ignored"]                          { color: gold; }
+  span[title="Opcode Identifier"]                { color: #55ff55; }
+  span[title="A"]                                { color: lightseagreen; }
+  span[title="D"]                                { color: olive; }
   span[title^='Unsigned Immediate Data']         { color: #aaaaff; }
   span[title^='Signed Immediate Data']           { color: #aaaaff; }
   span[title^='Source Register']                 { color: #ffff55; }
@@ -548,41 +466,6 @@ M Q I3 I2 I1 I0 S T
 
 M and Q bits: Used by the DIV0U/S and DIV1 instructions.
 
-q[title='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
-"ASID", "<b>A</b>ddress <b>S</b>pace <b>I</b>dentifier"
-"CPU", "<b>C</b>entral <b>P</b>rocessing <b>U</b>nit"
-"FPU", "<b>F</b>loating <b>P</b>oint Unit"
-"ITLB", "<b>I</b>nstruction <b>T</b>ranslation <b>L</b>ookaside <b>B</b>uffer"
-"LRU", "<b>L</b>east <b>R</b>ecently <b>U</b>sed"
-"LSB", "<b>L</b>east <b>S</b>ignificant <b>B</b>it"
-"MMU", "<b>M</b>emory <b>M</b>anagement <b>U</b>nit"
-"MSB", "<b>M</b>ost <b>S</b>ignificant <b>B</b>it"
-"PC", "<b>P</b>rogram <b>C</b>ounter"
-"PMB", "<b>P</b>rivileged space <b>M</b>apping <b>B</b>uffer"
-"RISC", "<b>R</b>educed <b>I</b>nstruction <b>S</b>et <b>C</b>omputer"
-"TLB", "<b>T</b>ranslation <b>L</b>ookaside <b>B</b>uffer"
-"UBC", "<b>U</b>ser <b>B</b>reak <b>C</b>ontroller"
-"UTLB", "<b>U</b>nified <b>T</b>ranslation <b>L</b>ookaside <b>B</b>uffer"
-
-"I0", "<b>I</b>nterrupt mask flag"
-"I1", "<b>I</b>nterrupt mask flag"
-"I2", "<b>I</b>nterrupt mask flag"
-"I3", "<b>I</b>nterrupt mask flag"
-"I0-I3", "<b>I</b>nterrupt mask flag bits"
-"I3-I0", "<b>I</b>nterrupt mask flag bits"
-
-"GBR", "<b>G</b>lobal <b>B</b>ase <b>R</b>egister"
-"VBR", "<b>V</b>ector <b>B</b>ase <b>R</b>egister"
-"SR", "<b>S</b>tatus <b>R</b>egister"
-"DSR", "<b>D</b>SP <b>S</b>tatus <b>R</b>egister"
-"CS", "<b>C</b>ondition <b>S</b>elect flag bits"
-"DC", "<b>D</b>SP <b>C</b>ondition flag"
-"GT", "Signed <b>G</b>reater <b>T</b>han flag"
-"Z", "<b>Z</b>ero value flag"
-"N", "<b>N</b>egative value flag"
-"V", "O<b>v</b>erflow flag"
-"S", "<b>S</b>um flag"
-"T", "<b>T</b>est flag"
 
 
 
@@ -618,7 +501,7 @@ body
   color: var(--header-text-color)
 }
 
-q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
+input[id^="cb_" ]::after { content:attr(name); }
 
 input[id="cb_SH1"  ]:checked ~ label.SH1,
 input[id="cb_SH2"  ]:checked ~ label.SH2,
@@ -628,7 +511,9 @@ input[id="cb_SH3E" ]:checked ~ label.SH3E,
 input[id="cb_DSP"  ]:checked ~ label.DSP,
 input[id="cb_SH4"  ]:checked ~ label.SH4,
 input[id="cb_SH4A" ]:checked ~ label.SH4A,
-input[id="cb_SH2A" ]:checked ~ label.SH2A  { display: inline-grid; }
+input[id="cb_SH2A" ]:checked ~ label.SH2A
+{ display: inline-grid; }
+
 label.summary { display: none; }
 
 input[id^="cb_" ]
@@ -638,10 +523,7 @@ input[id^="cb_" ]
   padding-left: 30px;
 }
 
-input[id^="cb_" ]::after
-{
-  content:attr(name);
-}
+
 
 input[type='checkbox'][id^="row"] { display: none; }
 input[type='checkbox'][id^="row"]:checked + label > .details
@@ -785,64 +667,88 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > var:nth-of-type(9)
   width: var(--details-width);
 }
 
+.summary > .details > span
+  { display: block; }
+
+.summary > .details > span:first-of-type
+  { padding-top: 0em !important; }
+
 .summary > .details > span[title="code"],
 .summary > .details > span[title="assembly"]
 {
-  display: block;
   font-size: 13px;
   font-family: monospace;
   white-space: pre;
-  margin: 1em 0;
 }
 
 .summary > .details > span[title="section"]
 {
+  padding-bottom: 0.5em;
+  padding-top: 1em;
   font-style: italic;
   font-weight: bold;
 }
 
-span[title='list']
+
+span[title="list"]
 {
   list-style-type: circle;
 }
-span[title='list'] > var
+
+span[title="list"] > var
 {
   font-style: unset;
   display: list-item;
 }
 
+input[id="radio_math"]:checked ~ var[title="for all"]::before { content: "∀"; }
 
-var[title='for all']::before { content: "∀"; }
+input[id="radio_math"]:checked ~ .summary var[title="greater than or equal"]::before { content: "≤"; }
+input[id="radio_math"]:checked ~ .summary var[title="less than or equal"]::before { content: "≥"; }
+input[id="radio_math"]:checked ~ .summary var[title="equality"]::before { content: "="; }
+input[id="radio_math"]:checked ~ .summary var[title="shift bits left"]::before { content: "«"; }
+input[id="radio_math"]:checked ~ .summary var[title="shift bits right"]::before { content: "»"; }
+input[id="radio_math"]:checked ~ .summary var[title="binary or"]::before { content: "∨"; }
+input[id="radio_math"]:checked ~ .summary var[title="binary and"]::before { content: "∧"; }
+input[id="radio_math"]:checked ~ .summary var[title="binary xor"]::before { content: "⊕"; }
+input[id="radio_math"]:checked ~ .summary var[title="binary not"]::before { content: "¬"; }
+input[id="radio_math"]:checked ~ .summary var[title="double prime"]::after { content: "″"; }
+input[id="radio_math"]:checked ~ .summary var[title="prime"]::after { content: "′"; }
+input[id="radio_math"]:checked ~ .summary var[title="subtract"]::before { content: "−"; }
+input[id="radio_math"]:checked ~ .summary var[title="square root"]::before { content: "√("; }
+input[id="radio_math"]:checked ~ .summary var[title="square root"]::after { content: ")"; }
+/* input[id="radio_math"]:checked ~ .summary var[title="divide"]::before { content: "÷"; } */
+input[id="radio_math"]:checked ~ .summary var[title="multiply"]::before { content: "×"; }
+input[id="radio_math"]:checked ~ .summary var[title="absolute value"]::before { content: "|"; }
+input[id="radio_math"]:checked ~ .summary var[title="absolute value"]::after { content: "|"; }
 
-var[title='greater than or equal']::before { content: "≥"; }
-var[title='less than or equal']::before { content: "≤"; }
-var[title='greater than']::before { content: ">"; }
-var[title='less than']::before { content: "<"; }
-var[title='store into (right)']::before { content: "→"; }
-var[title='store into (left)']::before { content: "←"; }
-var[title='shift bits left']::before { content: "<<"; }
-var[title='shift bits right']::before { content: ">>"; }
 
-var[title='equal']::before { content: "="; }
-var[title='subtract']::before { content: "−"; }
-var[title='add']::before { content: "+"; }
-var[title='multiply']::before { content: "*"; }
-var[title='divide']::before { content: "/"; }
-var[title='binary or']::before { content: "|"; }
-var[title='binary and']::before { content: "&"; }
-var[title='binary xor']::before { content: "^"; }
-var[title='binary not']::before { content: "~"; }
-var[title='prime']::before { content: "’"; }
+input[id="radio_C"]:checked ~ .summary var[title="greater than or equal"]::before { content: ">="; }
+input[id="radio_C"]:checked ~ .summary var[title="less than or equal"]::before { content: "<="; }
+input[id="radio_C"]:checked ~ .summary var[title="equality"]::before { content: "=="; }
+input[id="radio_C"]:checked ~ .summary var[title="shift bits left"]::before { content: "<<"; }
+input[id="radio_C"]:checked ~ .summary var[title="shift bits right"]::before { content: ">>"; }
+input[id="radio_C"]:checked ~ .summary var[title="binary or"]::before { content: "|"; }
+input[id="radio_C"]:checked ~ .summary var[title="binary and"]::before { content: "&"; }
+input[id="radio_C"]:checked ~ .summary var[title="binary xor"]::before { content: "^"; }
+input[id="radio_C"]:checked ~ .summary var[title="binary not"]::before { content: "~"; }
+input[id="radio_C"]:checked ~ .summary var[title="double prime"]::after { content: "’’"; }
+input[id="radio_C"]:checked ~ .summary var[title="prime"]::after { content: "’"; }
+input[id="radio_C"]:checked ~ .summary var[title="subtract"]::before { content: "-"; }
+input[id="radio_C"]:checked ~ .summary var[title="square root"]::before { content: "sqrt("; }
+input[id="radio_C"]:checked ~ .summary var[title="square root"]::after { content: ")"; }
+/* input[id="radio_C"]:checked ~ .summary var[title="divide"]::before { content: "/"; } */
+input[id="radio_C"]:checked ~ .summary var[title="multiply"]::before { content: "*"; }
+input[id="radio_C"]:checked ~ .summary var[title="absolute value"]::before { content: "abs("; }
+input[id="radio_C"]:checked ~ .summary var[title="absolute value"]::after { content: ")"; }
 
-var[title='square root']::before { content: "sqrt("; }
-var[title='square root']::after { content: ")"; }
-var[title='absolute value']::before { content: "|"; }
-var[title='absolute value']::after { content: "|"; }
 
-var[title='double prime']::after { content: "’’"; }
-var[title='prime']::after { content: "’"; }
-
-q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
+var[title="divide"]::before { content: "/"; }
+var[title="greater than"]::before { content: ">"; }
+var[title="less than"]::before { content: "<"; }
+var[title="store into (right)"]::before { content: "→"; }
+var[title="store into (left)"]::before { content: "←"; }
+var[title="add"]::before { content: "+"; }
 
 </style>
 </head>
@@ -854,7 +760,10 @@ q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
     <div style="float:right">
       <a href="https://github.com/SaturnOpenSDK/sh_insns">Page Source</a>
     </div>
-  </div>)html"
+  </div>
+  <input type="radio" id="radio_C" name="symbols" checked /><label for="radio_C">C programming Symbols</label>
+  <input type="radio" id="radio_math" name="symbols" /><label for="radio_math">Mathematic Symbols</label>
+  <br />)html"
 
   << print_list(isa_name, "\n  <input type=\"checkbox\" id=\"cb_&\" name=\"&\" checked /><label for=\"cb_&\">&</label>")
 
@@ -876,14 +785,14 @@ q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
     </span>
   </span>)html";
 
-  std::list<insns> insn_blocks = build_insn_blocks ();
+  std::list<insns> insn_blocks = post_processing(build_insn_blocks());
 
   try
   {
     int id = 0;
     for (const auto& block : insn_blocks)
     {
-      std::cout << "<br/><br/><br/><b><q data-ref=\"ALU\">" << block.section_title << "</q></b><br/><br/>" << std::endl;
+      std::cout << "<br/><br/><br/><b>" << block.section_title << "</b><br/><br/>" << std::endl;
 
       for (const auto& i : block)
       {
@@ -900,10 +809,10 @@ q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
             << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<latency>()) << "</span>" << std::endl
             << "<span class=\"details\">" << std::endl;
 
-        print_note_section (i.data<name>(), i.data<description>());
-        print_note_section ("Note", i.data<note>());
-        print_code_section("Operation", i.data<operation>());
-        print_assembly_section ("Example", i.data<example>());
+        print_span_section (i.data<name>(), "note", i.data<description>());
+        print_span_section ("Note", "note", i.data<note>());
+        print_span_section ("Operation", "code", i.data<operation>());
+        print_span_section ("Example", "assembly", i.data<example>());
         print_list_section ("Possible Exceptions", i.data<exceptions>());
 
         std::cout << "</span>" << std::endl // close "details"
@@ -920,10 +829,12 @@ q[data-ref='ALU'] { title: "<b>A</b>rithmetic <b>L</b>ogic <b>U</b>nit"; }
   {
     std::cerr << "exception caught: " << message << std::endl;
   }
+  /*
   catch (...)
   {
     std::cerr << "uncaught exception!" << std::endl;
   }
+  */
 
 
   return 0;
