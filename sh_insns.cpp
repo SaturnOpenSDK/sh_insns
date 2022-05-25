@@ -49,59 +49,19 @@ static isa_property isa_name = isa_property
 
 // ----------------------------------------------------------------------------
 
-std::string fix_id(std::string id)
+std::string fix_id(std::string data)
 {
-  std::replace_if(std::begin(id), std::end(id),[](unsigned char c) -> bool { return c == ' '; }, '_');
-  return id;
-}
-
-std::string fix_html(std::string html)
-{
-  std::size_t pos = std::string::npos;
-  while(pos = html.find('<'), pos != std::string::npos)
-    html.replace(pos, 1, "&lt;");
-  while(pos = html.find('>'), pos != std::string::npos)
-    html.replace(pos, 1, "&gt;");
-  return html;
-}
-
-bool trim_endlines(std::string& val)
-{
-  auto is_endline = [](unsigned char c) -> bool { return c == '\n'; };
-  if(!val.empty())
-  {
-    auto pos = std::find_if_not(std::begin(val), std::end(val), is_endline); // forward search
-    val.erase(std::begin(val), pos);
-  }
-  if(!val.empty())
-  {
-    auto pos = std::find_if_not(std::rbegin(val), std::rend(val), is_endline); // backwards search
-    val.erase(pos.base(), std::end(val));
-  }
-  return !val.empty();
+  data = std::regex_replace(data, std::regex("<var[^>]+>([^<]+)</var>", std::regex_constants::extended),
+                            "\\1", std::regex_constants::format_sed);
+  std::replace_if(std::begin(data), std::end(data),[](unsigned char c) -> bool { return c == ' '; }, '_');
+  return data;
 }
 
 // ----------------------------------------------------------------------------
 
-void print_list_section (std::string_view title, std::string val)
-{
-  if(trim_endlines(val))
-  {
-    val.insert(0, "  <var>").append("</var>");
-
-    for(auto pos = val.find('\n'); pos != std::string::npos; pos = val.find('\n', pos + "</var>\n  <var>"sv.size()))
-      val.replace(pos, 1, "</var>\n  <var>");
-
-    std::cout << "<span title=\"section\">" << title << "</span>" << std::endl
-              << "<span title=\"list\">" << std::endl
-              << val << std::endl
-              << "</span>" << std::endl;
-  }
-}
-
 void print_span_section (std::string_view word_title, std::string tag_title, std::string val)
 {
-  if(trim_endlines(val))
+  if(!val.empty())
   {
     std::cout << "<span title=\"section\">" << word_title << "</span>" << std::endl
               << "<span title=\"" << tag_title << "\">" << val << "</span>"<< std::endl;
@@ -109,7 +69,7 @@ void print_span_section (std::string_view word_title, std::string tag_title, std
 }
 
 
-std::string print_list(const isa_property& prop, const std::string& newtext)
+std::string regex_property_list(const isa_property& prop, const std::string& newtext)
 {
   std::string r;
   for(const auto& val : prop)
@@ -130,7 +90,7 @@ std::string for_all_isas (const insn& i, const isa_property& p, std::function<st
   return r;
 }
 
-std::string print_isa_list (const insn& i)
+std::string build_isa_list (const insn& i)
 {
   return for_all_isas(i, isa_name,
   [](bool match, const std::string_view& prop) -> std::string
@@ -141,7 +101,7 @@ std::string print_isa_list (const insn& i)
   });
 }
 
-std::string print_isa_props (const insn& i, const isa_property& p)
+std::string build_isa_tagged_property_list (const insn& i, const isa_property& p)
 {
   return for_all_isas(i, p,
   [](bool match, const std::string_view& prop) -> std::string
@@ -154,7 +114,7 @@ std::string print_isa_props (const insn& i, const isa_property& p)
 
 std::string print_isa_compatibility (const insn& i)
 {
-  std::string r = print_isa_props(i, isa_name);
+  std::string r = build_isa_tagged_property_list(i, isa_name);
   for(auto g : i.data<environments>())
   {
 
@@ -164,142 +124,6 @@ std::string print_isa_compatibility (const insn& i)
   return r;
 }
 
-constexpr char operand_type(char c)
-{
-  if(c == '1') // make binary match
-    return '0';
-  return c;
-}
-
-std::string colorize_code(std::string_view code)
-{
-  std::string r;
-  uint8_t count = 0, spaces = 0;
-  char current = '\0';
-
-  for(auto pos = std::begin(code); pos != std::end(code); pos = std::next(pos))
-  {
-    r.push_back(*pos);
-    ++count;
-
-    if(*pos == ' ' && std::next(pos) != std::end(code))
-    {
-      ++spaces;
-      continue;
-    }
-    current = *pos;
-
-    if(std::next(pos) == std::end(code) ||
-       operand_type(current) != operand_type(*std::next(pos)))
-    {
-      auto total = std::count(std::begin(code), std::end(code), current); // find the total number of occurances in the whole string
-      std::string tag = "<span title=\"";
-      switch(operand_type(current))
-      {
-        case '0': tag.append("Opcode Identifier"); break;
-        case '*': tag.append("Ignored"); break;
-        case 'm': tag.append("Source Register"); break;
-        case 'n': tag.append("Destination Register"); break;
-        case 'i': tag.append("Unsigned Immediate Data"); break;
-        case 's': tag.append("Signed Immediate Data"); break;
-        case 'd': tag.append("Displacement"); break;
-
-        case 'A': tag.append("A"); break;
-        case 'D': tag.append("D"); break;
-        case 'e': tag.append("Multiplier Source Register 1 (A1, X0, X1, Y0)"); break;
-        case 'f': tag.append("Multiplier Source Register 2 (A1, X0, Y0, Y1)"); break;
-        case 'g': tag.append("Multiplier Destination Register (A0, A1, M0, M1)"); break;
-        case 'x': tag.append("ALU Source Register 1 (A0, A1, X0, X1)"); break;
-        case 'y': tag.append("ALU Source Register 2 (M0, M1, Y0, Y1)"); break;
-        case 'u': tag.append("ALU Destination Register (A0, A1, X0, Y0)"); break;
-        case 'z': tag.append("ALU Destination Register (A0, A1, M0, M1, X0, X1, Y0, Y1)"); break;
-
-        default: throw("unknown operand type: '"s + current + "'");
-      }
-
-      switch(current)
-      {
-        case 'm':
-        case 'n':
-          tag.append(" (R0 - R")
-           .append(std::to_string((1 << total) - 1))
-           .push_back(')');
-          break;
-        case 'i':
-        case 's':
-        case 'd':
-          tag.append(" (")
-           .append(std::to_string(total))
-           .append(" bits)");
-          break;
-        case 'e':
-        case 'f':
-        case 'g':
-        case 'x':
-        case 'y':
-        case 'u':
-          if(total != 2)
-            throw("Expected two bits for '"s + current + "' register type. Found: " + std::to_string(total));
-          break;
-
-        case 'z':
-          if(total != 4)
-            throw("Expected four bits for 'z' register type. Found: "s + std::to_string(total));
-          break;
-      }
-      tag.append("\">");
-
-      r.insert(std::prev(std::end(r), count - spaces), std::begin(tag), std::end(tag));
-      r.append("</span>");
-      count = 0;
-      spaces = 0;
-    }
-  }
-
-  return r;
-}
-
-
-
-/*
-void replace_symbols(std::string& data)
-{
-  static const std::array<std::pair<std::string_view, std::string_view>, 15> symbols =
-  {
-    {
-      { "∀", "&forall;" },
-      { "√", "&radic;" },
-      { "−", "&minus;" },
-      { "×", "&times;" },
-      { "÷", "&divide;" },
-      { "∨", "&or;" },
-      { "∧", "&and;" },
-      { "≥", "&ge;" },
-      { "≤", "&le;" },
-      { "→", "&rarr;" },
-      { "←", "&larr;" },
-      { "⊕", "&oplus;" },
-      { "⊗", "&otimes;" },
-      { "¬", "&not;" },
-      { "«", "&laquo;" },
-      { "»", "&raquo;" },
-    }
-  };
-  if(!data.empty())
-  {
-    for(auto spair : symbols)
-    {
-      std::size_t pos = std::string::npos;
-      do
-      {
-        pos = data.find(spair.first);
-        if(pos != std::string::npos)
-          data.replace(pos, spair.first.size(), spair.second);
-      } while(pos != std::string::npos);
-    }
-  }
-}
-*/
 int main (void)
 {
   std::cout << std::unitbuf; // enable automatic flushing
@@ -342,6 +166,8 @@ R"html(<!DOCTYPE html>
 
     --cpu-grid-active-text-color: #404040;
     --cycle-grid-active-text-color: #000000;
+
+    --mnemonic-text-color: #FF0000;
   }
 
   span[title="Ignored"]                          { color: goldenrod; }
@@ -387,6 +213,8 @@ R"html(<!DOCTYPE html>
 
     --cpu-grid-active-text-color: #C0C0C0;
     --cycle-grid-active-text-color: #FFFFFF;
+
+    --mnemonic-text-color: #FF0000;
   }
 
   span[title="Ignored"]                          { color: gold; }
@@ -536,7 +364,7 @@ input[type='checkbox'][id^="row"]:checked + label > .details
   clear: both;
 }
 
-label.summary > .colorized > span
+label.summary > .colorized > var
 {
   font-family: monospace;
   display: contents;
@@ -689,6 +517,9 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > var:nth-of-type(9)
   font-weight: bold;
 }
 
+.summary > .details > span[title="section"] > em
+{ color: var(--mnemonic-text-color); }
+
 
 span[title="list"]
 {
@@ -765,10 +596,10 @@ var[title="add"]::before { content: "+"; }
   <input type="radio" id="radio_math" name="symbols" /><label for="radio_math">Mathematic Symbols</label>
   <br />)html"
 
-  << print_list(isa_name, "\n  <input type=\"checkbox\" id=\"cb_&\" name=\"&\" checked /><label for=\"cb_&\">&</label>")
+  << regex_property_list(isa_name, "\n  <input type=\"checkbox\" id=\"cb_&\" name=\"&\" checked /><label for=\"cb_&\">&</label>")
 
   << R"html(
-    <span id="table_header" class="summary)html" << print_list(isa_name, " &") << R"html(">
+    <span id="table_header" class="summary)html" << regex_property_list(isa_name, " &") << R"html(">
     <span>Compatibilty</span>
     <span>Format</span>
     <span>Abstract</span>
@@ -785,10 +616,12 @@ var[title="add"]::before { content: "+"; }
     </span>
   </span>)html";
 
-  std::list<insns> insn_blocks = post_processing(build_insn_blocks());
-
   try
   {
+    std::list<insns> insn_blocks;
+    build_insn_blocks(insn_blocks);
+    post_processing(insn_blocks);
+
     int id = 0;
     for (const auto& block : insn_blocks)
     {
@@ -798,22 +631,22 @@ var[title="add"]::before { content: "+"; }
       {
         std::cout << "<input type=\"checkbox\" id=\"row" << id << "\" />" << std::endl;
         std::cout
-            << "<label class=\"summary" << print_isa_list(i) << "\" for=\"row" << id << "\">" << std::endl
+            << "<label class=\"summary" << build_isa_list(i) << "\" for=\"row" << id << "\">" << std::endl
             << "<span class=\"cpu_grid\"><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var></span>" << std::endl
             << "<span>" << i.data<format>() << "</span>" << std::endl
             << "<span>" << i.data<abstract>() << "</span>" << std::endl
-            << "<span id=\"" << fix_id(i.data<code>()) << "\" class=\"colorized\">" << colorize_code(i.data<code>()) << "</span>" << std::endl
+            << "<span id=\"" << fix_id(i.data<code>()) << "\" class=\"colorized\">" << i.data<code>() << "</span>" << std::endl
             << "<span>" << i.data<flags>() << "</span>" << std::endl
-            << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<group>()) << "</span>" << std::endl
-            << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<issue>()) << "</span>" << std::endl
-            << "<span class=\"cycle_grid\">" << print_isa_props (i, i.data<latency>()) << "</span>" << std::endl
+            << "<span class=\"cycle_grid\">" << build_isa_tagged_property_list (i, i.data<group>()) << "</span>" << std::endl
+            << "<span class=\"cycle_grid\">" << build_isa_tagged_property_list (i, i.data<issue>()) << "</span>" << std::endl
+            << "<span class=\"cycle_grid\">" << build_isa_tagged_property_list (i, i.data<latency>()) << "</span>" << std::endl
             << "<span class=\"details\">" << std::endl;
 
         print_span_section (i.data<name>(), "note", i.data<description>());
         print_span_section ("Note", "note", i.data<note>());
         print_span_section ("Operation", "code", i.data<operation>());
         print_span_section ("Example", "assembly", i.data<example>());
-        print_list_section ("Possible Exceptions", i.data<exceptions>());
+        print_span_section ("Possible Exceptions", "list", i.data<exceptions>());
 
         std::cout << "</span>" << std::endl // close "details"
                   << "</label>" << std::endl;
@@ -829,12 +662,6 @@ var[title="add"]::before { content: "+"; }
   {
     std::cerr << "exception caught: " << message << std::endl;
   }
-  /*
-  catch (...)
-  {
-    std::cerr << "uncaught exception!" << std::endl;
-  }
-  */
 
 
   return 0;

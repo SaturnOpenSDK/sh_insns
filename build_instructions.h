@@ -5,7 +5,6 @@
 #include <list>
 #include <tuple>
 
-
 #if __cplusplus < 202002L
 template< class T >
 constexpr int countr_zero( T x ) noexcept
@@ -73,20 +72,62 @@ struct property_class
 
 enum document
 {
-  SH7750_PROG_DOC, // "SuperH™ (SH) 32-Bit RISC MCU/MPU Series\nSH7750\nHigh-Performance RISC Engine\nProgramming Manual",identifier:"ADE-602-156A\nRev. 2.0",date:"1999/03/04"
-                   // location:"https://ia802500.us.archive.org/9/items/manuallib-id-2595799/2595799.pdf"
+  SH7750_PROG_DOC,
+  SH1_2_PROG_DOC,
+  SH1_2_DSP_DOC,
+  SH2A_DOC,
+  SHA4_CORE_DOC,
+  SH4A_DOC,
+};
 
-  SH1_2_PROG_DOC, // name:"SuperH RISC Engine\nSH-1/SH-2\nProgramming Manual",date:"1996/09/03"
-                  // location:"https://antime.kapsi.fi/sega/files/h12p0.pdf"
+struct document_details_t
+{
+  const std::string_view name;
+  const std::string_view identifier;
+  const std::string_view date;
+  const std::string_view location;
+};
 
-  SH1_2_DSP_DOC, // name:"Hitachi SuperH™ RISC Engine\nSH-1/SH-2/SH-DSP\nProgramming Manual",identifier:"ADE-602-063C\nRev. 4.0",date:"1999/13/05"
-                 // location:"https://retrocdn.net/images/3/35/Hitachi_SuperH_Programming_Manual.pdf"
-
-  SHA4_CORE_DOC, // name:"SH-4 CPU Core Architecture",identifier:"ADCS 7182230F",date:"2002/09/12"
-                 // location:"https://www.st.com/resource/en/user_manual/cd00147165-sh-4-32-bit-cpu-core-architecture-stmicroelectronics.pdf"
-
-  SH4A_DOC,      // name:"SH-4A\nExtended Functions\nSoftware Manual"\nidentifier:"Rev.2.00",date:"2013/01/18"
-                 // location:"https://www.renesas.com/us/en/document/mat/sh-4a-extended-functions-software-manual?language=en"
+constexpr std::array<document_details_t, 6> documents =
+{
+  {
+    {
+      "SuperH™ (SH) 32-Bit RISC MCU/MPU Series\nSH7750\nHigh-Performance RISC Engine\nProgramming Manual",
+      "ADE-602-156A\nRev. 2.0",
+      "1999/03/04",
+      "https://ia802500.us.archive.org/9/items/manuallib-id-2595799/2595799.pdf",
+    },
+    {
+      "SuperH RISC Engine\nSH-1/SH-2\nProgramming Manual",
+      "",
+      "1996/09/03",
+      "https://antime.kapsi.fi/sega/files/h12p0.pdf",
+    },
+    {
+      "Hitachi SuperH™ RISC Engine\nSH-1/SH-2/SH-DSP\nProgramming Manual",
+      "ADE-602-063C\nRev. 4.0",
+      "1999/13/05",
+      "https://retrocdn.net/images/3/35/Hitachi_SuperH_Programming_Manual.pdf",
+    },
+    {
+      "SH-2A, SH2A-FPU\nSoftware Manual\nUser’s Manual\nRenesas 32-Bit RISC\nMicrocomputer\nSuperH™ RISC Engine",
+      "Rev. 3.00",
+      "2005/07/08",
+      "https://www.renesas.com/us/en/document/mah/sh-2a-sh2a-fpu-software-manual?language=en",
+    },
+    {
+      "SH-4 CPU Core Architecture",
+      "ADCS 7182230F",
+      "2002/09/12",
+      "https://www.st.com/resource/en/user_manual/cd00147165-sh-4-32-bit-cpu-core-architecture-stmicroelectronics.pdf",
+    },
+    {
+      "SH-4A\nExtended Functions\nSoftware Manual",
+      "Rev.2.00",
+      "2013/01/18",
+      "https://www.renesas.com/us/en/document/mat/sh-4a-extended-functions-software-manual?language=en",
+    },
+  }
 };
 
 struct citation_t
@@ -122,7 +163,6 @@ struct exceptions       : std::string {};
 
 /*
  TODO:
- compile list of documents
  add: BRK instruction
  add: FIPR,FTRV brief
 
@@ -177,4 +217,4 @@ struct insns : public std::list<insn>
 
 // ----------------------------------------------------------------------------
 
-std::list<insns> build_insn_blocks(void);
+void build_insn_blocks(std::list<insns>& insn_blocks);

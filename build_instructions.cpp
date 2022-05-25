@@ -1,9 +1,7 @@
 #include "build_instructions.h"
 
-std::list<insns> build_insn_blocks (void)
+void build_insn_blocks (std::list<insns>& insn_blocks)
 {
-  std::list<insns> insn_blocks;
-
 insn_blocks.push_back
 (insns { "Data Transfer Instructions",
 
@@ -64,7 +62,7 @@ insn { "mov\t#imm,Rn",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
 
-  name { "Move Constant Value" },
+  name { "_M_o_ve Constant Value" },
   brief
 {R"(
 imm ← SignExtend 8(s);
@@ -292,7 +290,7 @@ insn { "mov.w\t@(disp,PC),Rn",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Constant Value" },
+  name { "_M_o_ve Constant Value" },
   brief
 {R"(
 pc ← SignExtend 32 (PC);
@@ -357,7 +355,7 @@ insn { "mov.l\t@(disp,PC),Rn",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Constant Value" },
+  name { "_M_o_ve Constant Value" },
   brief
 {R"(
 pc ← SignExtend 32 (PC);
@@ -1365,7 +1363,7 @@ insn { "mov.b\t@(disp,Rm),R0",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Structure Data" },
+  name { "_M_o_ve Structure Data" },
   brief
 {R"(
 disp ← ZeroExtend 4(i);
@@ -1527,7 +1525,7 @@ insn { "mov.w\t@(disp,Rm),R0",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Structure Data" },
+  name { "_M_o_ve Structure Data" },
   brief
 {R"(
 disp ← ZeroExtend 4(i) << 1;
@@ -1688,7 +1686,7 @@ insn { "mov.l\t@(disp,Rm),Rn",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Structure Data" },
+  name { "_M_o_ve Structure Data" },
   brief
 {R"(
 disp ← ZeroExtend 4(i) << 2;
@@ -1788,7 +1786,7 @@ insn { "mov.b\tR0,@(disp,Rn)",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  name { "Move Structure Data" },
+  name { "_M_o_ve Structure Data" },
   brief
 {R"(
 r0 ← SignExtend 32 (R0);
@@ -1888,7 +1886,7 @@ insn { "mov.w\tR0,@(disp,Rn)",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  name { "Move Structure Data" },
+  name { "_M_o_ve Structure Data" },
   brief
 {R"(
 r0 ← SignExtend 32 (R0);
@@ -1988,7 +1986,7 @@ insn { "mov.l\tRm,@(disp,Rn)",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  name { "Move Structure Data" },
+  name { "_M_o_ve Structure Data" },
   brief
 {R"(
 op1 ← SignExtend 32 (Rm );
@@ -2416,7 +2414,7 @@ insn { "mov.b\t@(disp,GBR),R0",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Global Data" },
+  name { "_M_o_ve Global Data" },
   brief
 {R"(
 gbr ← SignExtend 32 (GBR);
@@ -2479,7 +2477,7 @@ insn { "mov.w\t@(disp,GBR),R0",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Global Data" },
+  name { "_M_o_ve Global Data" },
   brief
 {R"(
 gbr ← SignExtend 32 (GBR);
@@ -2542,7 +2540,7 @@ insn { "mov.l\t@(disp,GBR),R0",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
-  name { "Move Global Data" },
+  name { "_M_o_ve Global Data" },
   brief
 {R"(
 gbr ← SignExtend 32 (GBR);
@@ -2597,7 +2595,7 @@ insn { "mov.b\tR0,@(disp,GBR)",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  name { "Move Global Data" },
+  name { "_M_o_ve Global Data" },
   brief
 {R"(
 gbr ← SignExtend 32 (GBR);
@@ -2653,7 +2651,7 @@ insn { "mov.w\tR0,@(disp,GBR)",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  name { "Move Global Data" },
+  name { "_M_o_ve Global Data" },
   brief
 {R"(
 gbr ← SignExtend 32 (GBR);
@@ -2709,7 +2707,7 @@ insn { "mov.l\tR0,@(disp,GBR)",
   issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  name { "Move Global Data" },
+  name { "_M_o_ve Global Data" },
   brief
 {R"(
 gbr ← SignExtend 32 (GBR);
@@ -3662,7 +3660,7 @@ void BCLRM (int d, int i, int n)
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
   long temp = Read_8 (R[n] + disp);
-  temp &= (~(0x00000001 < <imm));
+  temp &= (~(0x00000001 << imm));
   Write_8 (R[n] + disp, temp);
   PC += 4;
 }
@@ -10225,7 +10223,7 @@ insn { "ldc\tRm,SR",
   issue { SH1, "1", SH2, "1", SH3, "1", SH4A, "7", SH2A, "3", SH4, "4" },
   latency { SH1, "1", SH2, "1", SH3, "5", SH4A, "4", SH2A, "2", SH4, "4" },
 
-  name { "Load to Control Register" },
+  name { "_Loa_d to _Control Register" },
   brief
 {R"(
 md ← ZeroExtend1(MD);
@@ -10290,7 +10288,7 @@ insn { "ldc.l\t@Rm+,SR",
   issue { SH1, "1", SH2, "1", SH3, "2", SH4A, "9", SH2A, "5", SH4, "4" },
   latency { SH1, "3", SH2, "3", SH3, "7", SH4A, "4", SH2A, "4", SH4, "4/4" },
 
-  name { "Load to Control Register" },
+  name { "_Loa_d to _Control Register" },
   brief
 {R"(
 md ← ZeroExtend1(MD);
@@ -11871,7 +11869,7 @@ insn { "lds\tRm,DSR",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-  name { "Load to FPU System register" },
+  name { "_Loa_d to FPU _System Register" },
   description
 {R"(
 Stores the source operand into the DSP register DSR.
@@ -11959,7 +11957,7 @@ insn { "lds.l\t@Rm+,DSR",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1/5" },
 
-  name { "Load to FPU System register" },
+  name { "_Loa_d to FPU _System Register" },
   description
 {R"(
 Stores the source operand into the DSP register DSR.
@@ -14897,7 +14895,7 @@ insn { "sts\tDSR,Rn",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-  name { "Store from FPU System Register" },
+  name { "_S_tore from FPU _System Register" },
   description
 {R"(
 Stores DSP register DSR in the destination.
@@ -14938,7 +14936,7 @@ insn { "sts.l\tDSR,@-Rn",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-  name { "Store from FPU System Register" },
+  name { "_S_tore from FPU _System Register" },
   description
 {R"(
 Stores DSP register DSR in the destination.
@@ -15571,7 +15569,7 @@ insn { "fmov\tFRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
-  restriction { "Available only when SZ=0" },
+  restriction { "Available only when SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -15624,7 +15622,7 @@ insn { "fmov.s\t@Rm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0/2", SH4, "2" },
 
-  restriction { "Available only when SZ=0" },
+  restriction { "Available only when SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -15681,7 +15679,7 @@ insn { "fmov.s\tFRm,@Rn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  restriction { "Available only when SZ=0" },
+  restriction { "Available only when SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -15740,7 +15738,7 @@ insn { "fmov.s\t@Rm+,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1/2", SH4, "1/2" },
 
-  restriction { "Available only when SZ=0" },
+  restriction { "Available only when SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -15800,7 +15798,7 @@ insn { "fmov.s\tFRm,@-Rn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1/0", SH4, "1/1" },
 
-  restriction { "Available only when SZ=0" },
+  restriction { "Available only when SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -15862,7 +15860,7 @@ insn { "fmov.s\t@(R0,Rm),FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0/2", SH4, "2" },
 
-  restriction { "Available only when SZ=0" },
+  restriction { "Available only when SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -15919,7 +15917,7 @@ insn { "fmov.s\tFRm,@(R0,Rn)",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
-  restriction { "Available only when SZ=0" },
+  restriction { "Available only when SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16066,7 +16064,7 @@ insn { "fmov\tDRm,DRn",
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "1", SH4, "0" },
 
-  restriction { "Available only when PR=0 and SZ=1" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16119,8 +16117,8 @@ insn { "fmov\tDRm,XDn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "0" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16172,8 +16170,8 @@ insn { "fmov\tXDm,DRn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "0" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16225,7 +16223,7 @@ insn { "fmov\tXDm,XDn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "0" },
 
-  name { "Floating-point Move Extension" },
+  name { "_Floating-point _M_o_ve Extension" },
   description
 {R"(
 Transfers XDm contents to XDn.
@@ -16267,7 +16265,7 @@ insn { "fmov\t@Rm,DRn",
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "2" },
 
-  restriction { "Available only when PR=0 and SZ=1" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16324,8 +16322,8 @@ insn { "fmov\t@Rm,XDn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "2" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16384,7 +16382,7 @@ insn { "fmov\tDRm,@Rn",
   latency { SH4A, "1", SH2A, "0", SH4, "1" },
 
 
-  restriction { "Available only when PR=0 and SZ=1" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16443,8 +16441,8 @@ insn { "fmov\tXDm,@Rn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16504,7 +16502,7 @@ insn { "fmov\t@Rm+,DRn",
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "1/4", SH4, "1/2" },
 
-  restriction { "Available only when PR=0 and SZ=1" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16566,8 +16564,8 @@ insn { "fmov\t@Rm+,XDn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1/2" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16629,7 +16627,7 @@ insn { "fmov\tDRm,@-Rn",
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/1", SH4, "1/1" },
 
-  restriction { "Available only when PR=0 and SZ=1" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16693,8 +16691,8 @@ insn { "fmov\tXDm,@-Rn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1/1" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16758,7 +16756,7 @@ insn { "fmov\t@(R0,Rm),DRn",
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "2" },
 
-  restriction { "Available only when PR=0 and SZ=1" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16816,8 +16814,8 @@ insn { "fmov\t@(R0,Rm),XDn",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "2" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16875,7 +16873,7 @@ insn { "fmov\tDRm,@(R0,Rn)",
   issue { SH4A, "1", SH2A, "2", SH4, "1" },
   latency { SH4A, "1", SH2A, "0", SH4, "1" },
 
-  restriction { "Available only when PR=0 and SZ=1" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -16934,8 +16932,8 @@ insn { "fmov\tXDm,@(R0,Rn)",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1" },
 
-  name { "Floating-point Move Extension" },
-  restriction { "Available only when PR=0 and SZ=1" },
+  name { "_Floating-point _M_o_ve Extension" },
+  restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17087,7 +17085,7 @@ insn { "fldi0\tFRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17141,7 +17139,7 @@ insn { "fldi1\tFRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17298,7 +17296,7 @@ insn { "fabs\tFRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17358,7 +17356,7 @@ insn { "fneg\tFRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17418,7 +17416,7 @@ insn { "fadd\tFRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17572,7 +17570,7 @@ insn { "fsub\tFRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17726,7 +17724,7 @@ insn { "fmul\tFRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -17876,7 +17874,7 @@ insn { "fmac\tFR0,FRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -18172,7 +18170,7 @@ insn { "fdiv\tFRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "13", SH3E, "13", SH4A, "14", SH2A, "12", SH4, "12/13" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -18377,7 +18375,7 @@ insn { "fsqrt\tFRn",
   issue { SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH3E, "13", SH4A, "30", SH2A, "11", SH4, "11/12" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -18512,7 +18510,7 @@ insn { "fcmp/eq\tFRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "2/4" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -18656,7 +18654,7 @@ insn { "fcmp/gt\tFRm,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "2/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -18737,7 +18735,7 @@ insn { "float\tFPUL,FRn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -18802,7 +18800,7 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "ftrc\tFRm,FPUL",
+insn { "8\tFRm,FPUL",
   SH2E | SH3E | SH4 | SH4A | SH2A,
   abstract { "(long)FRm -> FPUL" },
   code { "1111mmmm00111101" },
@@ -18811,7 +18809,7 @@ insn { "ftrc\tFRm,FPUL",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "3", SH4, "3/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -18924,8 +18922,6 @@ insn { "fipr\tFVm,FVn",
   group { SH4A, "FE", SH4, "FE" },
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "4/5" },
-
-
 
   description
 {R"(
@@ -19342,7 +19338,7 @@ insn { "fabs\tDRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0", SH4, "0" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -19402,7 +19398,7 @@ insn { "fneg\tDRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0", SH4, "0" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -19461,7 +19457,7 @@ insn { "fadd\tDRm,DRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/8", SH4, "7/9" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -19614,7 +19610,7 @@ insn { "fsub\tDRm,DRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/8", SH4, "7/9" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -19766,7 +19762,7 @@ insn { "fmul\tDRm,DRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "3", SH2A, "0/8", SH4, "7/9" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -19911,7 +19907,7 @@ insn { "fdiv\tDRm,DRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "14", SH2A, "0/24", SH4, "24/26" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -20119,7 +20115,7 @@ insn { "fsqrt\tDRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "30", SH2A, "0/24", SH4, "23/25" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -20257,7 +20253,7 @@ insn { "fcmp/eq\tDRm,DRn",
   issue { SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH4A, "1", SH2A, "3", SH4, "3/5" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -20395,7 +20391,7 @@ insn { "fcmp/gt\tDRm,DRn",
   issue { SH4A, "1", SH2A, "2", SH4, "2" },
   latency { SH4A, "1", SH2A, "3", SH4, "3/5" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -20475,7 +20471,7 @@ insn { "float\tFPUL,DRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "3/5" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 fpul ← SignExtend 32(FPUL);
@@ -20538,7 +20534,7 @@ insn { "ftrc\tDRm,FPUL",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "0/4", SH4, "4/5" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -20649,7 +20645,7 @@ insn { "fcnvds\tDRm,FPUL",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "4", SH4, "4/5" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -20804,7 +20800,7 @@ insn { "fcnvsd\tFPUL,DRn",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "4", SH4, "3/5" },
 
-  restriction { "Available only when PR=1 and SZ=0" },
+  restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -21164,7 +21160,7 @@ insn { "lds\tRm,FPUL",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
 
-  name { "Load to FPU System register" },
+  name { "_Loa_d to FPU _System Register" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -21216,7 +21212,7 @@ insn { "sts\tFPUL,Rn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "3" },
 
-  name { "Store from FPU System Register" },
+  name { "_S_tore from FPU _System Register" },
   description
 {R"(
 Stores FPU system register FPUL in the destination.
@@ -21260,7 +21256,7 @@ insn { "lds.l\t@Rm+,FPUL",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
-  name { "Load to FPU System register" },
+  name { "_Loa_d to FPU _System Register" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -21319,7 +21315,7 @@ insn { "sts.l\tFPUL,@-Rn",
   issue { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH2E, "1", SH3E, "1", SH4A, "1", SH2A, "2", SH4, "1/1" },
 
-  name { "Store from FPU System Register" },
+  name { "_S_tore from FPU _System Register" },
   description
 {R"(
 Stores FPU system register FPUL in the destination.
@@ -21365,7 +21361,7 @@ insn { "frchg",
   issue { SH4A, "1", SH4, "1" },
   latency { SH4A, "1", SH4, "1/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -21428,7 +21424,7 @@ insn { "fschg",
   issue { SH4A, "1", SH2A, "1", SH4, "1" },
   latency { SH4A, "1", SH2A, "1", SH4, "1/4" },
 
-  restriction { "Available only when PR=0" },
+  restriction { "Available only when PR = 0" },
   brief
 {R"(
 sr ← ZeroExtend 32 (SR);
@@ -26685,8 +26681,6 @@ insn { "dct pdmsb\tSx,Dz",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-
-
   description
 {R"(
 Conditionally finds the first position to change in the lineup of Sx operand
@@ -26793,8 +26787,6 @@ insn { "dct pdmsb\tSy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -27007,8 +26999,6 @@ insn { "dcf pdmsb\tSy,Dz",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-
-
   description
 {R"(
 Conditionally finds the first position to change in the lineup of Sy operand
@@ -27111,8 +27101,6 @@ insn { "prnd\tSx,Dz",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-
-
   description
 {R"(
 Does rounding. Adds the immediate data 0x00008000 to the contents of the Sx
@@ -27196,8 +27184,6 @@ insn { "prnd\tSy,Dz",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-
-
   description
 {R"(
 Does rounding. Adds the immediate data 0x00008000 to the contents of the Sy
@@ -27279,8 +27265,6 @@ insn { "pand\tSx,Sy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -27379,8 +27363,6 @@ insn { "dct pand\tSx,Sy,Dz",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-
-
   description
 {R"(
 Conditionally does an AND of the upper word of the Sx operand and the upper word
@@ -27471,8 +27453,6 @@ insn { "dcf pand\tSx,Sy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -27565,8 +27545,6 @@ insn { "por\tSx,Sy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -27665,8 +27643,6 @@ insn { "dct por\tSx,Sy,Dz",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-
-
   description
 {R"(
 Conditionally takes the OR of the top word of the Sx operand and the top word
@@ -27757,8 +27733,6 @@ insn { "dcf por\tSx,Sy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -27851,8 +27825,6 @@ insn { "pxor\tSx,Sy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -27951,8 +27923,6 @@ insn { "dct pxor\tSx,Sy,Dz",
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
 
-
-
   description
 {R"(
 Conditionally takes the exclusive OR of the top word of the Sx operand and the
@@ -28043,8 +28013,6 @@ insn { "dcf pxor\tSx,Sy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -28142,8 +28110,6 @@ insn { "pmuls\tSe,Sf,Dg",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -28413,8 +28379,6 @@ insn { "dct psha\tSx,Sy,Dz",
 
   issue { SH_DSP, "1" },
   latency { SH_DSP, "1" },
-
-
 
   description
 {R"(
@@ -29909,5 +29873,4 @@ void psts_macl_dcf (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 });
 
-  return insn_blocks;
 }
