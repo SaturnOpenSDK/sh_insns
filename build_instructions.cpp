@@ -7,12 +7,12 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> Rn" },
   code { "0110nnnnmmmm0011" },
 
   group { SH4, "MT", SH4A, "MT" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH2A, "0", SH4, "0", SH4A, "1" },
 
   brief
@@ -54,13 +54,13 @@ MOV R0,R1 ;Before execution: R0 = H'FFFFFFFF, R1 = H'00000000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov\t#imm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "imm -> sign extension -> Rn" },
   code { "1110nnnniiiiiiii" },
 
   group { SH4, "EX", SH4A, "MT" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   name { "_M_o_ve Constant Value" },
   brief
@@ -211,13 +211,13 @@ void MOVI20S (int i, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mova\t@(disp,PC),R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp * 4) + (PC & 0xFFFFFFFC) + 4 -> R0" },
   code { "11000111dddddddd" },
 
   group { SH4, "EX", SH4A, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -282,12 +282,12 @@ Slot illegal instruction
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(disp,PC),Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp * 2 + PC + 4) -> sign extension -> Rn" },
   code { "1001nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Constant Value" },
@@ -347,12 +347,12 @@ Data TLB protection violation exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(disp,PC),Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp * 4 + (PC & 0xFFFFFFFC) + 4) -> sign extension -> Rn" },
   code { "1101nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Constant Value" },
@@ -408,12 +408,12 @@ Data TLB protection violation exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@Rm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> sign extension -> Rn" },
   code { "0110nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   brief
@@ -466,12 +466,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@Rm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> sign extension -> Rn" },
   code { "0110nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   brief
@@ -523,12 +523,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@Rm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> Rn" },
   code { "0110nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   brief
@@ -573,12 +573,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tRm,@Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> (Rn)" },
   code { "0010nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   brief
@@ -624,12 +624,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tRm,@Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> (Rn)" },
   code { "0010nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   brief
@@ -676,12 +676,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> (Rn)" },
   code { "0010nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   brief
@@ -727,12 +727,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@Rm+,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> sign extension -> Rn, Rm+1 -> Rm" },
   code { "0110nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
   brief
@@ -794,12 +794,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@Rm+,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> sign extension -> Rn, Rm+2 -> Rm" },
   code { "0110nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
   brief
@@ -861,12 +861,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@Rm+,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> Rn, Rm+4 -> Rm" },
   code { "0110nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "1/2" },
 
   brief
@@ -924,12 +924,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tRm,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn-1 -> Rn, Rm -> (Rn)" },
   code { "0010nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
   brief
@@ -978,12 +978,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tRm,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn-2 -> Rn, Rm -> (Rn)" },
   code { "0010nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
   brief
@@ -1033,12 +1033,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn-4 -> Rn, Rm -> (Rn)" },
   code { "0010nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "1/1" },
 
   brief
@@ -1093,8 +1093,7 @@ insn { "mov.b\t@-Rm,R0",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Reverse Stack" },
 
   description
 {R"(
@@ -1143,8 +1142,7 @@ insn { "mov.w\t@-Rm,R0",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Reverse Stack" },
 
   description
 {R"(
@@ -1193,8 +1191,7 @@ insn { "mov.l\t@-Rm,R0",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Reverse Stack" },
 
   description
 {R"(
@@ -1235,8 +1232,7 @@ insn { "mov.b\tR0,@Rn+",
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
-
-
+  name { "_M_o_ve Reverse Stack" },
 
   description
 {R"(
@@ -1277,8 +1273,7 @@ insn { "mov.w\tR0,@Rn+",
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
-
-
+  name { "_M_o_ve Reverse Stack" },
 
   description
 {R"(
@@ -1319,8 +1314,7 @@ insn { "mov.l\tR0,@Rn+",
 
   issue { SH2A, "1" },
   latency { SH2A, "1" },
-
-
+  name { "_M_o_ve Reverse Stack" },
 
   description
 {R"(
@@ -1355,12 +1349,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(disp,Rm),R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp + Rm) -> sign extension -> R0" },
   code { "10000100mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Structure Data" },
@@ -1425,8 +1419,7 @@ insn { "mov.b\t@(disp12,Rm),Rn",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Structure Data" },
 
   description
 {R"(
@@ -1477,8 +1470,7 @@ insn { "movu.b\t@(disp12,Rm),Rn",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Structure Data as _Unsigned" },
 
   description
 {R"(
@@ -1517,12 +1509,12 @@ void MOVBUL12 (int d, int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(disp,Rm),R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp * 2 + Rm) -> sign extension -> R0" },
   code { "10000101mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Structure Data" },
@@ -1587,8 +1579,7 @@ insn { "mov.w\t@(disp12,Rm),Rn",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Structure Data" },
 
   description
 {R"(
@@ -1638,8 +1629,7 @@ insn { "movu.w\t@(disp12,Rm),Rn",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Structure Data as _Unsigned" },
 
   description
 {R"(
@@ -1678,12 +1668,12 @@ void MOVWUL12 (int d, int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(disp,Rm),Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp * 4 + Rm) -> Rn" },
   code { "0101nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Structure Data" },
@@ -1741,8 +1731,7 @@ insn { "mov.l\t@(disp12,Rm),Rn",
 
   issue { SH2A, "1" },
   latency { SH2A, "2" },
-
-
+  name { "_M_o_ve Structure Data" },
 
   description
 {R"(
@@ -1778,12 +1767,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tR0,@(disp,Rn)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 -> (disp + Rn)" },
   code { "10000000nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   name { "_M_o_ve Structure Data" },
@@ -1841,7 +1830,7 @@ insn { "mov.b\tRm,@(disp12,Rn)",
 
   issue { SH2A, "1" },
   latency { SH2A, "0" },
-
+  name { "_M_o_ve Structure Data" },
 
 
   description
@@ -1878,12 +1867,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tR0,@(disp,Rn)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 -> (disp * 2 + Rn)" },
   code { "10000001nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   name { "_M_o_ve Structure Data" },
@@ -1941,8 +1930,7 @@ insn { "mov.w\tRm,@(disp12,Rn)",
 
   issue { SH2A, "1" },
   latency { SH2A, "0" },
-
-
+  name { "_M_o_ve Structure Data" },
 
   description
 {R"(
@@ -1978,12 +1966,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@(disp,Rn)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> (disp * 4 + Rn)" },
   code { "0001nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   name { "_M_o_ve Structure Data" },
@@ -2042,8 +2030,7 @@ insn { "mov.l\tRm,@(disp12,Rn)",
 
   issue { SH2A, "1" },
   latency { SH2A, "0" },
-
-
+  name { "_M_o_ve Structure Data" },
 
   description
 {R"(
@@ -2079,12 +2066,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(R0,Rm),Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(R0 + Rm) -> sign extension -> Rn" },
   code { "0000nnnnmmmm1100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   brief
@@ -2137,12 +2124,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(R0,Rm),Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(R0 + Rm) -> sign extension -> Rn" },
   code { "0000nnnnmmmm1101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   brief
@@ -2197,12 +2184,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(R0,Rm),Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(R0 + Rm) -> Rn" },
   code { "0000nnnnmmmm1110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   brief
@@ -2249,12 +2236,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tRm,@(R0,Rn)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> (R0 + Rn)" },
   code { "0000nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   brief
@@ -2302,12 +2289,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tRm,@(R0,Rn)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> (R0 + Rn)" },
   code { "0000nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   brief
@@ -2354,12 +2341,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@(R0,Rn)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> (R0 + Rn)" },
   code { "0000nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   brief
@@ -2406,12 +2393,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(disp,GBR),R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp + GBR) -> sign extension -> R0" },
   code { "11000100dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Global Data" },
@@ -2469,12 +2456,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(disp,GBR),R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp * 2 + GBR) -> sign extension -> R0" },
   code { "11000101dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Global Data" },
@@ -2532,12 +2519,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(disp,GBR),R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(disp * 4 + GBR) -> R0" },
   code { "11000110dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "2", SH4, "2" },
 
   name { "_M_o_ve Global Data" },
@@ -2587,12 +2574,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tR0,@(disp,GBR)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 -> (disp + GBR)" },
   code { "11000000dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   name { "_M_o_ve Global Data" },
@@ -2643,12 +2630,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tR0,@(disp,GBR)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 -> (disp * 2 + GBR)" },
   code { "11000001dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   name { "_M_o_ve Global Data" },
@@ -2699,12 +2686,12 @@ Initial page write exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tR0,@(disp,GBR)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 -> (disp * 4 + GBR)" },
   code { "11000010dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   name { "_M_o_ve Global Data" },
@@ -3256,13 +3243,13 @@ void MOVRT (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movt\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "T -> Rn" },
   code { "0000nnnn00101001" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -3356,13 +3343,13 @@ void NOTT (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.b\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> swap lower 2 bytes -> Rn" },
   code { "0110nnnnmmmm1000" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -3411,13 +3398,13 @@ SWAP.B R0,R1 ;Before execution: R0 = H'12345678
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.w\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> swap upper/lower words -> Rn" },
   code { "0110nnnnmmmm1001" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -3464,13 +3451,13 @@ SWAP.W R0,R1 ;Before execution: R0 = H'12345678
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xtrct\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm:Rn middle 32 bits -> Rn" },
   code { "0010nnnnmmmm1101" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4258,13 +4245,13 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "add\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn + Rm -> Rn" },
   code { "0011nnnnmmmm1100" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4309,13 +4296,13 @@ ADD R0,R1 ;Before execution: R0 = H'7FFFFFFF, R1 = H'00000001
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "add\t#imm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn + (sign extension)imm" },
   code { "0111nnnniiiiiiii" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
 brief
 {R"(
@@ -4368,14 +4355,14 @@ ADD #H'FE,R3 ;Before execution: R3 = H'00000001
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "addc\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn + Rm + T -> Rn, carry -> T" },
   code { "0011nnnnmmmm1110" },
   flags { "Carry -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4440,14 +4427,14 @@ ADDC R2,R0 ;Before execution: T = 1, R0 = H'00000000, R2 = H'00000000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "addv\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn + Rm -> Rn, overflow -> T" },
   code { "0011nnnnmmmm1111" },
   flags { "Overflow -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4527,14 +4514,14 @@ ADDV R0,R1 ;Before execution: R0 = H'00000002, R1 = H'7FFFFFFE, T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/eq\t#imm,R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If R0 = (sign extension)imm: 1 -> T\nElse: 0 -> T" },
   code { "10001000iiiiiiii" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4589,14 +4576,14 @@ void CMPIM (int i)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/eq\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn = Rm: 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0000" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4643,14 +4630,14 @@ void CMPEQ (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/hs\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn >= Rm (unsigned): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0010" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4698,14 +4685,14 @@ void CMPHI (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/ge\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn >= Rm (signed): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0011" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4753,14 +4740,14 @@ void CMPGE (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/hi\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn > Rm (unsigned): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0110" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4808,14 +4795,14 @@ void CMPHI (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/gt\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn > Rm (signed): 1 -> T\nElse: 0 -> T" },
   code { "0011nnnnmmmm0111" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4863,14 +4850,14 @@ void CMPGT (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/pl\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn > 0 (signed): 1 -> T\nElse: 0 -> T" },
   code { "0100nnnn00010101" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4917,14 +4904,14 @@ void CMPPL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/pz\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn >= 0 (signed): 1 -> T\nElse: 0 -> T" },
   code { "0100nnnn00010001" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -4971,14 +4958,14 @@ void CMPPZ (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "cmp/str\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn and Rm have an equal byte: 1 -> T\nElse: 0 -> T" },
   code { "0010nnnnmmmm1100" },
   flags { "Result -> T" },
 
   group { SH4, "MT", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -5259,14 +5246,14 @@ void CLIPUW (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "div0s\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "MSB of Rn -> Q, MSB of Rm -> M, M ^ Q -> T" },
   code { "0010nnnnmmmm0111" },
   flags { "Result -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -5327,14 +5314,14 @@ void DIV0S (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "div0u",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "0 -> M, 0 -> Q, 0 -> T" },
   code { "0000000000011001" },
   flags { "0 -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -5381,14 +5368,14 @@ void DIV0U (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "div1\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "1-step division (Rn / Rm)" },
   code { "0011nnnnmmmm0100" },
   flags { "Result -> T" },
 
   group { SH4, "EX", SH4A, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -5922,8 +5909,8 @@ insn { "dt\tRn",
   code { "0100nnnn00010000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -5978,13 +5965,13 @@ loop:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "exts.b\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm sign-extended from byte -> Rn" },
   code { "0110nnnnmmmm1110" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -6033,13 +6020,13 @@ EXTS.B R0,R1 ;Before execution: R0 = H'00000080
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "exts.w\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm sign-extended from word -> Rn" },
   code { "0110nnnnmmmm1111" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -6088,13 +6075,13 @@ EXTS.W R0,R1 ;Before execution: R0 = H'00008000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "extu.b\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm zero-extended from byte -> Rn" },
   code { "0110nnnnmmmm1100" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -6138,13 +6125,13 @@ EXTU.B R0,R1 ;Before execution: R0 = H'FFFFFF80
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "extu.w\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm zero-extended from word -> Rn" },
   code { "0110nnnnmmmm1101" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -6379,7 +6366,7 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mac.w\t@Rm+,@Rn+",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Signed, (Rn) * (Rm) + MAC -> MAC\nSH1: 16 * 16 + 42 -> 42 bits\nOther: 16 * 16 + 64 -> 64 bits" },
   code { "0100nnnnmmmm1111" },
 
@@ -6652,7 +6639,7 @@ void MULR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "muls.w\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Signed, Rn * Rm -> MACL\n16 * 16 -> 32 bits" },
   code { "0010nnnnmmmm1111" },
 
@@ -6705,7 +6692,7 @@ STS MACL,R0 ;Operation result
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mulu.w\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Unsigned, Rn * Rm -> MACL\n16 * 16 -> 32 bits" },
   code { "0010nnnnmmmm1110" },
 
@@ -6758,13 +6745,13 @@ STS MACL,R0 ;Operation result
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "neg\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "0 - Rm -> Rn" },
   code { "0110nnnnmmmm1011" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -6806,14 +6793,14 @@ NEG R0,R1 ;Before execution: R0 = H'00000001
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "negc\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "0 − Rm - T -> Rn, borrow -> T" },
   code { "0110nnnnmmmm1010" },
   flags { "Borrow -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -6888,13 +6875,13 @@ negc   r1,r0    ! r0 = 0 - (-1) - T
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sub\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn - Rm -> Rn" },
   code { "0011nnnnmmmm1000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -6938,14 +6925,14 @@ SUB R0,R1 ;Before execution: R0 = H'00000001, R1 = H'80000000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "subc\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn − Rm - T -> Rn, borrow -> T" },
   code { "0011nnnnmmmm1010" },
   flags { "Borrow -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7020,14 +7007,14 @@ subc   r0,r0    ! r0 = r0 - r0 - T
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "subv\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn - Rm -> Rn, underflow -> T" },
   code { "0011nnnnmmmm1011" },
   flags { "Underflow -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7112,13 +7099,13 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "and\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn & Rm -> Rn" },
   code { "0010nnnnmmmm1001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7161,13 +7148,13 @@ AND R0,R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'55555555
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "and\t#imm,R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 & (zero extend)imm -> R0" },
   code { "11001001iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7212,7 +7199,7 @@ AND #H'0F,R0 ;Before execution: R0 = H'FFFFFFFF
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "and.b\t#imm,@(R0,GBR)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(R0 + GBR) & (zero extend)imm -> (R0 + GBR)" },
   code { "11001101iiiiiiii" },
 
@@ -7274,13 +7261,13 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "not\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "~Rm -> Rn" },
   code { "0110nnnnmmmm0111" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7322,13 +7309,13 @@ NOT R0,R1 ;Before execution: R0 = H'AAAAAAAA
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "or\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn | Rm -> Rn" },
   code { "0010nnnnmmmm1011" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7370,13 +7357,13 @@ OR R0,R1 ;Before execution: R0 = H'AAAA5555, R1 = H'55550000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "or\t#imm,R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 | (zero extend)imm -> R0" },
   code { "11001011iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7420,7 +7407,7 @@ OR #H'F0,R0 ;Before execution: R0 = H'00000008
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "or.b\t#imm,@(R0,GBR)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(R0 + GBR) | (zero extend)imm -> (R0 + GBR)" },
   code { "11001111iiiiiiii" },
 
@@ -7481,7 +7468,7 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tas.b\t@Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If (Rn) = 0: 1 -> T\nElse: 0 -> T\n1 -> MSB of (Rn)" },
   code { "0100nnnn00011011" },
   flags { "Result -> T" },
@@ -7569,14 +7556,14 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tst\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If Rn & Rm = 0: 1 -> T\nElse: 0 -> T" },
   code { "0010nnnnmmmm1000" },
   flags { "Result -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7624,14 +7611,14 @@ TST R0,R0 ;Before execution: R0 = H'00000000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tst\t#imm,R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If R0 & (zero extend)imm = 0: 1 -> T\nElse: 0 -> T" },
   code { "11001000iiiiiiii" },
   flags { "Result -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7682,7 +7669,7 @@ TST #H'80,R0 ;Before execution: R0 = H'FFFFFF7F
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tst.b\t#imm,@(R0,GBR)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If (R0 + GBR) & (zero extend)imm = 0: 1 -> T\nElse 0: -> T" },
   code { "11001100iiiiiiii" },
   flags { "Result -> T" },
@@ -7750,13 +7737,13 @@ and a byte store.
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xor\tRm,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn ^ Rm -> Rn" },
   code { "0010nnnnmmmm1010" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7798,13 +7785,13 @@ XOR R0,R1 ;Before execution: R0 = H'AAAAAAAA, R1 = H'55555555
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xor\t#imm,R0",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "R0 ^ (zero extend)imm -> R0" },
   code { "11001010iiiiiiii" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7848,7 +7835,7 @@ XOR #H'F0,R0 ;Before execution: R0 = H'FFFFFFFF
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xor.b\t#imm,@(R0,GBR)",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(R0 + GBR) ^ (zero extend)imm -> (R0 + GBR)" },
   code { "11001110iiiiiiii" },
 
@@ -7915,14 +7902,14 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotcl\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "T << Rn << T" },
   code { "0100nnnn00100100" },
   flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -7987,14 +7974,14 @@ ROTCL R0 ;Before execution: R0 = H'80000000, T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotcr\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "T >> Rn >> T" },
   code { "0100nnnn00100101" },
   flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8061,14 +8048,14 @@ ROTCR R0 ;Before execution: R0 = H'00000001, T = 1
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotl\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "T << Rn << MSB" },
   code { "0100nnnn00000100" },
   flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8124,14 +8111,14 @@ ROTL R0 ;Before execution: R0 = H'80000000, T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rotr\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "LSB >> Rn >> T" },
   code { "0100nnnn00000101" },
   flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8192,8 +8179,8 @@ insn { "shad\tRm,Rn",
   code { "0100nnnnmmmm1100" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8267,14 +8254,14 @@ void SHAD (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shal\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "T << Rn << 0" },
   code { "0100nnnn00100000" },
   flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8325,14 +8312,14 @@ SHAL R0 ;Before execution: R0 = H'80000001, T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shar\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "MSB >> Rn >> T" },
   code { "0100nnnn00100001" },
   flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8401,8 +8388,8 @@ insn { "shld\tRm,Rn",
   code { "0100nnnnmmmm1101" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8469,14 +8456,14 @@ void SHLD (int m, int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "T << Rn << 0" },
   code { "0100nnnn00000000" },
   flags { "MSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8527,13 +8514,13 @@ SHLL R0 ;Before execution: R0 = H'80000001, T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll2\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn << 2 -> Rn" },
   code { "0100nnnn00001000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8576,13 +8563,13 @@ SHLL2 R0 ;Before execution: R0 = H'12345678
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll8\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn << 8 -> Rn" },
   code { "0100nnnn00011000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8625,13 +8612,13 @@ SHLL8 R0 ;Before execution: R0 = H'12345678
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shll16\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn << 16 -> Rn" },
   code { "0100nnnn00101000" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8674,14 +8661,14 @@ SHLL16 R0 ;Before execution: R0 = H'12345678
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "0 >> Rn >> T" },
   code { "0100nnnn00000001" },
   flags { "LSB -> T" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8733,13 +8720,13 @@ SHLR R0 ;Before execution: R0 = H'80000001, T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr2\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn >> 2 -> [0 -> Rn]" },
   code { "0100nnnn00001001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8783,13 +8770,13 @@ SHLR2 R0 ;Before execution: R0 = H'12345678
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr8\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn >> 8 -> [0 -> Rn]" },
   code { "0100nnnn00011001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8833,13 +8820,13 @@ SHLR8 R0 ;Before execution: R0 = H'12345678
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "shlr16\tRn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rn >> 16 -> [0 -> Rn]" },
   code { "0100nnnn00101001" },
 
   group { SH4A, "EX", SH4, "EX" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -8889,7 +8876,7 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bf\tlabel",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If T = 0: disp * 2 + PC + 4 -> PC\nElse: nop" },
   code { "10001011dddddddd" },
 
@@ -9077,7 +9064,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bt\tlabel",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "If T = 1: disp * 2 + PC + 4 -> PC\nElse: nop" },
   code { "10001001dddddddd" },
 
@@ -9257,7 +9244,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bra\tlabel",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
   abstract { "disp * 2 + PC + 4 -> PC\n(Delayed branch)" },
   code { "1010dddddddddddd" },
@@ -9403,7 +9390,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "bsr\tlabel",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
   abstract { "PC + 4 -> PR, disp * 2 + PC + 4 -> PC\n(Delayed branch)" },
   code { "1011dddddddddddd" },
@@ -9566,7 +9553,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "jmp\t@Rm",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
   abstract { "Rm -> PC\n(Delayed branch)" },
   code { "0100mmmm00101011" },
@@ -9631,7 +9618,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "jsr\t@Rm",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
   abstract { "PC + 4 -> PR, Rm -> PC\n(Delayed branch)" },
   code { "0100mmmm00001011" },
@@ -9800,7 +9787,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rts",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH_ALL, "Delayed Branch" } } },
   abstract { "PR -> PC\nDelayed branch" },
   code { "0000000000001011" },
@@ -9968,12 +9955,12 @@ insn_blocks.push_back
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrmac",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "0 -> MACH, 0 -> MACL" },
   code { "0000000000101000" },
 
   group { SH4A, "EX", SH4, "CO" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "1", SH4, "3" },
 
   brief
@@ -10025,8 +10012,8 @@ insn { "clrs",
   flags { "0 -> S" },
 
   group { SH4A, "EX", SH4, "CO" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -10066,14 +10053,14 @@ void CLRS (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "clrt",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "0 -> T" },
   code { "0000000000001000" },
   flags { "0 -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
-  latency { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
+  latency { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
 
   brief
 {R"(
@@ -10213,7 +10200,7 @@ void LDBANK (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,SR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "Rm -> SR" },
   code { "0100mmmm00001110" },
@@ -10278,7 +10265,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,SR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "(Rm) -> SR, Rm+4 -> Rm" },
   code { "0100mmmm00000111" },
@@ -10357,8 +10344,7 @@ insn { "ldc\tRm,TBR",
   issue { SH2A, "1" },
   latency { SH2A, "1" },
 
-
-
+  citations { { { SH2A_2E_DOC, 123 } } },
   description
 {R"(
 Stores a source operand in control register TBR.
@@ -10391,7 +10377,7 @@ void LDCTBR (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,GBR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> GBR" },
   code { "0100mmmm00011110" },
 
@@ -10437,7 +10423,7 @@ void LDCGBR (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,GBR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> GBR, Rm+4 -> Rm" },
   code { "0100mmmm00010111" },
 
@@ -10491,7 +10477,7 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,VBR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "Rm -> VBR" },
   code { "0100mmmm00101110" },
@@ -10542,7 +10528,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,VBR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "(Rm) -> VBR, Rm+4 -> Rm" },
   code { "0100mmmm00100111" },
@@ -11532,7 +11518,7 @@ end:
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds\tRm,MACH",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> MACH" },
   code { "0100mmmm00001010" },
 
@@ -11590,7 +11576,7 @@ void LDSMACH (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,MACH",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> MACH, Rm+4 -> Rm" },
   code { "0100mmmm00000110" },
 
@@ -11654,7 +11640,7 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds\tRm,MACL",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> MACL" },
   code { "0100mmmm00011010" },
 
@@ -11702,7 +11688,7 @@ void LDSMACL (int m)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,MACL",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> MACL, Rm+4 -> Rm" },
   code { "0100mmmm00010110" },
 
@@ -11758,7 +11744,7 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds\tRm,PR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "Rm -> PR" },
   code { "0100mmmm00101010" },
 
@@ -11807,7 +11793,7 @@ LDS R0,PR ;Before execution: R0 = H'12345678, PR = H'00000000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,PR",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "(Rm) -> PR, Rm+4 -> Rm" },
   code { "0100mmmm00100110" },
 
@@ -12535,12 +12521,12 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "nop",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "No operation" },
   code { "0000000000001001" },
 
   group { SH4A, "MT", SH4, "MT" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "0" },
 
 
@@ -12952,7 +12938,7 @@ void RESBANK (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rte",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } } },
   abstract { "Delayed branch\nSH1*,SH2*: stack area -> PC/SR\nSH3*,SH4*: SSR/SPC -> SR/PC" },
   code { "0000000000101011" },
@@ -13212,13 +13198,13 @@ SETS ;Before execution: S = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sett",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract { "1 -> T" },
   code { "0000000000011000" },
   flags { "1 -> T" },
 
   group { SH4A, "EX", SH4, "MT" },
-  issue { SH1 | SH2 | SH3 | SH2A | SH4 | SH4A, "1" },
+  issue { SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A, "1" },
   latency { SH1, "1", SH2, "1", SH3, "1", SH4A, "1", SH2A, "0", SH4, "1" },
 
   brief
@@ -13259,7 +13245,7 @@ SETT ;Before execution: T = 0
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sleep",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
   abstract { "Sleep or standby" },
   code { "0000000000011011" },
@@ -13366,7 +13352,7 @@ void STBANK (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc\tSR,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "SR -> Rn" },
   code { "0000nnnn00000010" },
@@ -13419,7 +13405,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l\tSR,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "Rn-4 -> Rn, SR -> (Rn)" },
   code { "0100nnnn00000011" },
@@ -13489,7 +13475,7 @@ insn { "stc\tTBR,Rn",
   latency { SH2A, "1" },
 
 
-
+  citations { { { SH2A_2E_DOC, 156 } } },
   description
 {R"(
 Stores control register TBR in the destination.
@@ -13523,7 +13509,7 @@ void STCTBR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc\tGBR,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "GBR -> Rn" },
   code { "0000nnnn00010010" },
@@ -13570,7 +13556,7 @@ STCGBR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l\tGBR,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "Rn-4 -> Rn, GBR -> (Rn)" },
   code { "0100nnnn00010011" },
@@ -13626,7 +13612,7 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc\tVBR,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "VBR -> Rn" },
   code { "0000nnnn00100010" },
@@ -13677,7 +13663,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l\tVBR,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
   abstract { "Rn-4 -> Rn, VBR -> (Rn)" },
   code { "0100nnnn00100011" },
@@ -14550,7 +14536,7 @@ Slot illegal instruction exception
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts\tMACH,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "MACH -> Rn" },
   code { "0000nnnn00001010" },
@@ -14611,7 +14597,7 @@ STS MACH,R0 ;Before execution: R0 = H'FFFFFFFF, MACH = H'00000000
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l\tMACH,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "Rn-4 -> Rn, MACH -> (Rn)" },
   code { "0100nnnn00000010" },
@@ -14681,7 +14667,7 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts\tMACL,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "MACL -> Rn" },
   code { "0000nnnn00011010" },
@@ -14728,7 +14714,7 @@ void STSMACL (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l\tMACL,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "Rn-4 -> Rn, MACL -> (Rn)" },
   code { "0100nnnn00010010" },
@@ -14784,7 +14770,7 @@ Data address error
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts\tPR,Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "PR -> Rn" },
   code { "0000nnnn00101010" },
@@ -14831,7 +14817,7 @@ void STSPR (int n)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l\tPR,@-Rn",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2A | SH_DSP, "Interrupt Disabled" } } },
   abstract { "Rn-4 -> Rn, PR -> (Rn)" },
   code { "0100nnnn00100010" },
@@ -15449,7 +15435,7 @@ void SYNCO (void)
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "trapa\t#imm",
-  SH1 | SH2 | SH3 | SH2A | SH4 | SH4A,
+  SH1 | SH2 | SH2A | SH2E | SH3 | SH4 | SH4A,
   abstract {R"(SH1*,SH2*: PC/SR -> stack area, (imm*4 + VBR) -> PC
 SH3*,SH4*: PC/SR -> SPC/SSR, imm*4 -> TRA, 0x160 -> EXPEVT, VBR + 0x0100 -> PC)"},
   code { "11000011iiiiiiii" },
@@ -15974,8 +15960,7 @@ insn { "fmov.s\t@(disp12,Rm),FRn",
   issue { SH2A, "1" },
   latency { SH2A, "0/2" },
 
-
-
+  citations { { { SH2A_2E_DOC, 115 } } },
   description
 {R"(
 Transfers memory contents at the address indicated by (disp + Rn) to FRn.
@@ -16016,8 +16001,7 @@ insn { "fmov.s\tFRm,@(disp12,Rn)",
   issue { SH2A, "1" },
   latency { SH2A, "0" },
 
-
-
+  citations { { { SH2A_2E_DOC, 115 } } },
   description
 {R"(
 Transfers FRm contents to memory at the address indicated by (disp + Rn).
@@ -16990,8 +16974,7 @@ insn { "fmov.d\t@(disp12,Rm),DRn",
   issue { SH2A, "2" },
   latency { SH2A, "0/4" },
 
-
-
+  citations { { { SH2A_2E_DOC, 115 } } },
   description
 {R"(
 Transfers memory contents at the address indicated by (disp + Rn) to DRn.
@@ -17032,8 +17015,7 @@ insn { "fmov.d\tDRm,@(disp12,Rn)",
   issue { SH2A, "2" },
   latency { SH2A, "0" },
 
-
-
+  citations { { { SH2A_2E_DOC, 115 } } },
   description
 {R"(
 Transfers DRm contents to memory at the address indicated by (disp + Rn).
@@ -18800,7 +18782,7 @@ Inexact
 },
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-insn { "8\tFRm,FPUL",
+insn { "ftrc\tFRm,FPUL",
   SH2E | SH3E | SH4 | SH4A | SH2A,
   abstract { "(long)FRm -> FPUL" },
   code { "1111mmmm00111101" },

@@ -168,22 +168,22 @@ R"html(<!DOCTYPE html>
     --mnemonic-text-color: #FF0000;
   }
 
-  span[title="Ignored"]                          { color: goldenrod; }
-  span[title="Opcode Identifier"]                { color: dodgerblue; }
-  span[title="A"]                                { color: darkgreen; }
-  span[title="D"]                                { color: darkmagenta; }
-  span[title^='Unsigned Immediate Data']         { color: darkturquoise; }
-  span[title^='Signed Immediate Data']           { color: darkturquoise; }
-  span[title^='Source Register']                 { color: aquamarine; }
-  span[title^='Destination Register']            { color: blueViolet; }
-  span[title^='Displacement']                    { color: indigo; }
-  span[title^='Multiplier Source Register 1']    { color: cyan; }
-  span[title^='Multiplier Source Register 2']    { color: chartreuse; }
-  span[title^='Multiplier Destination Register'] { color: darkcyan; }
-  span[title^='ALU Source Register 1']           { color: darkmagenta; }
-  span[title^='ALU Source Register 2']           { color: darkorange; }
-  span[title^='ALU Destination Register']        { color: indianred; }
-  span[title^='ALU Destination Register']        { color: forestgreen; }
+  var[title="Ignored"]                          { color: goldenrod; }
+  var[title="Opcode Identifier"]                { color: dodgerblue; }
+  var[title="A"]                                { color: darkgreen; }
+  var[title="D"]                                { color: darkmagenta; }
+  var[title^='Unsigned Immediate Data']         { color: darkturquoise; }
+  var[title^='Signed Immediate Data']           { color: darkturquoise; }
+  var[title^='Source Register']                 { color: aquamarine; }
+  var[title^='Destination Register']            { color: blueViolet; }
+  var[title^='Displacement']                    { color: indigo; }
+  var[title^='Multiplier Source Register 1']    { color: cyan; }
+  var[title^='Multiplier Source Register 2']    { color: chartreuse; }
+  var[title^='Multiplier Destination Register'] { color: darkcyan; }
+  var[title^='ALU Source Register 1']           { color: darkmagenta; }
+  var[title^='ALU Source Register 2']           { color: darkorange; }
+  var[title^='ALU Destination Register']        { color: indianred; }
+  var[title^='ALU Destination Register']        { color: forestgreen; }
 }
 
 @media (prefers-color-scheme : dark)
@@ -215,22 +215,22 @@ R"html(<!DOCTYPE html>
     --mnemonic-text-color: #FF8888;
   }
 
-  span[title="Ignored"]                          { color: gold; }
-  span[title="Opcode Identifier"]                { color: #55ff55; }
-  span[title="A"]                                { color: lightseagreen; }
-  span[title="D"]                                { color: olive; }
-  span[title^='Unsigned Immediate Data']         { color: #aaaaff; }
-  span[title^='Signed Immediate Data']           { color: #aaaaff; }
-  span[title^='Source Register']                 { color: #ffff55; }
-  span[title^='Destination Register']            { color: #f92672; }
-  span[title^='Displacement']                    { color: coral; }
-  span[title^='Multiplier Source Register 1']    { color: cyan; }
-  span[title^='Multiplier Source Register 2']    { color: chartreuse; }
-  span[title^='Multiplier Destination Register'] { color: darkcyan; }
-  span[title^='ALU Source Register 1']           { color: darkorange; }
-  span[title^='ALU Source Register 2']           { color: deeppink; }
-  span[title^='ALU Destination Register']        { color: darkmagenta; }
-  span[title^='ALU Destination Register']        { color: forestgreen; }
+  var[title="Ignored"]                          { color: gold; }
+  var[title="Opcode Identifier"]                { color: #55ff55; }
+  var[title="A"]                                { color: lightseagreen; }
+  var[title="D"]                                { color: olive; }
+  var[title^='Unsigned Immediate Data']         { color: #aaaaff; }
+  var[title^='Signed Immediate Data']           { color: #aaaaff; }
+  var[title^='Source Register']                 { color: #ffff55; }
+  var[title^='Destination Register']            { color: #f92672; }
+  var[title^='Displacement']                    { color: coral; }
+  var[title^='Multiplier Source Register 1']    { color: cyan; }
+  var[title^='Multiplier Source Register 2']    { color: chartreuse; }
+  var[title^='Multiplier Destination Register'] { color: darkcyan; }
+  var[title^='ALU Source Register 1']           { color: darkorange; }
+  var[title^='ALU Source Register 2']           { color: deeppink; }
+  var[title^='ALU Destination Register']        { color: darkmagenta; }
+  var[title^='ALU Destination Register']        { color: forestgreen; }
 }
 
 var, section, q, q::before, q::after

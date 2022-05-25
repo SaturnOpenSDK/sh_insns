@@ -75,7 +75,7 @@ enum document
   SH7750_PROG_DOC,
   SH1_2_PROG_DOC,
   SH1_2_DSP_DOC,
-  SH2A_DOC,
+  SH2A_2E_DOC,
   SHA4_CORE_DOC,
   SH4A_DOC,
 };
@@ -86,6 +86,7 @@ struct document_details_t
   const std::string_view identifier;
   const std::string_view date;
   const std::string_view location;
+  isa instruction_sets;
 };
 
 constexpr std::array<document_details_t, 6> documents =
@@ -96,36 +97,42 @@ constexpr std::array<document_details_t, 6> documents =
       "ADE-602-156A\nRev. 2.0",
       "1999/03/04",
       "https://ia802500.us.archive.org/9/items/manuallib-id-2595799/2595799.pdf",
+      SH1,
     },
     {
       "SuperH RISC Engine\nSH-1/SH-2\nProgramming Manual",
       "",
       "1996/09/03",
       "https://antime.kapsi.fi/sega/files/h12p0.pdf",
+      SH1 | SH2,
     },
     {
       "Hitachi SuperH™ RISC Engine\nSH-1/SH-2/SH-DSP\nProgramming Manual",
       "ADE-602-063C\nRev. 4.0",
       "1999/13/05",
       "https://retrocdn.net/images/3/35/Hitachi_SuperH_Programming_Manual.pdf",
+      SH1 | SH2 | SH_DSP,
     },
     {
       "SH-2A, SH2A-FPU\nSoftware Manual\nUser’s Manual\nRenesas 32-Bit RISC\nMicrocomputer\nSuperH™ RISC Engine",
       "Rev. 3.00",
       "2005/07/08",
       "https://www.renesas.com/us/en/document/mah/sh-2a-sh2a-fpu-software-manual?language=en",
+      SH2E | SH2A,
     },
     {
       "SH-4 CPU Core Architecture",
       "ADCS 7182230F",
       "2002/09/12",
       "https://www.st.com/resource/en/user_manual/cd00147165-sh-4-32-bit-cpu-core-architecture-stmicroelectronics.pdf",
+      SH4,
     },
     {
       "SH-4A\nExtended Functions\nSoftware Manual",
       "Rev.2.00",
       "2013/01/18",
       "https://www.renesas.com/us/en/document/mat/sh-4a-extended-functions-software-manual?language=en",
+      SH4A,
     },
   }
 };
