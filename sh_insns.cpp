@@ -135,9 +135,7 @@ R"html(<!DOCTYPE html>
 <head>
 <meta charset="utf-8"/>
 <title>Hitachi SuperH Instruction Set Summary</title>
-
 <style>
-
 :root
 {
   --table-width: 1490px;
@@ -214,7 +212,7 @@ R"html(<!DOCTYPE html>
     --cpu-grid-active-text-color: #C0C0C0;
     --cycle-grid-active-text-color: #FFFFFF;
 
-    --mnemonic-text-color: #FF0000;
+    --mnemonic-text-color: #FF8888;
   }
 
   span[title="Ignored"]                          { color: gold; }
@@ -237,68 +235,6 @@ R"html(<!DOCTYPE html>
 
 var, section, q, q::before, q::after
 { all: unset; }
-
-/*
-
-
-
-
-9 8 7 6 5 4 3 2 1 0
-M Q I3 I2 I1 I0 S T
-
-
-S bit: Used by the multiply/accumulate instruction.
-
-Reserved bits: Always reads as 0, and should always be written with 0.
-
-Bits I3–I0: Interrupt mask bits.
-
-M and Q bits: Used by the DIV0U/S and DIV1 instructions.
-
-Global base register (GBR):
-Indicates the base address of the indirect
-GBR addressing mode. The indirect GBR
-addressing mode is used in data transfer
-for on-chip peripheral module register
-areas and in logic operations.
-
-Vector base register (VBR):
-Indicates the base address of the exception
-processing vector area.
-
-SR: Status register
-
-T bit: The MOVT, CMP/cond, TAS, TST, BT (BT/S), BF (BF/S), SETT, and CLRT instructions use
-       the T bit to indicate true (1) or false (0). The ADDV/C, SUBV/C, DIV0U/S, DIV1, NEGC,
-       SHAR/L, SHLR/L, ROTR/L, and ROTCR/L instructions also use bit T to indicate carry/borrow
-       or overflow/underflow
-
-
-
-
-DSP status register (DSR)
-
-GT = Signed greater than bit
-Z = Zero value bit
-N = Negative value bit
-V = Overflow bit
-CS = Condition select bits
-DC = DSP condition bit
-
-
-
-
-
-9 8 7 6 5 4 3 2 1 0
-M Q I3 I2 I1 I0 S T
-
-M and Q bits: Used by the DIV0U/S and DIV1 instructions.
-
-
-
-
-
-*/
 
 body
 {
@@ -350,8 +286,6 @@ input[id^="cb_" ]
   z-index: 1000;
   padding-left: 30px;
 }
-
-
 
 input[type='checkbox'][id^="row"] { display: none; }
 input[type='checkbox'][id^="row"]:checked + label > .details

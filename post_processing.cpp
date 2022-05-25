@@ -541,9 +541,9 @@ void post_processing(std::list<insns>& insn_blocks)
     { "SHAL", "_S_hift _Arithmetic _Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 219 }, { SH7750_PROG_DOC, 357 }, { SH4A_DOC, 409 } } },
     { "SHAR", "_S_hift _Arithmetic _Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 220 }, { SH7750_PROG_DOC, 358 }, { SH4A_DOC, 410 } } },
     { "SHLD", "_S_hift _Logical _Dynamically", "Shift Instruction", {}, { { SH7750_PROG_DOC, 359 }, { SH4A_DOC, 411 } } },
-    { "SHLL([281][6]?)", "_S_hift _Logical _Left _\\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 222 }, { SH7750_PROG_DOC, 362 }, { SH4A_DOC, 414 } } },
+    { "SHLL([281][6]?)", "_S_hift _Logical _Left $ Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 222 }, { SH7750_PROG_DOC, 362 }, { SH4A_DOC, 414 } } },
     { "SHLL", "_S_hift _Logical _Left", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 221 }, { SH7750_PROG_DOC, 361 }, { SH4A_DOC, 413 } } },
-    { "SHLR([281][6]?)", "_S_hift _Logical _Right _\\1 Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 225 }, { SH7750_PROG_DOC, 365 }, { SH4A_DOC, 417 } } },
+    { "SHLR([281][6]?)", "_S_hift _Logical _Right $ Bits", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 225 }, { SH7750_PROG_DOC, 365 }, { SH4A_DOC, 417 } } },
     { "SHLR", "_S_hift _Logical _Right", "Shift Instruction", {}, { { SH1_2_DSP_DOC, 224 }, { SH7750_PROG_DOC, 364 }, { SH4A_DOC, 416 } } },
     { "SUBC", "_S_u_btract with _Carry", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 237 }, { SH7750_PROG_DOC, 378 }, { SH4A_DOC, 428 } } },
     { "SUBV", "_S_u_btract with `_V Flag` Underflow Check", "Arithmetic Instruction", {}, { { SH1_2_DSP_DOC, 238 }, { SH7750_PROG_DOC, 379 }, { SH4A_DOC, 429 } } },
@@ -553,7 +553,7 @@ void post_processing(std::list<insns>& insn_blocks)
     { "TAS", "_Test _and _Set", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 241 }, { SH7750_PROG_DOC, 383 }, { SH4A_DOC, 434 } } },
     { "TRAPA", "_T_r_a_p _Always", "System Control Instruction", {}, { { SH1_2_DSP_DOC, 242 }, { SH7750_PROG_DOC, 385 }, { SH4A_DOC, 436 } } },
     { "TST", "Logical _Te_s_t", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 243 }, { SH7750_PROG_DOC, 386 }, { SH4A_DOC, 438 } } },
-    { "XOR", "Logical E_xclusive _O_R", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 245 }, { SH7750_PROG_DOC, 388 }, { SH4A_DOC, 440 } } },
+    { "XOR", "Logical E_xclusive _O_r", "Logical Instruction", {}, { { SH1_2_DSP_DOC, 245 }, { SH7750_PROG_DOC, 388 }, { SH4A_DOC, 440 } } },
     { "XTRCT", "E_x_t_ra_c_t", "Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 247 }, { SH7750_PROG_DOC, 390 }, { SH4A_DOC, 442 } } },
     { "MOVS", "_M_o_ve _Single Data between Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 255 } } },
     { "MOVX", "_M_o_ve between _X Memory and DSP Register", "DSP Data Transfer Instruction", {}, { { SH1_2_DSP_DOC, 257 } } },
@@ -637,7 +637,20 @@ void post_processing(std::list<insns>& insn_blocks)
              e == environments { info.environments })
           {
             if(n.empty())
+            {
               n = { info.name };
+              if(match.size() >= 1)
+              {
+                std::string replacement;
+                for(char c : match[1].str())
+                {
+                  replacement.push_back('_');
+                  replacement.push_back(c);
+                }
+                replace_string(n, "$"s, replacement);
+              }
+            }
+
             instruction.data<mnemonic>() = { match.str() };
             instruction.data<citations>() = { info.citations };
             instruction.data<classification>() = { info.classification };
@@ -695,7 +708,7 @@ void post_processing(std::list<insns>& insn_blocks)
       instruction
           .data<name>()
           .assign(std::regex_replace(instruction.data<name>(),
-                                     std::regex("_([[:alpha:]])", std::regex_constants::extended),
+                                     std::regex("_([[:alnum:]])", std::regex_constants::extended),
                                      "<em>\\1</em>", std::regex_constants::format_sed));
 
     }
