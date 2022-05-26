@@ -14,7 +14,7 @@ using namespace std::string_view_literals;
 using namespace std::literals::string_literals;
 
 constexpr bool operator ==(const environment_t& a, const environment_t& b)
-  { return a.cpus == b.cpus && a.property == b.property; }
+  { return a.instruction_sets == b.instruction_sets && a.property == b.property; }
 
 
 static const std::array<std::pair<std::string_view, std::string_view>, 26> unicode_symbols =
@@ -642,7 +642,7 @@ void post_processing(std::list<insns>& insn_blocks)
     { "FMAC", "_Floating-point _Multiply and _A_ccumulate", "Floating-Point Instruction", {}, { { SH2A_2E_DOC, 298 }, { SH7750_PROG_DOC, 265 }, { SH4A_DOC, 491 } } },
     { "FMUL", "_Floating-point _M_u_ltiply", "Floating-Point Instruction", {}, { { SH2A_2E_DOC, 308 }, { SH7750_PROG_DOC, 278 }, { SH4A_DOC, 504 } } },
     { "FNEG", "_Floating-point _N_e_gate Value", "Floating-Point Instruction", {}, { { SH2A_2E_DOC, 310 }, { SH7750_PROG_DOC, 280 }, { SH4A_DOC, 507 } } },
-    { "FPCHG", "_Floating-point _Pr-bit _C_han_ge", "Floating-Point Instruction", {}, { { SH4A_DOC, 508 } } },
+    { "FPCHG", "_Floating-point _PR-bit _C_han_ge", "Floating-Point Instruction", {}, { { SH4A_DOC, 508 } } },
     { "FRCHG", "_Floating-point F_R-bit _C_han_ge", "Floating-Point Instruction", {}, { { SH7750_PROG_DOC, 281 }, { SH4A_DOC, 509 } } },
     { "FSCA", "_Floating-point _Sine And _Cosine _Approximate", "Floating-Point Instruction", {}, { { SH4A_DOC, 510 } } },
     { "FSCHG", "_Floating-point _Sz-bit _C_han_ge", "Floating-Point Instruction", {}, { { SH2A_2E_DOC, 311 }, { SH7750_PROG_DOC, 282 }, { SH4A_DOC, 512 } } },
@@ -656,12 +656,13 @@ void post_processing(std::list<insns>& insn_blocks)
 
   for(instruction_info_t& info : name_data)
   {
-    std::transform(std::begin(info.mnemonic_regex), std::end(info.mnemonic_regex), std::begin(info.mnemonic_regex),
-                   [](char c){ return std::tolower(c); }); // convert to lowercase
+    std::transform(std::begin(info.mnemonic_regex), std::end(info.mnemonic_regex), std::begin(info.mnemonic_regex),                   [](char c){ return std::tolower(c); }); // convert to lowercase
     info.mnemonic_regex.insert(0, 1, '^'); // add regex string start
     info.mnemonic_regex.append("[\\S]*"); // add "not whitespace" matching to end
-  }
 
+    for(auto& cite : info.citations)
+      cite.instruction_sets = documents[cite.source].instruction_sets; // fix default value for citations
+  }
 
   for(insns& block : insn_blocks)
   {
@@ -697,6 +698,7 @@ void post_processing(std::list<insns>& insn_blocks)
             instruction.data<mnemonic>() = { match.str() };
             instruction.data<citations>() = { info.citations };
             instruction.data<classification>() = { info.classification };
+
             break;
           }
         }

@@ -72,7 +72,7 @@ struct property_class
 
 enum document
 {
-  SH7750_PROG_DOC,
+  SH7750_PROG_DOC = 0,
   SH1_2_PROG_DOC,
   SH1_2_DSP_DOC,
   SH2A_2E_DOC,
@@ -97,7 +97,7 @@ constexpr std::array<document_details_t, 6> documents =
       "ADE-602-156A\nRev. 2.0",
       "1999/03/04",
       "https://ia802500.us.archive.org/9/items/manuallib-id-2595799/2595799.pdf",
-      SH1,
+      SH3,
     },
     {
       "SuperH RISC Engine\nSH-1/SH-2\nProgramming Manual",
@@ -141,11 +141,12 @@ struct citation_t
 {
   document source;
   int page;
+  isa instruction_sets = SH_NONE;
 };
 
 struct environment_t
 {
-  isa cpus;
+  isa instruction_sets;
   std::string property;
 };
 

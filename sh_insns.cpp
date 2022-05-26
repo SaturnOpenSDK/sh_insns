@@ -59,13 +59,42 @@ std::string fix_id(std::string data)
 
 // ----------------------------------------------------------------------------
 
-void print_span_section (std::string_view word_title, std::string tag_title, std::string val)
+std::string build_environments(std::list<environment_t> environments)
 {
+  std::string rval;
+  for(const auto& env : environments)
+  {
+
+  }
+  return rval;
+}
+
+
+std::string build_citations(std::list<citation_t> citations)
+{
+  std::string rval;
+  for(const auto& cite : citations)
+  {
+
+  }
+  return rval;
+}
+
+std::string build_span_section (std::string_view word_title, std::string tag_title, std::string val)
+{
+  std::string rval;
   if(!val.empty())
   {
-    std::cout << "<span title=\"section\">" << word_title << "</span>" << std::endl
-              << "<span title=\"" << tag_title << "\">" << val << "</span>"<< std::endl;
+    rval.append("<span title=\"section\">")
+        .append(word_title)
+        .append("</span>\n")
+        .append("<span title=\"")
+        .append(tag_title)
+        .append("\">")
+        .append(val)
+        .append("</span>\n");
   }
+  return rval;
 }
 
 
@@ -112,17 +141,6 @@ std::string build_isa_tagged_property_list (const insn& i, const isa_property& p
   });
 }
 
-std::string print_isa_compatibility (const insn& i)
-{
-  std::string r = build_isa_tagged_property_list(i, isa_name);
-  for(auto g : i.data<environments>())
-  {
-
-  }
-//  if (i.privileged())
-//    r += "<br />Privileged";
-  return r;
-}
 
 int main (void)
 {
@@ -576,11 +594,13 @@ var[title="add"]::before { content: "+"; }
             << "<span class=\"cycle_grid\">" << build_isa_tagged_property_list (i, i.data<latency>()) << "</span>" << std::endl
             << "<span class=\"details\">" << std::endl;
 
-        print_span_section (i.data<name>(), "note", i.data<description>());
-        print_span_section ("Note", "note", i.data<note>());
-        print_span_section ("Operation", "code", i.data<operation>());
-        print_span_section ("Example", "assembly", i.data<example>());
-        print_span_section ("Possible Exceptions", "list", i.data<exceptions>());
+        std::cout << build_environments (i.data<environments>());
+        std::cout << build_citations (i.data<citations>());
+        std::cout << build_span_section (i.data<name>(), "note", i.data<description>());
+        std::cout << build_span_section ("Note", "note", i.data<note>());
+        std::cout << build_span_section ("Operation", "code", i.data<operation>());
+        std::cout << build_span_section ("Example", "assembly", i.data<example>());
+        std::cout << build_span_section ("Possible Exceptions", "list", i.data<exceptions>());
 
         std::cout << "</span>" << std::endl // close "details"
                   << "</label>" << std::endl;
