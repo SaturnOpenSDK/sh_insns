@@ -34,18 +34,18 @@ using namespace std::string_view_literals;
 // ----------------------------------------------------------------------------
 
 
-static isa_property isa_name = isa_property
-(
-  SH1, "SH1",
-  SH2, "SH2",
-  SH2E, "SH2E",
-  SH2A, "SH2A",
-  SH3, "SH3",
-  SH3E, "SH3E",
+static isa_property display_name = isa_property
+{
+  SH1, "SH1",   // SH7032 / 7034 --Operating frequency 20MHz
+  SH2, "SH2",   // SH7604 --Operating frequency 28.7MHz
+  SH2E, "SH2E", // SH7206 (No Fpu)- Dhrystone 480MIPS/200MHz
+  SH2A, "SH2A", // SH7262 (with fpu) 345MIPS/144MHz
+  SH3, "SH3",   // SH7702/7708 - Action frequency 60MHz
+  SH3_FPU, "SH3E", // SH7718 - Action frequency 100MHz
   SH4, "SH4",
   SH4A, "SH4A",
-  SH_DSP, "DSP"
-);
+  SH1_DSP, "DSP" // SH7410 - Action frequency 60MHz
+};
 
 // ----------------------------------------------------------------------------
 
@@ -53,7 +53,6 @@ std::string fix_id(std::string data)
 {
   data = std::regex_replace(data, std::regex("<var[^>]+>([^<]+)</var>", std::regex_constants::extended),
                             "\\1", std::regex_constants::format_sed);
-  std::replace_if(std::begin(data), std::end(data),[](unsigned char c) -> bool { return c == ' '; }, '_');
   return data;
 }
 
@@ -108,37 +107,57 @@ std::string regex_property_list(const isa_property& prop, const std::string& new
 }
 
 
-std::string for_all_isas (const insn& i, const isa_property& p, std::function<std::string(bool, const std::string_view&)> func)
-{
-  constexpr static const std::array<isa, 9> display_order = { SH1, SH2, SH2E,
-                                                              SH3, SH3E, SH_DSP,
-                                                              SH4, SH4A, SH2A, };
-  std::string r;
-  for(std::size_t pos = 0; pos < isa_name.size(); ++pos)
-    r += func(i.is_isa(display_order[pos]), p[display_order[pos]]);
-  return r;
-}
-
 std::string build_isa_list (const insn& i)
 {
-  return for_all_isas(i, isa_name,
-  [](bool match, const std::string_view& prop) -> std::string
+  static isa_property names = isa_property
+  {
+    SH1, "SH1",
+    SH1_DSP, "SH1_DSP",
+    SH2, "SH2",
+    SH2_DSP, "SH2_DSP",
+    SH2E, "SH2E",
+    SH2A, "SH2A",
+    SH2A_FPU, "SH2A_FPU",
+    SH3, "SH3",
+    SH3_FPU, "SH3_FPU",
+    SH3_DSP, "SH3_DSP",
+    SH4, "SH4",
+    SH4A, "SH4A",
+  };
+  constexpr static const std::array<isa, 12> list = { SH1, SH1_DSP, SH2, SH2_DSP,
+                                                      SH2E, SH2A, SH2A_FPU,
+                                                      SH3, SH3_FPU, SH3_DSP,
+                                                      SH4, SH4A };
+  auto func = [](bool match, const std::string_view& prop) -> std::string
   {
     if(match)
       return std::string(" ").append(prop);
     return std::string();
-  });
+  };
+  std::string r;
+  for(std::size_t pos = 0; pos < list.size(); ++pos)
+    r += func(i.for_isa(list[pos]), names[list[pos]]);
+  return r;
 }
 
 std::string build_isa_tagged_property_list (const insn& i, const isa_property& p)
 {
-  return for_all_isas(i, p,
-  [](bool match, const std::string_view& prop) -> std::string
+  constexpr static const std::array<isa, 9> list = {
+                                                     SH1, SH2,
+                                                     SH2E, SH2A | SH2A_FPU, SH3,
+                                                     SH3_FPU, SH4, SH4A,
+                                                     SH1_DSP | SH2_DSP | SH3_DSP
+                                                   };
+  auto func = [](bool match, const std::string_view& prop) -> std::string
   {
     if(match && !prop.empty())
       return std::string("<var>").append(prop).append("</var>");
     return "<var></var>";
-  });
+  };
+  std::string r;
+  for(std::size_t pos = 0; pos < list.size(); ++pos)
+    r += func(i.for_isa(list[pos]), p[list[pos]]);
+  return r;
 }
 
 
@@ -277,23 +296,34 @@ body
   top: 0px;
   height: 85px;
   z-index: 100;
-  font-weight: bold;
+  font-weight: 700;
   font-style: italic;
   background-color: var(--header-background-color);
   color: var(--header-text-color)
 }
 
+.section_title
+{
+  display: block;
+  font-weight: 900;
+  padding-bottom: 0.5em;
+  padding-top: 2em;
+}
+
 input[id^="cb_" ]::after { content:attr(name); }
 
-input[id="cb_SH1"  ]:checked ~ label.SH1,
-input[id="cb_SH2"  ]:checked ~ label.SH2,
-input[id="cb_SH2E" ]:checked ~ label.SH2E,
-input[id="cb_SH3"  ]:checked ~ label.SH3,
-input[id="cb_SH3E" ]:checked ~ label.SH3E,
-input[id="cb_DSP"  ]:checked ~ label.DSP,
-input[id="cb_SH4"  ]:checked ~ label.SH4,
-input[id="cb_SH4A" ]:checked ~ label.SH4A,
-input[id="cb_SH2A" ]:checked ~ label.SH2A
+#cb_SH1:checked  ~ label.SH1,
+#cb_SH2:checked  ~ label.SH2,
+#cb_SH2E:checked ~ label.SH2E,
+#cb_SH2A:checked ~ label.SH2A,
+#cb_SH2A:checked ~ label.SH2A_FPU,
+#cb_SH3:checked  ~ label.SH3,
+#cb_SH3E:checked ~ label.SH3_FPU,
+#cb_DSP:checked  ~ label.SH1_DSP,
+#cb_DSP:checked  ~ label.SH1_DSP,
+#cb_DSP:checked  ~ label.SH2_DSP,
+#cb_SH4:checked  ~ label.SH4,
+#cb_SH4A:checked ~ label.SH4A
 { display: inline-grid; }
 
 label.summary { display: none; }
@@ -305,8 +335,8 @@ input[id^="cb_" ]
   padding-left: 30px;
 }
 
-input[type='checkbox'][id^="row"] { display: none; }
-input[type='checkbox'][id^="row"]:checked + label > .details
+input[id^="row"] { display: none; }
+input[id^="row"]:checked + label > .details
   { display: unset; }
 
 .summary
@@ -316,11 +346,14 @@ input[type='checkbox'][id^="row"]:checked + label > .details
   clear: both;
 }
 
-label.summary > .colorized > var
+label.summary > .colorized
 {
   font-family: monospace;
-  display: contents;
+  word-wrap: break-word;
 }
+
+label.summary > .colorized > var
+  { display: contents; }
 
 label.summary > span:not(.details)
 {
@@ -359,7 +392,6 @@ label.summary:hover img,
 {
   display: inline-grid;
   grid-template-columns: 150px 240px 470px 150px 130px 120px 120px 110px;
-  grid-template-rows: 50px auto;
 }
 
 /* all columns */
@@ -383,7 +415,7 @@ label.summary:hover img,
 
 .cpu_grid > var, .cycle_grid > var
 {
-  color: var(--grid-inactive-text-color);
+  color: transparent;
   background-color: var(--grid-cell-background-color);
   display: block;
   text-align: center;
@@ -395,47 +427,53 @@ label.summary:hover img,
 .cpu_grid > var:nth-of-type(1):before { content:"SH1"  ; }
 .cpu_grid > var:nth-of-type(2):before { content:"SH2"  ; }
 .cpu_grid > var:nth-of-type(3):before { content:"SH2E" ; }
-.cpu_grid > var:nth-of-type(4):before { content:"SH3"  ; }
-.cpu_grid > var:nth-of-type(5):before { content:"SH3E" ; }
-.cpu_grid > var:nth-of-type(6):before { content:"DSP"  ; }
+.cpu_grid > var:nth-of-type(4):before { content:"SH2A" ; }
+.cpu_grid > var:nth-of-type(5):before { content:"SH3"  ; }
+.cpu_grid > var:nth-of-type(6):before { content:"SH3E" ; }
 .cpu_grid > var:nth-of-type(7):before { content:"SH4"  ; }
 .cpu_grid > var:nth-of-type(8):before { content:"SH4A" ; }
-.cpu_grid > var:nth-of-type(9):before { content:"SH2A" ; }
+.cpu_grid > var:nth-of-type(9):before { content:"DSP"  ; }
 
-.summary .cpu_grid > var,
-.summary .cycle_grid > var { color: transparent; }
 
-input[id="cb_SH1"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(1),
-input[id="cb_SH2"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(2),
-input[id="cb_SH2E" ]:checked ~ .summary .cpu_grid > var:nth-of-type(3),
-input[id="cb_SH3"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(4),
-input[id="cb_SH3E" ]:checked ~ .summary .cpu_grid > var:nth-of-type(5),
-input[id="cb_DSP"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(6),
-input[id="cb_SH4"  ]:checked ~ .summary .cpu_grid > var:nth-of-type(7),
-input[id="cb_SH4A" ]:checked ~ .summary .cpu_grid > var:nth-of-type(8),
-input[id="cb_SH2A" ]:checked ~ .summary .cpu_grid > var:nth-of-type(9)
+#cb_SH1:checked  ~ .summary .cpu_grid > var:nth-of-type(1),
+#cb_SH2:checked  ~ .summary .cpu_grid > var:nth-of-type(2),
+#cb_SH2E:checked ~ .summary .cpu_grid > var:nth-of-type(3),
+#cb_SH2A:checked ~ .summary .cpu_grid > var:nth-of-type(4),
+#cb_SH3:checked  ~ .summary .cpu_grid > var:nth-of-type(5),
+#cb_SH3E:checked ~ .summary .cpu_grid > var:nth-of-type(6),
+#cb_SH4:checked  ~ .summary .cpu_grid > var:nth-of-type(7),
+#cb_SH4A:checked ~ .summary .cpu_grid > var:nth-of-type(8),
+#cb_DSP:checked  ~ .summary .cpu_grid > var:nth-of-type(9)
 { color: var(--grid-inactive-text-color); }
 
-input[id="cb_SH1"  ]:checked ~ .summary.SH1  .cpu_grid > var:nth-of-type(1),
-input[id="cb_SH2"  ]:checked ~ .summary.SH2  .cpu_grid > var:nth-of-type(2),
-input[id="cb_SH2E" ]:checked ~ .summary.SH2E .cpu_grid > var:nth-of-type(3),
-input[id="cb_SH3"  ]:checked ~ .summary.SH3  .cpu_grid > var:nth-of-type(4),
-input[id="cb_SH3E" ]:checked ~ .summary.SH3E .cpu_grid > var:nth-of-type(5),
-input[id="cb_DSP"  ]:checked ~ .summary.DSP  .cpu_grid > var:nth-of-type(6),
-input[id="cb_SH4"  ]:checked ~ .summary.SH4  .cpu_grid > var:nth-of-type(7),
-input[id="cb_SH4A" ]:checked ~ .summary.SH4A .cpu_grid > var:nth-of-type(8),
-input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cpu_grid > var:nth-of-type(9)
+#cb_SH1:checked  ~ .summary.SH1       .cpu_grid > var:nth-of-type(1),
+#cb_SH2:checked  ~ .summary.SH2       .cpu_grid > var:nth-of-type(2),
+#cb_SH2E:checked ~ .summary.SH2E      .cpu_grid > var:nth-of-type(3),
+#cb_SH2A:checked ~ .summary.SH2A      .cpu_grid > var:nth-of-type(4),
+#cb_SH2A:checked ~ .summary.SH2A_FPU  .cpu_grid > var:nth-of-type(4), /* show FPU instructions too */
+#cb_SH3:checked  ~ .summary.SH3       .cpu_grid > var:nth-of-type(5),
+#cb_SH3E:checked ~ .summary.SH3       .cpu_grid > var:nth-of-type(6),
+#cb_SH3E:checked ~ .summary.SH3_FPU   .cpu_grid > var:nth-of-type(6), /* show FPU instructions too */
+#cb_SH4:checked  ~ .summary.SH4       .cpu_grid > var:nth-of-type(7),
+#cb_SH4A:checked ~ .summary.SH4A      .cpu_grid > var:nth-of-type(8),
+#cb_DSP:checked  ~ .summary.SH1_DSP   .cpu_grid > var:nth-of-type(9), /* show DSP instructions too */
+#cb_DSP:checked  ~ .summary.SH2_DSP   .cpu_grid > var:nth-of-type(9),
+#cb_DSP:checked  ~ .summary.SH3_DSP   .cpu_grid > var:nth-of-type(9)
 { color: var(--cpu-grid-active-text-color); }
 
-input[id="cb_SH1"  ]:checked ~ .summary.SH1  .cycle_grid > var:nth-of-type(1),
-input[id="cb_SH2"  ]:checked ~ .summary.SH2  .cycle_grid > var:nth-of-type(2),
-input[id="cb_SH2E" ]:checked ~ .summary.SH2E .cycle_grid > var:nth-of-type(3),
-input[id="cb_SH3"  ]:checked ~ .summary.SH3  .cycle_grid > var:nth-of-type(4),
-input[id="cb_SH3E" ]:checked ~ .summary.SH3E .cycle_grid > var:nth-of-type(5),
-input[id="cb_DSP"  ]:checked ~ .summary.DSP  .cycle_grid > var:nth-of-type(6),
-input[id="cb_SH4"  ]:checked ~ .summary.SH4  .cycle_grid > var:nth-of-type(7),
-input[id="cb_SH4A" ]:checked ~ .summary.SH4A .cycle_grid > var:nth-of-type(8),
-input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > var:nth-of-type(9)
+#cb_SH1:checked  ~ .summary.SH1       .cycle_grid > var:nth-of-type(1),
+#cb_SH2:checked  ~ .summary.SH2       .cycle_grid > var:nth-of-type(2),
+#cb_SH2E:checked ~ .summary.SH2E      .cycle_grid > var:nth-of-type(3),
+#cb_SH2A:checked ~ .summary.SH2A      .cycle_grid > var:nth-of-type(4),
+#cb_SH2A:checked ~ .summary.SH2A_FPU  .cycle_grid > var:nth-of-type(4), /* show FPU instructions too */
+#cb_SH3:checked  ~ .summary.SH3       .cycle_grid > var:nth-of-type(5),
+#cb_SH3E:checked ~ .summary.SH3       .cycle_grid > var:nth-of-type(6),
+#cb_SH3E:checked ~ .summary.SH3_FPU   .cycle_grid > var:nth-of-type(6), /* show FPU instructions too */
+#cb_SH4:checked  ~ .summary.SH4       .cycle_grid > var:nth-of-type(7),
+#cb_SH4A:checked ~ .summary.SH4A      .cycle_grid > var:nth-of-type(8),
+#cb_DSP:checked  ~ .summary.SH1_DSP   .cycle_grid > var:nth-of-type(9), /* show DSP instructions too */
+#cb_DSP:checked  ~ .summary.SH2_DSP   .cycle_grid > var:nth-of-type(9),
+#cb_DSP:checked  ~ .summary.SH3_DSP   .cycle_grid > var:nth-of-type(9)
 { color: var(--cycle-grid-active-text-color); }
 
 /* styling for details section */
@@ -453,7 +491,7 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > var:nth-of-type(9)
 .summary > .details > span:first-of-type
   { padding-top: 0em !important; }
 
-.summary > .details > span[title="code"],
+.summary > .details > span[title="operation"],
 .summary > .details > span[title="assembly"]
 {
   font-size: 13px;
@@ -466,7 +504,7 @@ input[id="cb_SH2A" ]:checked ~ .summary.SH2A .cycle_grid > var:nth-of-type(9)
   padding-bottom: 0.5em;
   padding-top: 1em;
   font-style: italic;
-  font-weight: bold;
+  font-weight: 700;
 }
 
 .summary > .details > span[title="section"] > em
@@ -537,7 +575,7 @@ var[title="add"]::before { content: "+"; }
 </head>
 <body>
   <div id="header">
-    <span style="font-size:20px;font:bold">Hitachi SuperH Instruction Set Summary</span>
+    <span style="font-size:20px;font-weight:700">Hitachi SuperH Instruction Set Summary</span>
     <div style="float:right">Last updated: )html" << __DATE__ << " " << __TIME__ << R"html(</div>
     <br />
     <div style="float:right">
@@ -546,12 +584,26 @@ var[title="add"]::before { content: "+"; }
   </div>
   <input type="radio" id="radio_C" name="symbols" checked /><label for="radio_C">C programming Symbols</label>
   <input type="radio" id="radio_math" name="symbols" /><label for="radio_math">Mathematic Symbols</label>
+  <br />
+  <select name="CPUtype">
+    <option value="Grid">Show Grid</option>
+    <option value="SH1">SuperH 1</option>
+    <option value="SH2">SuperH 2</option>
+    <option value="SHDSP">SuperH DSP</option>
+    <option value="SH2E">SuperH 2E</option>
+    <option value="SH2A">SuperH 2A without FPU</option>
+    <option value="SH2A_FPU">SuperH 2A with FPU</option>
+
+    <option value="SH3">SuperH 3</option>
+    <option value="SH3_FPU">SuperH 3E (3 with FPU)</option>
+    <option value="SH3_DSP">SuperH 3-DSP</option>
+  </select>
   <br />)html"
 
-  << regex_property_list(isa_name, "\n  <input type=\"checkbox\" id=\"cb_&\" name=\"&\" checked /><label for=\"cb_&\">&</label>")
+  << regex_property_list(display_name, "\n  <input type=\"checkbox\" id=\"cb_&\" name=\"&\" checked /><label for=\"cb_&\">&</label>")
 
   << R"html(
-    <span id="table_header" class="summary)html" << regex_property_list(isa_name, " &") << R"html(">
+    <span id="table_header" class="summary)html" << regex_property_list(display_name, " &") << R"html(">
     <span>Compatibilty</span>
     <span>Format</span>
     <span>Abstract</span>
@@ -577,17 +629,17 @@ var[title="add"]::before { content: "+"; }
     int id = 0;
     for (const auto& block : insn_blocks)
     {
-      std::cout << "<br/><br/><br/><b>" << block.section_title << "</b><br/><br/>" << std::endl;
+      std::cout << "<span class=\"section_title\">" << block.section_title << "</span>" << std::endl;
 
       for (const auto& i : block)
       {
-        std::cout << "<input type=\"checkbox\" id=\"row" << id << "\" />" << std::endl;
+        std::cout << "<input name=\"instruction\" type=\"radio\" id=\"row" << id << "\" />" << std::endl;
         std::cout
             << "<label class=\"summary" << build_isa_list(i) << "\" for=\"row" << id << "\">" << std::endl
             << "<span class=\"cpu_grid\"><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var><var></var></span>" << std::endl
             << "<span>" << i.data<format>() << "</span>" << std::endl
             << "<span>" << i.data<abstract>() << "</span>" << std::endl
-            << "<span id=\"" << fix_id(i.data<code>()) << "\" class=\"colorized\">" << i.data<code>() << "</span>" << std::endl
+            << "<span id=\"" << fix_id(i.data<opcode>()) << "\" class=\"colorized\">" << i.data<opcode>() << "</span>" << std::endl
             << "<span>" << i.data<flags>() << "</span>" << std::endl
             << "<span class=\"cycle_grid\">" << build_isa_tagged_property_list (i, i.data<group>()) << "</span>" << std::endl
             << "<span class=\"cycle_grid\">" << build_isa_tagged_property_list (i, i.data<issue>()) << "</span>" << std::endl
@@ -598,7 +650,7 @@ var[title="add"]::before { content: "+"; }
         std::cout << build_citations (i.data<citations>());
         std::cout << build_span_section (i.data<name>(), "note", i.data<description>());
         std::cout << build_span_section ("Note", "note", i.data<note>());
-        std::cout << build_span_section ("Operation", "code", i.data<operation>());
+        std::cout << build_span_section ("Operation", "operation", i.data<operation>());
         std::cout << build_span_section ("Example", "assembly", i.data<example>());
         std::cout << build_span_section ("Possible Exceptions", "list", i.data<exceptions>());
 

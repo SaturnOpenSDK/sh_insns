@@ -6,6 +6,7 @@
 #include <regex>
 #include <array>
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <string_view>
 
@@ -101,7 +102,7 @@ static constexpr const std::array<std::pair<std::string_view, std::string_view>,
     { "UBC", "<abbr title=\"User Break Controller\">UBC</abbr>" },
     { "GBR", "<abbr title=\"Global Base Register\">GBR</abbr>" },
     { "VBR", "<abbr title=\"Vector Base Register\">VBR</abbr>" },
-    { "DSR", "<abbr title=\"DSP Status Register\">DSR</abbr>" },
+    { "DSR", "<abbr title=\"DSP (Digital Sound Processor) Status Register\">DSR</abbr>" },
     { "I0-I3", "<abbr title=\"Interrupt mask flag bits\">I0-I3</abbr>" },
     { "I3-I0", "<abbr title=\"Interrupt mask flag bits\">I3-I0</abbr>" },
     { "MACH", "<abbr title=\"Multiply and ACcumulate High (word)\">MACH</abbr>" },
@@ -132,8 +133,8 @@ static constexpr std::array<std::pair<const char*, const char*>, 30> short_accro
     { "([^\\<\\>[:alnum:]\\S])XD(1?[[:digit:]])([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"Single-precision Floating-Point Extended Register Pair \\2\">XD\\2</abbr>\\3" },
 
     { "([^\\<\\>[:alnum:]\\S])PR([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"Procedure Register\">PR</abbr>\\2" },
-    { "([^\\<\\>[:alnum:]\\S])DSP([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"Digital Signal Processor\">DSP</abbr>\\2" },
-    { "([^\\<\\>[:alnum:]\\S])MMU([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"Memory Management Unit\">MMU</abbr>\\2" },
+    { "([^\\<\\>\"[:alnum:]\\S])DSP([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"Digital Signal Processor\">DSP</abbr>\\2" },
+    { "([^\\<\\>\"[:alnum:]\\S])MMU([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"Memory Management Unit\">MMU</abbr>\\2" },
     { "([^\\<\\>[:alnum:]\\S])TTB([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"Translation Table Base Register\">TTB</abbr>\\2" },
     { "([^\\<\\>[:alnum:]\\S])TEA([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"TLB (Translation Lookaside Buffer) Exception Address register\">TEA</abbr>\\2" },
     { "([^\\<\\>[:alnum:]\\S])TRA([^\\<\\>[:alnum:]\\S])", "\\1<abbr title=\"TRAPA (Trap Always instruction) Exception Register\">TRA</abbr>\\2" },
@@ -211,18 +212,17 @@ void fix_format(std::string& format, std::size_t fixed_width)
   } while (pos != std::end(format));
 }
 
-void no_rogue_angle_brackets(std::string& data)
+void fix_name(std::string& name)
 {
-  data = std::regex_replace(data, std::regex("<([idefghjklmnopqrtuwxyz[:space:]=<<][^m])", std::regex_constants::extended), "&lt;\\1", std::regex_constants::format_sed);
-  data = std::regex_replace(data, std::regex("([^nrepb\"[:space:]/])>", std::regex_constants::extended), "\\1&gt;", std::regex_constants::format_sed);
-/*
+  name = std::regex_replace(name,
+                            std::regex("_([[:alnum:]])", std::regex_constants::extended),
+                            "<em>\\1</em>", std::regex_constants::format_sed);
+  constexpr auto to_remove = "</em><em>"sv;
   std::size_t pos = std::string::npos;
-  while(pos = data.find('<'), pos != std::string::npos)
-    data.replace(pos, 1, "&lt;");
-  while(pos = data.find('>'), pos != std::string::npos)
-    data.replace(pos, 1, "&gt;");
-    */
+  while(pos = name.find(to_remove), pos != std::string::npos)
+    name.erase(pos, to_remove.size());
 }
+
 
 void replace_string(std::string& haystack,
                     const std::string& needle,
@@ -238,9 +238,35 @@ void replace_string(std::string& haystack,
   }
 }
 
+void no_rogue_angle_brackets(std::string& data)
+{
+  replace_string(data, "<<"s, "&lt;&lt;"s);
+  replace_string(data, ">>"s, "&gt;&gt;"s);
+
+  // match anything EXCEPT:
+  // <a* (a/abbr HTML tag)
+  // <b* (b/blockquote HTML tag)
+  // <c* (code/cite HTML tag)
+  // <s* (span HTML tag)
+  // <v* (var HTML tag)
+  // <em* (em HTML tag)
+  data = std::regex_replace(data, std::regex("<([defghijklmnopqrtuwxyz[:space:]=][^m])", std::regex_constants::extended), "\\&lt;\\1", std::regex_constants::format_sed);
+
+  // match anything EXCEPT:
+  // ">  (HTML tag with attribute)
+  // />  (self-closing HTML tag)
+  // *n> (span HTML tag)
+  // *r> (var/br/abbr HTML tag)
+  // *e> (cite/blockquote HTML tag)
+  // *p> (p HTML tag)
+  // *b> (b HTML tag)
+  data = std::regex_replace(data, std::regex("([^nrepb\"[:space:]/])>", std::regex_constants::extended), "\\1\\&gt;", std::regex_constants::format_sed);
+}
+
 bool trim_endlines(std::string& val)
 {
   auto is_endline = [](unsigned char c) -> bool { return c == '\n'; };
+  auto is_whitespace = [](unsigned char c) -> bool { return c == '\n' || c == ' ' || c == '\t'; };
   if(!val.empty())
   {
     auto pos = std::find_if_not(std::begin(val), std::end(val), is_endline); // forward search
@@ -248,7 +274,7 @@ bool trim_endlines(std::string& val)
   }
   if(!val.empty())
   {
-    auto pos = std::find_if_not(std::rbegin(val), std::rend(val), is_endline); // backwards search
+    auto pos = std::find_if_not(std::rbegin(val), std::rend(val), is_whitespace); // backwards search (and erase whitespace)
     val.erase(pos.base(), std::end(val));
   }
   return !val.empty();
@@ -256,11 +282,9 @@ bool trim_endlines(std::string& val)
 
 void format_assembly(std::string& data)
 {
-  constexpr std::string_view noreformat = "#NOREFORMAT";
-  if(!data.compare(0, noreformat.size(), noreformat))
-  {
-    data.erase(0, noreformat.size());
-  }
+  constexpr std::string_view preformatted = "PREFORMATTED";
+  if(!data.compare(0, preformatted.size(), preformatted))
+    data.erase(0, preformatted.size());
   else
   {
     data = std::regex_replace(data, std::regex("H'([[:xdigit:]]+)", std::regex_constants::extended), "0x\\1", std::regex_constants::format_sed);
@@ -299,7 +323,7 @@ void format_assembly(std::string& data)
     {
       asm_parts_t line;
       auto line_pos = pos;
-      auto  eol = std::find(pos, std::cend(data), '\n');
+      auto eol = std::find(pos, std::cend(data), '\n');
       if(line_pos != eol)
       {
         for(uint8_t part = address; part <= spacing; ++part)
@@ -324,11 +348,16 @@ void format_assembly(std::string& data)
     std::array<std::size_t, 7> indent = { { 0 } };
 
     for(const auto& line : lines)
-    {
       for(uint8_t part = address; part <= spacing; ++part)
         if(!line[part].empty())
           indent[part] = std::max(indent[part], line[part].size() + 1);
-    }
+
+    for(auto& line : lines)
+      if(!line[mnemonic].empty())
+        std::transform(std::cbegin(line[mnemonic]),
+                       std::cend(line[mnemonic]),
+                       std::begin(line[mnemonic]),
+                       [](unsigned char c) { return std::tolower(c); });
 
     indent[mnemonic] = indent[directive] = std::max(indent[mnemonic], indent[directive]);
 
@@ -340,7 +369,7 @@ void format_assembly(std::string& data)
         if(!line[part].empty())
           data.append(line[part])
               .append(indent[part] - line[part].size(), ' ');
-        else if(part != directive)
+        else if(part != (line[directive].empty() ? directive : mnemonic)) // if directive then ignore mnemonic spacing.  if not directive then ignore directive spacing.
             data.append(indent[part], ' ');
       }
       data.push_back('\n');
@@ -350,17 +379,16 @@ void format_assembly(std::string& data)
 
 void format_exceptions(std::string& data)
 {
-  data.insert(0, "  <var>").append("</var>");
   for(auto pos = data.find('\n'); pos != std::string::npos; pos = data.find('\n', pos + "</var>\n  <var>"sv.size()))
     data.replace(pos, 1, "</var>\n  <var>");
-
+  data.insert(0, "\n  <var>").append("</var>\n");
 }
 
 void format_code(std::string& data)
 {
   constexpr auto operand_type = [](char c) -> char { return c == '1' ? '0' : c; };
   std::string result;
-  uint8_t count = 0, spaces = 0;
+  uint8_t count = 0;
   char current = '\0';
 
   for(auto pos = std::begin(data); pos != std::end(data); pos = std::next(pos))
@@ -368,11 +396,6 @@ void format_code(std::string& data)
     result.push_back(*pos);
     ++count;
 
-    if(*pos == ' ' && std::next(pos) != std::end(data))
-    {
-      ++spaces;
-      continue;
-    }
     current = *pos;
 
     if(std::next(pos) == std::end(data) ||
@@ -435,10 +458,9 @@ void format_code(std::string& data)
       }
       tag.append("\">");
 
-      result.insert(std::prev(std::end(result), count - spaces), std::begin(tag), std::end(tag));
+      result.insert(std::prev(std::end(result), count), std::begin(tag), std::end(tag));
       result.append("</var>");
       count = 0;
-      spaces = 0;
     }
   }
 
@@ -459,13 +481,13 @@ void post_processing(std::list<insns>& insn_blocks)
 
   std::list<instruction_info_t> name_data =
   {
-    { "STS", "_S_tore _System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 231 }, { SH7750_PROG_DOC, 373 }, { SH4A_DOC, 425 } } },
+    { "STS", "_S_tore _System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH1_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 231 }, { SH7750_PROG_DOC, 373 }, { SH4A_DOC, 425 } } },
     { "STS", "_S_tore from FPU _System Register", "System Control Instruction", {}, { { SH2A_2E_DOC, 260 }, { SH7750_PROG_DOC, 375 }, { SH4A_DOC, 453 } } },
     { "FMOV", "_Floating-point _M_o_ve", "Floating-Point Instruction", {}, { { SH2A_2E_DOC, 304 }, { SH7750_PROG_DOC, 271 }, { SH4A_DOC, 497 } } },
     { "FMOV", "_Floating-point _M_o_ve Extension", "Floating-Point Instruction", {}, { { SH7750_PROG_DOC, 275 }, { SH4A_DOC, 501 } } },
     { "LDC", "_Loa_d to _Control Register", "System Control Instruction", {}, { { SH4A_DOC, 337 } } },
-    { "LDC", "_Loa_d to _Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 165 }, { SH2A_2E_DOC, 203 }, { SH7750_PROG_DOC, 298 }, { SH4A_DOC, 449 } } },
-    { "LDS", "_Loa_d to _System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 172 }, { SH7750_PROG_DOC, 304 }, { SH4A_DOC, 342 } } },
+    { "LDC", "_Loa_d to _Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH1_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 165 }, { SH2A_2E_DOC, 203 }, { SH7750_PROG_DOC, 298 }, { SH4A_DOC, 449 } } },
+    { "LDS", "_Loa_d to _System Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH1_DSP, "Interrupt Disabled" } }, { { SH1_2_DSP_DOC, 172 }, { SH7750_PROG_DOC, 304 }, { SH4A_DOC, 342 } } },
     { "LDS", "_Loa_d to FPU _System register", "System Control Instruction", {}, { { SH2A_2E_DOC, 321 }, { SH7750_PROG_DOC, 302 }, { SH4A_DOC, 450 } } },
     { "BRAF", "_B_r_anch _Far", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 133 }, { SH2A_2E_DOC, 169 }, { SH7750_PROG_DOC, 213 }, { SH4A_DOC, 307 } } },
     { "BRA", "_B_r_anch", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 131 }, { SH2A_2E_DOC, 167 }, { SH7750_PROG_DOC, 211 }, { SH4A_DOC, 305 } } },
@@ -473,9 +495,9 @@ void post_processing(std::list<insns>& insn_blocks)
     { "BSR", "_Branch to _Sub_routine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 135 }, { SH2A_2E_DOC, 171 }, { SH7750_PROG_DOC, 214 }, { SH4A_DOC, 443 } } },
     { "JMP", "_Ju_m_p", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 162 }, { SH2A_2E_DOC, 199 }, { SH7750_PROG_DOC, 295 }, { SH4A_DOC, 336 } } },
     { "JSR", "_Jump to _Sub_routine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 163 }, { SH2A_2E_DOC, 201 }, { SH7750_PROG_DOC, 296 }, { SH4A_DOC, 447 } } },
-    { "RTE", "_Re_turn from _Exception", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 212 }, { SH2A_2E_DOC, 244 }, { SH7750_PROG_DOC, 349 }, { SH4A_DOC, 401 } } },
+    { "RTE", "_Re_turn from _Exception", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH1_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 212 }, { SH2A_2E_DOC, 244 }, { SH7750_PROG_DOC, 349 }, { SH4A_DOC, 401 } } },
     { "RTS", "_Re_turn from _Subroutine", "Branch Instruction", { { SH_ALL, "Delayed Branch" } }, { { SH1_2_DSP_DOC, 214 }, { SH2A_2E_DOC, 246 }, { SH7750_PROG_DOC, 351 }, { SH4A_DOC, 403 } } },
-    { "STC", "_S_tore _Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 228 }, { SH2A_2E_DOC, 258 }, { SH7750_PROG_DOC, 368 }, { SH4A_DOC, 420 }, { SH4A_DOC, 452 } } },
+    { "STC", "_S_tore _Control Register", "System Control Instruction", { { SH1 | SH2 | SH2A | SH2E | SH1_DSP, "Interrupt Disabled" }, { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 228 }, { SH2A_2E_DOC, 258 }, { SH7750_PROG_DOC, 368 }, { SH4A_DOC, 420 }, { SH4A_DOC, 452 } } },
     { "SLEEP", "_S_l_e_e_p", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH1_2_DSP_DOC, 227 }, { SH2A_2E_DOC, 257 }, { SH7750_PROG_DOC, 367 }, { SH4A_DOC, 419 } } },
     { "LDTLB", "_Loa_d PTEH/PTEL to _T_L_B", "System Control Instruction", { { SH4A, "Privileged" } }, { { SH7750_PROG_DOC, 306 }, { SH4A_DOC, 344 } } },
 
@@ -710,7 +732,6 @@ void post_processing(std::list<insns>& insn_blocks)
     }
   }
 
-
   auto fix_images = [](std::string& data, const std::string& title)
     { replace_string(data, "<img src=", "<img alt=\""s + title + "\" class=\"image_filter\" src="s); };
 
@@ -718,8 +739,37 @@ void post_processing(std::list<insns>& insn_blocks)
   {
     for(insn& instruction : block)
     {
+      for(std::size_t pos = 0; pos < 8; ++pos)
+      {
+        isa current_isa = isa(1 << pos);
+        isa i_set = instruction.data<isa>();
+        const isa_property& i = instruction.data<issue>();
+        const isa_property& l = instruction.data<latency>();
+        if(uint16_t(i_set) & uint16_t(current_isa) ||
+           !i.operator[](current_isa).empty() ||
+           !l.operator[](current_isa).empty())
+        {
+          if(! ((uint16_t(i_set) & uint16_t(current_isa))) ||
+             i.operator[](current_isa).empty() ||
+             l.operator[](current_isa).empty())
+          {
+            std::cerr << instruction.data<opcode>()
+                      << " - current isa: " << std::hex << std::setw(3) << current_isa
+                      << " - isa: " << std::hex << std::setw(3) << (i_set & current_isa)
+                      << " - issue: '" << i.operator[](current_isa) << "'"
+                      << " - latency: '" << l.operator[](current_isa) << "'"
+                      << std::endl;
+          }
+        }
+      }
+
       std::string clean_name = instruction.data<name>();
-      std::remove_if(std::begin(clean_name), std::end(clean_name), [](char c) -> bool { return c == '_'; });
+      std::size_t underscore_count = std::count_if(std::begin(clean_name), std::end(clean_name), [](char c) -> bool { return c == '_'; });
+      if(underscore_count)
+      {
+        std::remove_if(std::begin(clean_name), std::end(clean_name), [](char c) -> bool { return c == '_'; });
+        clean_name.resize(clean_name.size() - underscore_count); // remove_if doesn't resize the container. RUDE!
+      }
 
       fix_format(instruction.data<format>(), 10); // replace tabs with spaces
       fix_images(instruction.data<note>(), clean_name);
@@ -736,9 +786,11 @@ void post_processing(std::list<insns>& insn_blocks)
       replace_symbols(instruction.data<note>(), long_accronyms);
       replace_patterns(instruction.data<note>(), short_accronyms);
 
-      format_code(instruction.data<code>());
+      format_code(instruction.data<opcode>());
       format_assembly(instruction.data<example>());
-      format_exceptions(instruction.data<exceptions>());
+
+      if(trim_endlines(instruction.data<exceptions>()))
+        format_exceptions(instruction.data<exceptions>());
 
       no_rogue_angle_brackets(instruction.data<brief>());
       no_rogue_angle_brackets(instruction.data<operation>());
@@ -748,14 +800,8 @@ void post_processing(std::list<insns>& insn_blocks)
       trim_endlines(instruction.data<note>());
       trim_endlines(instruction.data<operation>());
       trim_endlines(instruction.data<example>());
-      trim_endlines(instruction.data<exceptions>());
 
-      instruction
-          .data<name>()
-          .assign(std::regex_replace(instruction.data<name>(),
-                                     std::regex("_([[:alnum:]])", std::regex_constants::extended),
-                                     "<em>\\1</em>", std::regex_constants::format_sed));
-
+      fix_name(instruction.data<name>());
     }
   }
 }
