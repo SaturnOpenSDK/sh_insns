@@ -11428,15 +11428,15 @@ void LDRE (int d)
 {R"(PREFORMATTED
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
-    setrc  #32       ! Repeat 32 times from <instruction A> to <instruction B>
+    setrc  #32       ! Repeat 32 times from &lt;instruction A&gt; to &lt;instruction B&gt;
     ...
 start:
-    <instruction A>
+    &lt;instruction A&gt;
     ...
     ...
     ...
 end:
-    <instruction B>
+    &lt;instruction B&gt;
     ...
 )"},
 
@@ -11498,15 +11498,15 @@ void LDRS (int d)
 {R"(PREFORMATTED
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
-    setrc  #32       ! Repeat 32 times from <instruction A> to <instruction B>
+    setrc  #32       ! Repeat 32 times from &lt;instruction A&gt; to &lt;instruction B&gt;
     ...
 start:
-    <instruction A>
+    &lt;instruction A&gt;
     ...
     ...
     ...
 end:
-    <instruction B>
+    &lt;instruction B&gt;
     ...
 )"},
 
@@ -13070,15 +13070,15 @@ void SETRC (int m)
 {R"(PREFORMATTED
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
-    setrc  r14       ! Repeat n times from <instruction A> to <instruction B>
+    setrc  r14       ! Repeat n times from &lt;instruction A&gt; to &lt;instruction B&gt;
     ...
 start:
-    <instruction A>
+    &lt;instruction A&gt;
     ...
     ...
     ...
 end:
-    <instruction B>
+    &lt;instruction B&gt;
     ...
 )"},
 
@@ -13131,15 +13131,15 @@ void SETRCI (int i)
 {R"(PREFORMATTED
     ldrs   start     ! Set repeat start address to RS
     ldre   end       ! Set repeat end address to RE
-    setrc  #32       ! Repeat 32 times from <instruction A> to <instruction B>
+    setrc  #32       ! Repeat 32 times from &lt;instruction A&gt; to &lt;instruction B&gt;
     ...
 start:
-    <instruction A>
+    &lt;instruction A&gt;
     ...
     ...
     ...
 end:
-    <instruction B>
+    &lt;instruction B&gt;
     ...
 )"},
 

@@ -4,6 +4,7 @@
 #include <string>
 #include <list>
 #include <tuple>
+#include <array>
 
 #if __cplusplus < 202002L
 template< class T >
