@@ -1,7 +1,17 @@
-This is a C++ program which outputs the SH instruction set summary HTML page.
+SuperH Instruction Set
+======================
 
-The compiled version can be found here: http://www.shared-ptr.com/sh_insns.html
+This is a C++ program which prints the HTML source of SuperH Instruction Set Summary page.
 
-Most of the information herein has been collected from various hardware manuals,
-technical notes, and various source code that can be found on the internet.
+The rendered version can be found here: https://saturnopensdk.github.io
+
+The technical information comes from the various SuperH documents.
 There might be some mistakes or misunderstandings.  Patches are welcome.
+
+
+Build Instruiction
+==================
+Only one command is needed:
+`make html`
+
+This will compile the code generator and then generate `index.html`.
