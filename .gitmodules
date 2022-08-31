@@ -1,0 +1,3 @@
+[submodule "simplified"]
+	path = simplified
+	url = git@github.com:GravisZro/simplified.git
