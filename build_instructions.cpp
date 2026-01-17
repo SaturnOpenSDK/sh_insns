@@ -17,9 +17,9 @@ insn { "mov\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
+op1 ← ZeroExtend<32>(R[m]);
 op2 ← op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -65,9 +65,9 @@ insn { "mov\t#imm,Rn",
   name { "_M_o_ve Constant Value" },
   brief
 {R"(
-imm ← SignExtend 8(s);
+imm ← SignExtend<8>(s);
 op2 ← imm;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -221,10 +221,10 @@ insn { "mova\t@(disp,PC),R0",
 
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-disp ← ZeroExtend 8(i) << 2;
+pc ← SignExtend<32>(PC);
+disp ← ZeroExtend<8>(i) << 2;
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 r0 ← disp + ((pc + 4) ∧ (~ 0x3));
 R 0 ← Register(r0);
 )"},
@@ -293,13 +293,13 @@ insn { "mov.w\t@(disp,PC),Rn",
   name { "_M_o_ve Constant Value" },
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-disp ← ZeroExtend 8(i) << 1;
+pc ← SignExtend<32>(PC);
+disp ← ZeroExtend<8>(i) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
-address ← ZeroExtend 32(disp + (pc + 4));
-op2 ← SignExtend 16 (ReadMemory 16(address));
-R n ← Register(op2);
+  THROW ILLSLOT;
+address ← ZeroExtend<32>(disp + (pc + 4));
+op2 ← SignExtend<16>(ReadMemory<16>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -321,7 +321,7 @@ illegal instruction.
 void MOVWI (int d, int n)
 {
   unsigned int disp = (0x000000FF & d);
-  R[n] = Read_16 (PC + 4 + (disp << 1));
+  R[n] = Read<16>(PC + 4 + (disp << 1));
   if ((R[n] & 0x8000) == 0)
     R[n] &= 0x0000FFFF;
   else
@@ -358,13 +358,13 @@ insn { "mov.l\t@(disp,PC),Rn",
   name { "_M_o_ve Constant Value" },
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-disp ← ZeroExtend 8(i) << 2;
+pc ← SignExtend<32>(PC);
+disp ← ZeroExtend<8>(i) << 2;
 IF (IsDelaySlot())
-THROW ILLSLOT;
-address ← ZeroExtend 32(disp + ((pc + 4) ∧ (~ 0x3)));
-op2 ← SignExtend 32 (ReadMemory 32(address));
-R n ← Register(op2);
+  THROW ILLSLOT;
+address ← ZeroExtend<32>(disp + ((pc + 4) ∧ (~ 0x3)));
+op2 ← SignExtend<32>(ReadMemory<32>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -387,7 +387,7 @@ illegal instruction.
 void MOVLI (int d, int n)
 {
   unsigned int disp = (0x000000FF & d);
-  R[n] = Read_32 ((PC & 0xFFFFFFFC) + 4 + (disp << 2));
+  R[n] = Read<32>((PC & 0xFFFFFFFC) + 4 + (disp << 2));
   PC += 2;
 }
 )"},
@@ -418,10 +418,10 @@ insn { "mov.b\t@Rm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-op2 ← SignExtend 8(ReadMemory8 (address));
-R n ← Register(op2);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+op2 ← SignExtend<8>(ReadMemory<8>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -440,7 +440,7 @@ MOV.B @R0,R1 ;Before execution: @R0 = H'80, R1 = H'00000000
 {R"(
 void MOVBL (int m, int n)
 {
-  R[n] = Read_8 (R[m]);
+  R[n] = Read<8>(R[m]);
   if ((R[n] & 0x80) == 0)
     R[n] &= 0x000000FF;
   else
@@ -476,10 +476,10 @@ insn { "mov.w\t@Rm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-op2 ← SignExtend 16 (ReadMemory 16(address));
-R n ← Register(op2);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+op2 ← SignExtend<16>(ReadMemory<16>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -497,7 +497,7 @@ destination register.
 {R"(
 void MOVWL (int m, int n)
 {
-  R[n] = Read_16 (R[m]);
+  R[n] = Read<16>(R[m]);
   if ((R[n] & 0x8000) == 0)
     R[n] &= 0x0000FFFF;
   else
@@ -533,10 +533,10 @@ insn { "mov.l\t@Rm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-op2 ← SignExtend 32 (ReadMemory 32(address));
-R n ← Register(op2);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+op2 ← SignExtend<32>(ReadMemory<32>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -552,7 +552,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVLL (int m, int n)
 {
-  R[n] = Read_32 (R[m]);
+  R[n] = Read<32>(R[m]);
   PC += 2;
 }
 )"},
@@ -583,10 +583,10 @@ insn { "mov.b\tRm,@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op2);
-WriteMemory 8(address, op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op2);
+WriteMemory<8>(address, op1);
 )"},
   description
 {R"(
@@ -602,7 +602,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVBS (int m, int n)
 {
-  Write_8 (R[n], R[m]);
+  Write<8>(R[n], R[m]);
   PC += 2;
 }
 )"},
@@ -634,10 +634,10 @@ insn { "mov.w\tRm,@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op2);
-WriteMemory 16(address, op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op2);
+WriteMemory<16>(address, op1);
 )"},
   description
 {R"(
@@ -653,7 +653,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVWS (int m, int n)
 {
-  Write_16 (R[n], R[m]);
+  Write<16>(R[n], R[m]);
   PC += 2;
 }
 )"},
@@ -686,10 +686,10 @@ insn { "mov.l\tRm,@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op2);
-WriteMemory 32(address, op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op2);
+WriteMemory<32>(address, op1);
 )"},
   description
 {R"(
@@ -705,7 +705,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVLS (int m, int n)
 {
-  Write_32 (R[n], R[m]);
+  Write<32>(R[n], R[m]);
   PC += 2;
 }
 )"},
@@ -737,17 +737,17 @@ insn { "mov.b\t@Rm+,Rn",
 
   brief
 {R"(
-m_field ← ZeroExtend 4(m);
-n_field ← ZeroExtend 4(n);
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-op2 ← SignExtend 8(ReadMemory8 (address));
+m_field ← ZeroExtend<4>(m);
+n_field ← ZeroExtend<4>(n);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+op2 ← SignExtend<8>(ReadMemory<8>(address));
 IF (m_field = n_field)
-op1 ← op2;
+  op1 ← op2;
 ELSE
-op1 ← op1 + 1;
-R m ← Register(op1);
-R n ← Register(op2);
+  op1 ← op1 + 1;
+R[m] ← Register(op1);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -765,7 +765,7 @@ destination register.
 {R"(
 void MOVBP (int m, int n)
 {
-  R[n] = Read_8 (R[m]);
+  R[n] = Read<8>(R[m]);
   if ((R[n] & 0x80) == 0)
     R[n] &= 0x000000FF;
   else
@@ -804,17 +804,17 @@ insn { "mov.w\t@Rm+,Rn",
 
   brief
 {R"(
-m_field ← ZeroExtend 4(m);
-n_field ← ZeroExtend 4(n);
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-op2 ← SignExtend 16 (ReadMemory 16(address));
+m_field ← ZeroExtend<4>(m);
+n_field ← ZeroExtend<4>(n);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+op2 ← SignExtend<16>(ReadMemory<16>(address));
 IF (m_field = n_field)
-op1 ← op2;
+  op1 ← op2;
 ELSE
-op1 ← op1 + 2;
-R m ← Register(op1);
-R n ← Register(op2);
+  op1 ← op1 + 2;
+R[m] ← Register(op1);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -832,7 +832,7 @@ destination register.
 {R"(
 void MOVWP (int m, int n)
 {
-  R[n] = Read_16 (R[m]);
+  R[n] = Read<16>(R[m]);
   if ((R[n] & 0x8000) == 0)
     R[n] &= 0x0000FFFF;
   else
@@ -871,17 +871,17 @@ insn { "mov.l\t@Rm+,Rn",
 
   brief
 {R"(
-m_field ← ZeroExtend 4(m);
-n_field ← ZeroExtend 4(n);
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-op2 ← SignExtend 32 (ReadMemory 32(address));
+m_field ← ZeroExtend<4>(m);
+n_field ← ZeroExtend<4>(n);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+op2 ← SignExtend<32>(ReadMemory<32>(address));
 IF (m_field = n_field)
-op1 ← op2;
+  op1 ← op2;
 ELSE
-op1 ← op1 + 4;
-R m ← Register(op1);
-R n ← Register(op2);
+  op1 ← op1 + 4;
+R[m] ← Register(op1);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -897,7 +897,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVLP (int m, int n)
 {
-  R[n] = Read_32 (R[m]);
+  R[n] = Read<32>(R[m]);
 
   if (n != m)
     R[m] += 4;
@@ -934,12 +934,12 @@ insn { "mov.b\tRm,@-Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op2 - 1);
-WriteMemory 8(address, op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op2 - 1);
+WriteMemory<8>(address, op1);
 op2 ← address;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -955,7 +955,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVBM (int m, int n)
 {
-  Write_8 (R[n] - 1, R[m]);
+  Write<8>(R[n] - 1, R[m]);
   R[n] -= 1;
   PC += 2;
 }
@@ -988,12 +988,12 @@ insn { "mov.w\tRm,@-Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op2 - 2);
-WriteMemory 16(address, op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op2 - 2);
+WriteMemory<16>(address, op1);
 op2 ← address;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -1009,7 +1009,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVWM (int m, int n)
 {
-  Write_16 (R[n] - 2, R[m]);
+  Write<16>(R[n] - 2, R[m]);
   R[n] -= 2;
   PC += 2;
 }
@@ -1043,12 +1043,12 @@ insn { "mov.l\tRm,@-Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op2 - 4);
-WriteMemory 32(address, op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op2 - 4);
+WriteMemory<32>(address, op1);
 op2 ← address;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -1064,7 +1064,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVLM (int m, int n)
 {
-  Write_32 (R[n] - 4, R[m]);
+  Write<32>(R[n] - 4, R[m]);
   R[n] -= 4;
   PC += 2;
 }
@@ -1112,7 +1112,7 @@ destination register.
 void MOVRSBM (int m)
 {
   R[m] -= 1;
-  R[0] = Read_16 (R[m]);
+  R[0] = Read<16>(R[m]);
 
   if ((R[0] & 0x80) == 0)
     R[0] &= 0x000000FF;
@@ -1161,7 +1161,7 @@ destination register.
 void MOVRSWM (int m)
 {
   R[m]-= 2;
-  R[0] = Read_16 (R[m]);
+  R[0] = Read<16>(R[m]);
 
   if ((R[0] & 0x8000) == 0)
     R[0] &= 0x0000FFFF;
@@ -1208,7 +1208,7 @@ Transfers the source operand to the destination.
 void MOVRSLM (int m)
 {
   R[m] -= 4;
-  R[0] = Read_32 (R[m]);
+  R[0] = Read<32>(R[m]);
   PC += 2;
 }
 )"},
@@ -1248,7 +1248,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVRSBP (int n)
 {
-  Write_8 (R[n], R[0]);
+  Write<8>(R[n], R[0]);
   R[n] += 1;
   PC += 2;
 }
@@ -1289,7 +1289,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVRSWP (int n)
 {
-  Write_16 (R[n], R[0]);
+  Write<16>(R[n], R[0]);
   R[n] += 2;
   PC += 2;
 }
@@ -1330,7 +1330,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVRSLP (int n)
 {
-  Write_32 (R[n], R[0]);
+  Write<32>(R[n], R[0]);
   R[n] += 4;
   PC += 2;
 }
@@ -1350,7 +1350,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(disp,Rm),R0",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "R0 := signext( disp + Rm )" },
+  abstract { "R0 := signext( disp + R[m]" },
   opcode { "10000100mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1360,10 +1360,10 @@ insn { "mov.b\t@(disp,Rm),R0",
   name { "_M_o_ve Structure Data" },
   brief
 {R"(
-disp ← ZeroExtend 4(i);
-op2 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(disp + op2);
-r0 ← SignExtend 8(ReadMemory 8 (address));
+disp ← ZeroExtend<4>(i);
+op2 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(disp + op2);
+r0 ← SignExtend<8>(ReadMemory<8>(address));
 R 0 ← Register(r0);
 )"},
   description
@@ -1386,7 +1386,7 @@ destination register.
 void MOVBL4 (int m, int d)
 {
   long disp = (0x0000000F & (long)d);
-  R[0] = Read_8 (R[m] + disp);
+  R[0] = Read<8>(R[m] + disp);
 
   if ((R[0] & 0x80) == 0)
     R[0] &= 0x000000FF;
@@ -1439,7 +1439,7 @@ destination register.
 void MOVBL12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  R[n] = Read_8 (R[m] + disp);
+  R[n] = Read<8>(R[m] + disp);
 
   if ((R[n] & 0x80) == 0)
     R[n] &= 0x000000FF;
@@ -1490,7 +1490,7 @@ destination register.
 void MOVBUL12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  R[n] = Read_8 (R[m] + disp);
+  R[n] = Read<8>(R[m] + disp);
   R[n] &= 0x000000FF;
   PC += 4;
 }
@@ -1520,10 +1520,10 @@ insn { "mov.w\t@(disp,Rm),R0",
   name { "_M_o_ve Structure Data" },
   brief
 {R"(
-disp ← ZeroExtend 4(i) << 1;
-op2 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(disp + op2);
-r0 ← SignExtend 16 (ReadMemory 16(address));
+disp ← ZeroExtend<4>(i) << 1;
+op2 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(disp + op2);
+r0 ← SignExtend<16>(ReadMemory<16>(address));
 R 0 ← Register(r0);
 )"},
   description
@@ -1546,7 +1546,7 @@ destination register.
 void MOVWL4 (int m, int d)
 {
   long disp = (0x0000000F & (long)d);
-  R[0] = Read_16 (R[m] + (disp << 1));
+  R[0] = Read<16>(R[m] + (disp << 1));
 
   if ((R[0] & 0x8000) == 0)
     R[0] &= 0x0000FFFF;
@@ -1599,7 +1599,7 @@ destination register.
 void MOVWL12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  R[n] = Read_16 (R[m] + (disp << 1));
+  R[n] = Read<16>(R[m] + (disp << 1));
 
   if ((R[n] & 0x8000) == 0)
     R[n] &= 0x0000FFFF;
@@ -1649,7 +1649,7 @@ destination register.
 void MOVWUL12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  R[n] = Read_16 (R[m] + (disp << 1));
+  R[n] = Read<16>(R[m] + (disp << 1));
   R[n] &= 0x0000FFFF;
   PC += 4;
 }
@@ -1679,11 +1679,11 @@ insn { "mov.l\t@(disp,Rm),Rn",
   name { "_M_o_ve Structure Data" },
   brief
 {R"(
-disp ← ZeroExtend 4(i) << 2;
-op2 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(disp + op2);
-op3 ← SignExtend 32 (ReadMemory 32(address));
-R n ← Register(op3);
+disp ← ZeroExtend<4>(i) << 2;
+op2 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(disp + op2);
+op3 ← SignExtend<32>(ReadMemory<32>(address));
+R[n] ← Register(op3);
 )"},
   description
 {R"(
@@ -1703,7 +1703,7 @@ the @(R0,Rn) mode can be used instead.
 void MOVLL4 (int m, int d, int n)
 {
   long disp = (0x0000000F & (long)d);
-  R[n] = Read_32 (R[m] + (disp << 2));
+  R[n] = Read<32>(R[m] + (disp << 2));
   PC += 2;
 }
 )"},
@@ -1749,7 +1749,7 @@ instruction is ideal for data access in a structure or the stack.
 void MOVLL12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  R[n] = Read_32 (R[m] + (disp << 2));
+  R[n] = Read<32>(R[m] + (disp << 2));
   PC += 4;
 }
 )"},
@@ -1778,11 +1778,11 @@ insn { "mov.b\tR0,@(disp,Rn)",
   name { "_M_o_ve Structure Data" },
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-disp ← ZeroExtend 4(i);
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(disp + op2);
-WriteMemory 8(address, r0);
+r0 ← SignExtend<32>(R0);
+disp ← ZeroExtend<4>(i);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(disp + op2);
+WriteMemory<8>(address, r0);
 )"},
   description
 {R"(
@@ -1802,7 +1802,7 @@ be used instead.
 void MOVBS4 (int d, int n)
 {
   long disp = (0x0000000F & (long)d);
-  Write_8 (R[n] + disp, R[0]);
+  Write<8>(R[n] + disp, R[0]);
   PC += 2;
 }
 )"},
@@ -1849,7 +1849,7 @@ instruction is ideal for data access in a structure or the stack.
 void MOVBS12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  Write_8 (R[n] + disp, R[m]);
+  Write<8>(R[n] + disp, R[m]);
   PC += 4;
 }
 )"},
@@ -1878,11 +1878,11 @@ insn { "mov.w\tR0,@(disp,Rn)",
   name { "_M_o_ve Structure Data" },
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-disp ← ZeroExtend 4(i) << 1;
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(disp + op2);
-WriteMemory 16(address, r0);
+r0 ← SignExtend<32>(R0);
+disp ← ZeroExtend<4>(i) << 1;
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(disp + op2);
+WriteMemory<16>(address, r0);
 )"},
   description
 {R"(
@@ -1902,7 +1902,7 @@ the @(R0,Rn) mode can be used instead.
 void MOVWS4 (int d, int n)
 {
   long disp = (0x0000000F & (long)d);
-  Write_16 (R[n] + (disp << 1), R[0]);
+  Write<16>(R[n] + (disp << 1), R[0]);
   PC += 2;
 }
 )"},
@@ -1948,7 +1948,7 @@ instruction is ideal for data access in a structure or the stack.
 void MOVWS12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  Write_16 (R[n] + (disp << 1), R[m]);
+  Write<16>(R[n] + (disp << 1), R[m]);
   PC += 4;
 }
 )"},
@@ -1977,11 +1977,11 @@ insn { "mov.l\tRm,@(disp,Rn)",
   name { "_M_o_ve Structure Data" },
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-disp ← ZeroExtend 4(i) << 2;
-op3 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(disp + op3);
-WriteMemory 32(address, op1);
+op1 ← SignExtend<32>(R[m]);
+disp ← ZeroExtend<4>(i) << 2;
+op3 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(disp + op3);
+WriteMemory<32>(address, op1);
 )"},
   description
 {R"(
@@ -2001,7 +2001,7 @@ the @(R0,Rn) mode can be used instead.
 void MOVLS4 (int m, int d, int n)
 {
   long disp = (0x0000000F & (long)d);
-  Write_32 (R[n] + (disp << 2), R[m]);
+  Write<32>(R[n] + (disp << 2), R[m]);
   PC += 2;
 }
 )"},
@@ -2048,7 +2048,7 @@ instruction is ideal for data access in a structure or the stack.
 void MOVLS12 (int d, int m, int n)
 {
   long disp = (0x00000FFF & (long)d);
-  Write_32 (R[n] + (disp << 2), R[m]);
+  Write<32>(R[n] + (disp << 2), R[m]);
   PC += 4;
 }
 )"},
@@ -2076,11 +2076,11 @@ insn { "mov.b\t@(R0,Rm),Rn",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(r0 + op1);
-op2 ← SignExtend 8(ReadMemory8 (address));
-R n ← Register(op2);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(r0 + op1);
+op2 ← SignExtend<8>(ReadMemory<8>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -2098,7 +2098,7 @@ destination register.
 {R"(
 void MOVBL0 (int m, int n)
 {
-  R[n] = Read_8 (R[m] + R[0]);
+  R[n] = Read<8>(R[m] + R[0]);
 
   if ((R[n] & 0x80) == 0)
     R[n] &= 0x000000FF;
@@ -2134,11 +2134,11 @@ insn { "mov.w\t@(R0,Rm),Rn",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(r0 + op1);
-op2 ← SignExtend 16 (ReadMemory 16(address));
-R n ← Register(op2);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(r0 + op1);
+op2 ← SignExtend<16>(ReadMemory<16>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -2156,7 +2156,7 @@ destination register.
 {R"(
 void MOVWL0 (int m, int n)
 {
-  R[n] = Read_16 (R[m] + R[0]);
+  R[n] = Read<16>(R[m] + R[0]);
 
   if ((R[n] & 0x8000) == 0)
     R[n] &= 0x0000FFFF;
@@ -2194,11 +2194,11 @@ insn { "mov.l\t@(R0,Rm),Rn",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(r0 + op1);
-op2 ← SignExtend 32 (ReadMemory 32(address));
-R n ← Register(op2);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(r0 + op1);
+op2 ← SignExtend<32>(ReadMemory<32>(address));
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -2214,7 +2214,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVLL0 (int m, int n)
 {
-  R[n] = Read_32 (R[m] + R[0]);
+  R[n] = Read<32>(R[m] + R[0]);
   PC += 2;
 }
 
@@ -2246,11 +2246,11 @@ insn { "mov.b\tRm,@(R0,Rn)",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(r0 + op2);
-WriteMemory 8(address, op1);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(r0 + op2);
+WriteMemory<8>(address, op1);
 )"},
   description
 {R"(
@@ -2266,7 +2266,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVBS0 (int m, int n)
 {
-  Write_8 (R[n] + R[0], R[m]);
+  Write<8>(R[n] + R[0], R[m]);
   PC += 2;
 }
 )"},
@@ -2299,11 +2299,11 @@ insn { "mov.w\tRm,@(R0,Rn)",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(r0 + op2);
-WriteMemory 16(address, op1);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(r0 + op2);
+WriteMemory<16>(address, op1);
 )"},
   description
 {R"(
@@ -2319,7 +2319,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVWS0 (int m, int n)
 {
-  Write_16 (R[n] + R[0], R[m]);
+  Write<16>(R[n] + R[0], R[m]);
   PC += 2;
 }
 )"},
@@ -2351,11 +2351,11 @@ insn { "mov.l\tRm,@(R0,Rn)",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(r0 + op2);
-WriteMemory 32(address, op1);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(r0 + op2);
+WriteMemory<32>(address, op1);
 )"},
   description
 {R"(
@@ -2371,7 +2371,7 @@ Transfers the source operand to the destination.
 {R"(
 void MOVLS0 (int m, int n)
 {
-  Write_32 (R[n] + R[0], R[m]);
+  Write<32>(R[n] + R[0], R[m]);
   PC += 2;
 }
 )"},
@@ -2404,10 +2404,10 @@ insn { "mov.b\t@(disp,GBR),R0",
   name { "_M_o_ve Global Data" },
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
-disp ← ZeroExtend 8(i);
-address ← ZeroExtend 32(disp + gbr);
-r0 ← SignExtend 8(ReadMemory 8 (address));
+gbr ← SignExtend<32>(GBR);
+disp ← ZeroExtend<8>(i);
+address ← ZeroExtend<32>(disp + gbr);
+r0 ← SignExtend<8>(ReadMemory<8>(address));
 R 0 ← Register(r0);
 )"},
   description
@@ -2429,7 +2429,7 @@ destination register.
 void MOVBLG (int d)
 {
   unsigned int disp = (0x000000FF & d);
-  R[0] = Read_8 (GBR + disp);
+  R[0] = Read<8>(GBR + disp);
 
   if ((R[0] & 0x80) == 0)
     R[0] &= 0x000000FF;
@@ -2467,10 +2467,10 @@ insn { "mov.w\t@(disp,GBR),R0",
   name { "_M_o_ve Global Data" },
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
-disp ← ZeroExtend 8(i) << 1;
-address ← ZeroExtend 32(disp + gbr);
-r0 ← SignExtend 16 (ReadMemory 16(address));
+gbr ← SignExtend<32>(GBR);
+disp ← ZeroExtend<8>(i) << 1;
+address ← ZeroExtend<32>(disp + gbr);
+r0 ← SignExtend<16>(ReadMemory<16>(address));
 R 0 ← Register(r0);
 )"},
   description
@@ -2492,7 +2492,7 @@ destination register.
 void MOVWLG (int d)
 {
   unsigned int disp = (0x000000FF & d);
-  R[0] = Read_16 (GBR + (disp << 1));
+  R[0] = Read<16>(GBR + (disp << 1));
 
   if ((R[0] & 0x8000) == 0)
     R[0] &= 0x0000FFFF;
@@ -2530,10 +2530,10 @@ insn { "mov.l\t@(disp,GBR),R0",
   name { "_M_o_ve Global Data" },
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
-disp ← ZeroExtend 8(i) << 2;
-address ← ZeroExtend 32(disp + gbr);
-r0 ← SignExtend 32 (ReadMemory 32(address));
+gbr ← SignExtend<32>(GBR);
+disp ← ZeroExtend<8>(i) << 2;
+address ← ZeroExtend<32>(disp + gbr);
+r0 ← SignExtend<32>(ReadMemory<32>(address));
 R 0 ← Register(r0);
 )"},
   description
@@ -2553,7 +2553,7 @@ range up to +1020 bytes to be specified.
 void MOVLLG (int d)
 {
   unsigned int disp = (0x000000FF & d);
-  R[0] = Read_32 (GBR + (disp << 2));
+  R[0] = Read<32>(GBR + (disp << 2));
   PC += 2;
 }
 )"},
@@ -2585,11 +2585,11 @@ insn { "mov.b\tR0,@(disp,GBR)",
   name { "_M_o_ve Global Data" },
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
-r0 ← SignExtend 32 (R0);
-disp ← ZeroExtend 8(i);
-address ← ZeroExtend 32(disp + gbr);
-WriteMemory 8(address, r0);
+gbr ← SignExtend<32>(GBR);
+r0 ← SignExtend<32>(R0);
+disp ← ZeroExtend<8>(i);
+address ← ZeroExtend<32>(disp + gbr);
+WriteMemory<8>(address, r0);
 )"},
   description
 {R"(
@@ -2608,7 +2608,7 @@ specified.
 void MOVBSG (int d)
 {
   unsigned int disp = (0x000000FF & d);
-  Write_8 (GBR + disp, R[0]);
+  Write<8>(GBR + disp, R[0]);
   PC += 2;
 }
 )"},
@@ -2641,11 +2641,11 @@ insn { "mov.w\tR0,@(disp,GBR)",
   name { "_M_o_ve Global Data" },
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
-r0 ← SignExtend 32 (R0);
-disp ← ZeroExtend 8(i) << 1;
-address ← ZeroExtend 32(disp + gbr);
-WriteMemory 16(address, r0);
+gbr ← SignExtend<32>(GBR);
+r0 ← SignExtend<32>(R0);
+disp ← ZeroExtend<8>(i) << 1;
+address ← ZeroExtend<32>(disp + gbr);
+WriteMemory<16>(address, r0);
 )"},
   description
 {R"(
@@ -2664,7 +2664,7 @@ range up to +510 bytes to be specified.
 void MOVWSG (int d)
 {
   unsigned int disp = (0x000000FF & d);
-  Write_16 (GBR + (disp << 1), R[0]);
+  Write<16>(GBR + (disp << 1), R[0]);
   PC += 2;
 }
 )"},
@@ -2697,11 +2697,11 @@ insn { "mov.l\tR0,@(disp,GBR)",
   name { "_M_o_ve Global Data" },
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
-r0 ← SignExtend 32 (R0);
-disp ← ZeroExtend 8(i) << 2;
-address ← ZeroExtend 32(disp + gbr);
-WriteMemory 32(address, r0);
+gbr ← SignExtend<32>(GBR);
+r0 ← SignExtend<32>(R0);
+disp ← ZeroExtend<8>(i) << 2;
+address ← ZeroExtend<32>(disp + gbr);
+WriteMemory<32>(address, r0);
 )"},
   description
 {R"(
@@ -2720,7 +2720,7 @@ range up to +1020 bytes to be specified.
 void MOVLSG (int d)
 {
   unsigned int disp = (0x000000FF & (long)d);
-  Write_32 (GBR + (disp << 2), R[0]);
+  Write<32>(GBR + (disp << 2), R[0]);
   PC += 2;
 }
 )"},
@@ -2774,7 +2774,7 @@ void MOVCO (int n)
 {
   T = LDST;
   if (T == 1)
-    Write_32 (R[n], R[0]);
+    Write<32>(R[n], R[0]);
 
   LDST = 0;
   PC += 2
@@ -2830,7 +2830,7 @@ to 0, the MOVCO instruction clears the T bit and does not proceed with storage.
 void MOVLINK (int m)
 {
   LDST = 1;
-  R[0] = Read_32 (R[m]);
+  R[0] = Read<32>(R[m]);
   PC += 2
 }
 )"},
@@ -2880,7 +2880,7 @@ exceptions do not occur when access is to non-longword-boundary addresses
 {R"(
 void MOVUAL (int m)
 {
-  Read_Unaligned_32 (R0, R[m]);
+  ReadUnaligned<32>(R0, R[m]);
   PC += 2;
 }
 )"},
@@ -2930,7 +2930,7 @@ exceptions do not occur when access is to non-longword-boundary addresses
 {R"(
 void MOVUALP (int m)
 {
-  Read_Unaligned_32 (R0,R[m]);
+  ReadUnaligned<32>(R0,R[m]);
 
   if (m != 0)
     R[m] += 4;
@@ -2993,9 +2993,9 @@ void MOVLMML (int m)
   for (int i = m; i >= 0; i--)
   {
     if (i == 15)
-      Write_32 (R[15] - 4, PR);
+      Write<32>(R[15] - 4, PR);
     else
-      Write_32 (R[15] - 4, R[i]);
+      Write<32>(R[15] - 4, R[i]);
 
     R[15] -= 4;
   }
@@ -3055,9 +3055,9 @@ void MOVLPML (int n)
   for (int i = 0; i <= n; i++)
   {
     if (i == 15)
-      PR = Read_32 (R[15]);
+      PR = Read<32>(R[15]);
     else
-      R[i] = Read_32 (R[15]);
+      R[i] = Read<32>(R[15]);
 
     R[15] += 4;
   }
@@ -3112,12 +3112,12 @@ If R15 is specified, PR is transferred instead of R15.
 {R"(
 void MOVLMMU (int m)
 {
-  Write_32 (R[15] - 4, PR);
+  Write<32>(R[15] - 4, PR);
   R[15] -= 4;
 
   for (int i = 14; i >= m; i--)
   {
-    Write_32 (R[15] - 4, R[i]);
+    Write<32>(R[15] - 4, R[i]);
     R[15] -= 4;
   }
 
@@ -3174,11 +3174,11 @@ void MOVLPMU (int n)
 {
   for (int i = n; i <= 14; i++)
   {
-    R[i] = Read_32 (R[15]);
+    R[i] = Read<32>(R[15]);
     R[15] += 4;
   }
 
-  PR = Read_32 (R[15]);
+  PR = Read<32>(R[15]);
   R[15] += 4;
   PC += 2;
 }
@@ -3253,9 +3253,9 @@ insn { "movt\tRn",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
+t ← ZeroExtend<1>(T);
 op1 ← t;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -3344,7 +3344,7 @@ void NOTT (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.b\tRm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn = swap lower 2 bytes ( Rm )" },
+  abstract { "Rn = swap lower 2 bytes ( R[m]" },
   opcode { "0110nnnnmmmm1000" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3353,9 +3353,9 @@ insn { "swap.b\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
+op1 ← ZeroExtend<32>(R[m]);
 op2 ← ((op1 < 16 FOR 16 > << 16) ∨ (op1 < 0 FOR 8 > << 8)) ∨ op1< 8 FOR 8 > ;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -3399,7 +3399,7 @@ SWAP.B R0,R1 ;Before execution: R0 = H'12345678
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.w\tRm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := swap upper/lower words( Rm )" },
+  abstract { "Rn := swap upper/lower words( R[m]" },
   opcode { "0110nnnnmmmm1001" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3408,9 +3408,9 @@ insn { "swap.w\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
+op1 ← ZeroExtend<32>(R[m]);
 op2 ← (op1 < 0 FOR 16 > << 16) ∨ op1< 16 FOR 16 > ;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -3461,10 +3461,10 @@ insn { "xtrct\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
-op2 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[m]);
+op2 ← ZeroExtend<32>(R[n]);
 op2 ← op2 < 16 FOR 16 > ∨ (op1 < 0 FOR 16 > << 16);
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -3537,7 +3537,7 @@ void BANDM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   long assignbit = (0x00000001 << imm) & temp;
 
   if ((T == 0) || (assignbit == 0))
@@ -3591,7 +3591,7 @@ void BANDNOTM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   long assignbit = (0x00000001 << imm) & temp;
 
   if ((T == 1) && (assignbit == 0))
@@ -3646,9 +3646,9 @@ void BCLRM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   temp &= (~(0x00000001 << imm));
-  Write_8 (R[n] + disp, temp);
+  Write<8>(R[n] + disp, temp);
   PC += 4;
 }
 )"},
@@ -3738,7 +3738,7 @@ void BLDM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   long assignbit = (0x00000001 << imm) & temp;
 
   if (assignbit == 0)
@@ -3842,7 +3842,7 @@ void BLDNOTM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   long assignbit = (0x00000001 << imm) & temp;
 
   if (assignbit == 0)
@@ -3897,7 +3897,7 @@ void BORM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   long assignbit = (0x00000001 << imm) & temp;
 
   if ((T == 0) && (assignbit == 0))
@@ -3951,7 +3951,7 @@ void BORNOTM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   long assignbit = (0x00000001 << imm) & temp;
 
   if ((T == 1) || (assignbit == 0))
@@ -4004,9 +4004,9 @@ void BSETM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   temp |= (0x00000001 << imm);
-  Write_8 (R[n] + disp, temp);
+  Write<8>(R[n] + disp, temp);
   PC += 4;
 }
 )"},
@@ -4097,14 +4097,14 @@ void BSTM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
 
   if (T == 0)
     temp &= (~(0x00000001 << imm));
   else
     temp |= (0x00000001 << imm);
 
-  Write_8 (R[n] + disp, temp);
+  Write<8>(R[n] + disp, temp);
   PC += 4;
 }
 )"},
@@ -4204,7 +4204,7 @@ void BXORM (int d, int i, int n)
 {
   long disp = (0x00000FFF & (long)d);
   long imm = (0x00000007 & (long)i);
-  long temp = Read_8 (R[n] + disp);
+  long temp = Read<8>(R[n] + disp);
   long assignbit = (0x00000001 << imm) & temp;
 
   if (assignbit == 0)
@@ -4255,10 +4255,10 @@ insn { "add\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 op2 ← op2 + op1;
-R n ← Register(op2)
+R[n] ← Register(op2)
 )"},
 
   description
@@ -4306,10 +4306,10 @@ insn { "add\t#imm,Rn",
 
 brief
 {R"(
-imm ← SignExtend 8 (s);
-op2 ← SignExtend 32 (Rn );
+imm ← SignExtend<8>(s);
+op2 ← SignExtend<32>(Rn );
 op2 ← op2 + imm;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
 
   description
@@ -4366,12 +4366,12 @@ insn { "addc\tRm,Rn",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-op1 ← ZeroExtend 32(SignExtend 32(R m));
-op2 ← ZeroExtend 32(SignExtend 32(R n));
+t ← ZeroExtend<1>(T);
+op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
+op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 op2 ← (op2 + op1) + t;
 t ← op2< 32 FOR 1 > ;
-R n ← Register(op2);
+R[n] ← Register(op2);
 T ← Bit(t);
 )"},
 
@@ -4438,11 +4438,11 @@ insn { "addv\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 op2 ← op2 + op1;
 t ← INT ((op2 < (- 231)) OR (op2 ≥ 2 31));
-R n ← Register(op2);
+R[n] ← Register(op2);
 T ← Bit(t);
 )"},
 
@@ -4525,8 +4525,8 @@ insn { "cmp/eq\t#imm,R0",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-imm ← SignExtend 8(s);
+r0 ← SignExtend<32>(R0);
+imm ← SignExtend<8>(s);
 t ← INT (r0 = imm);
 T ← Bit(t);
 )"},
@@ -4587,8 +4587,8 @@ insn { "cmp/eq\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 t ← INT (op2 = op1);
 T ← Bit(t);
 )"},
@@ -4641,8 +4641,8 @@ insn { "cmp/hs\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(SignExtend 32(R m));
-op2 ← ZeroExtend 32(SignExtend 32(R n));
+op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
+op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 t ← INT (op2 ≥ op1);
 T ← Bit(t);
 )"},
@@ -4696,8 +4696,8 @@ insn { "cmp/ge\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 t ← INT (op2 ≥ op1);
 T ← Bit(t);
 )"},
@@ -4751,8 +4751,8 @@ insn { "cmp/hi\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(SignExtend 32(R m));
-op2 ← ZeroExtend 32(SignExtend 32(R n));
+op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
+op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 t ← INT (op2 > op1);
 T ← Bit(t);
 )"},
@@ -4806,8 +4806,8 @@ insn { "cmp/gt\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 t ← INT (op2 > op1);
 T ← Bit(t);
 )"},
@@ -4861,7 +4861,7 @@ insn { "cmp/pl\tRn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 t ← INT (op1 > 0);
 T ← Bit(t);
 )"},
@@ -4915,7 +4915,7 @@ insn { "cmp/pz\tRn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 t ← INT (op1 ≥ 0);
 T ← Bit(t);
 )"},
@@ -4969,8 +4969,8 @@ insn { "cmp/str\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 temp ← op1 ⊕ op2;
 t ← INT (temp < 0 FOR 8 > = 0);
 t ← (INT (temp < 8 FOR 8 > = 0)) ∨ t;
@@ -5257,8 +5257,8 @@ insn { "div0s\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 q ← op2< 31 FOR 1 > ;
 m ← op1 < 31 FOR 1 > ;
 t ← m ⊕ q;
@@ -5379,21 +5379,21 @@ insn { "div1\tRm,Rn",
 
   brief
 {R"(
-q ← ZeroExtend 1(Q);
-m ← ZeroExtend 1(M);
-t ← ZeroExtend 1(T);
-op1 ← ZeroExtend 32(SignExtend 32(R m));
-op2 ← ZeroExtend 32(SignExtend 32(R n));
+q ← ZeroExtend<1>(Q);
+m ← ZeroExtend<1>(M);
+t ← ZeroExtend<1>(T);
+op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
+op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 oldq ← q;
 q ← op2< 31 FOR 1 > ;
-op2 ← ZeroExtend 32(op2 << 1) ∨ t;
+op2 ← ZeroExtend<32>(op2 << 1) ∨ t;
 IF (oldq = m)
-op2 ← op2 - op1;
+  op2 ← op2 - op1;
 ELSE
-op2 ← op2 + op1;
+  op2 ← op2 + op1;
 q ← (q ⊕ m) ⊕ op2< 32 FOR 1 > ;
 t ← 1 - (q ⊕ m);
-R n ← Register(op2);
+R[n] ← Register(op2);
 Q ← Bit(q);
 T ← Bit(t);
 )"},
@@ -5719,13 +5719,13 @@ insn { "dmuls.l\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 mac ← op2 × op1;
 macl ← mac;
 mach ← mac >> 32;
-MACL ← ZeroExtend 32 (macl);
-MACH ← ZeroExtend 32 (mach);
+MACL ← ZeroExtend<32>(macl);
+MACH ← ZeroExtend<32>(mach);
 )"},
 
   description
@@ -5830,13 +5830,13 @@ insn { "dmulu.l\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(SignExtend 32(R m));
-op2 ← ZeroExtend 32(SignExtend 32(R n));
+op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
+op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 mac ← op2 × op1;
 macl ← mac;
 mach ← mac >> 32;
-MACL ← ZeroExtend 32 (macl);
-MACH ← ZeroExtend 32 (mach);
+MACL ← ZeroExtend<32>(macl);
+MACH ← ZeroExtend<32>(mach);
 )"},
 
   description
@@ -5914,10 +5914,10 @@ insn { "dt\tRn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 op1 ← op1 - 1;
 t ← INT (op1 = 0);
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
 
@@ -5975,9 +5975,9 @@ insn { "exts.b\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 8(R m );
+op1 ← SignExtend<8>(R[m] );
 op2 ← op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
 
   description
@@ -6030,9 +6030,9 @@ insn { "exts.w\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 16 (Rm );
+op1 ← SignExtend<16>(R[m]);
 op2 ← op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
 
   description
@@ -6085,9 +6085,9 @@ insn { "extu.b\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 8(Rm );
+op1 ← ZeroExtend<8>(R[m]);
 op2 ← op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
 
   description
@@ -6135,9 +6135,9 @@ insn { "extu.w\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 16(R m);
+op1 ← ZeroExtend<16>(R[m]);
 op2 ← op1;
-R n ← Register(op2)
+R[n] ← Register(op2)
 )"},
 
   description
@@ -6185,39 +6185,43 @@ insn { "mac.l\t@Rm+,@Rn+",
 
   brief
 {R"(
-macl ← ZeroExtend 32 (MACL);
-mach ← ZeroExtend 32(MACH);
-s ← ZeroExtend 1 (S);
-m_field ← ZeroExtend 4(m);
-n_field ← ZeroExtend 4(n);
-m_address ← SignExtend 32 (Rm );
-n_address ← SignExtend 32 (Rn);
-value2 ← SignExtend 32 (ReadMemory 32 (ZeroExtend 32 (n_address)));
+macl ← ZeroExtend<32>(MACL);
+mach ← ZeroExtend<32>(MACH);
+s ← ZeroExtend<1>(S);
+m_field ← ZeroExtend<4>(m);
+n_field ← ZeroExtend<4>(n);
+m_address ← SignExtend<32>(R[m]);
+n_address ← SignExtend<32>(R[n]);
+value2 ← SignExtend<32>(ReadMemory<32>(ZeroExtend<32>(n_address)));
 n_address ← n_address + 4;
 IF (n_field = m_field)
 {
-m_address ← m_address + 4;
-n_address ← n_address + 4;
+  m_address ← m_address + 4;
+  n_address ← n_address + 4;
 }
-value1 ← SignExtend 32 (ReadMemory 32 (ZeroExtend 32 (m_address)));
+value1 ← SignExtend<32>(ReadMemory<32>(ZeroExtend<32>(m_address)));
 m_address ← m_address + 4;
 mul ← value2 × value1;
 mac ← (mach << 32) + macl;
 result ← mac + mul;
 IF (s = 1)
-IF (((result ⊕ mac) ∧ (result ⊕ mul)) < 63 FOR 1 > = 1)
-IF (mac < 63 FOR 1 > = 0)
-result ← 247 - 1;
-ELSE
-result ← - 247 ;
-ELSE
-result ← SignedSaturate 48 (result);
+{
+  IF (((result ⊕ mac) ∧ (result ⊕ mul)) < 63 FOR 1 > = 1)
+  {
+    IF (mac < 63 FOR 1 > = 0)
+      result ← 247 - 1;
+    ELSE
+      result ← - 247 ;
+  }
+  ELSE
+    result ← SignedSaturate<48>(result);
+}
 macl ← result;
 mach ← result >> 32;
-R m ← Register(m_address);
-R n ← Register(n_address);
-MACL ← ZeroExtend 32 (macl);
-MACH ← ZeroExtend 32 (mach);
+R[m] ← Register(m_address);
+R[n] ← Register(n_address);
+MACL ← ZeroExtend<32>(macl);
+MACH ← ZeroExtend<32>(mach);
 )"},
   description
 {R"(
@@ -6250,9 +6254,9 @@ void MACL (int m, int n)
   unsigned long temp0, temp1, temp2, temp3;
   long tempm, tempn, fnLmL;
 
-  tempn = Read_32 (R[n]);
+  tempn = Read<32>(R[n]);
   R[n] += 4;
-  tempm = Read_32 (R[m]);
+  tempm = Read<32>(R[m]);
   R[m] += 4;
 
   if ((long)(tempn ^ tempm) < 0)
@@ -6376,40 +6380,40 @@ insn { "mac.w\t@Rm+,@Rn+",
 
   brief
 {R"(
-macl ← ZeroExtend 32 (MACL);
-mach ← ZeroExtend 32(MACH);
-s ← ZeroExtend 1 (S);
-m_field ← ZeroExtend 4(m);
-n_field ← ZeroExtend 4(n);
-m_address ← SignExtend 32 (Rm );
-n_address ← SignExtend 32 (Rn);
-value2 ← SignExtend 16 (ReadMemory 16 (ZeroExtend 32 (n_address)));
+macl ← ZeroExtend<32>(MACL);
+mach ← ZeroExtend<32>(MACH);
+s ← ZeroExtend<1>(S);
+m_field ← ZeroExtend<4>(m);
+n_field ← ZeroExtend<4>(n);
+m_address ← SignExtend<32>(R[m]);
+n_address ← SignExtend<32>(R[n]);
+value2 ← SignExtend<16>(ReadMemory<16>(ZeroExtend<32>(n_address)));
 n_address ← n_address + 2;
 IF (n_field = m_field)
 {
-m_address ← m_address + 2;
-n_address ← n_address + 2;
+  m_address ← m_address + 2;
+  n_address ← n_address + 2;
 }
-value1 ← SignExtend 16 (ReadMemory 16 (ZeroExtend 32 (m_address)));
+value1 ← SignExtend<16>(ReadMemory<16>(ZeroExtend<32>(m_address)));
 m_address ← m_address + 2;
 mul ← value2 × value1;
 IF (s = 1)
 {
-macl ← SignExtend 32(macl) + mul;
-temp ← SignedSaturate 32 (macl);
-IF (macl = temp)
-result ← (mach << 32) ∨ ZeroExtend 32 (macl);
-ELSE
-result ← (0x1 << 32) ∨ ZeroExtend 32 (temp);
+  macl ← SignExtend<32>(macl) + mul;
+  temp ← SignedSaturate<32>(macl);
+  IF (macl = temp)
+    result ← (mach << 32) ∨ ZeroExtend<32>(macl);
+  ELSE
+    result ← (0x1 << 32) ∨ ZeroExtend<32>(temp);
 }
 ELSE
-result ← ((mach << 32) + macl) + mul;
+  result ← ((mach << 32) + macl) + mul;
 macl ← result;
 mach ← result >> 32;
-R m ← Register(m_address);
-R n ← Register(n_address);
-MACL ← ZeroExtend 32 (macl);
-MACH ← ZeroExtend 32 (mach);
+R[m] ← Register(m_address);
+R[n] ← Register(n_address);
+MACL ← ZeroExtend<32>(macl);
+MACH ← ZeroExtend<32>(mach);
 )"},
   description
 {R"(
@@ -6450,9 +6454,9 @@ void MACW (int m, int n)
   long tempm, tempn, dest, src, ans;
   unsigned long templ;
 
-  tempn = Read_16 (R[n]);
+  tempn = Read<16>(R[n]);
   R[n] += 2;
-  tempm = Read_16 (R[m]);
+  tempm = Read<16>(R[m]);
   R[m] += 2;
 
   templ = MACL;
@@ -6555,10 +6559,10 @@ insn { "mul.l\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 macl ← op1 × op2;
-MACL ← ZeroExtend 32 (macl);
+MACL ← ZeroExtend<32>(macl);
 )"},
   description
 {R"(
@@ -6649,10 +6653,10 @@ insn { "muls.w\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 16 (SignExtend32 (Rm ));
-op2 ← SignExtend 16 (SignExtend32 (Rn));
+op1 ← SignExtend<16>(SignExtend<32>(R[m]);
+op2 ← SignExtend<16>(SignExtend<32>(R[n]));
 macl ← op1 × op2;
-MACL ← ZeroExtend 32 (macl);
+MACL ← ZeroExtend<32>(macl);
 )"},
   description
 {R"(
@@ -6702,10 +6706,10 @@ insn { "mulu.w\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 16(SignExtend 32(R m));
-op2 ← ZeroExtend 16(SignExtend 32(R n));
+op1 ← ZeroExtend<16>(SignExtend<32>(R[m]));
+op2 ← ZeroExtend<16>(SignExtend<32>(R[n]));
 macl ← op1 × op2;
-MACL ← ZeroExtend 32 (macl);
+MACL ← ZeroExtend<32>(macl);
 )"},
   description
 {R"(
@@ -6755,9 +6759,9 @@ insn { "neg\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
+op1 ← SignExtend<32>(R[m]);
 op2 ← - op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -6804,11 +6808,11 @@ insn { "negc\tRm,Rn",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-op1 ← ZeroExtend 32(R m);
+t ← ZeroExtend<1>(T);
+op1 ← ZeroExtend<32>(R[m]);
 op2 ← (- op1) - t;
 t ← op2< 32 FOR 1 > ;
-R n ← Register(op2);
+R[n] ← Register(op2);
 T ← Bit(t);
 )"},
   description
@@ -6885,10 +6889,10 @@ insn { "sub\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 op2 ← op2 - op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -6936,12 +6940,12 @@ insn { "subc\tRm,Rn",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-op1 ← ZeroExtend 32(SignExtend 32(R m));
-op2 ← ZeroExtend 32(SignExtend 32(R n));
+t ← ZeroExtend<1>(T);
+op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
+op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 op2 ← (op2 - op1) - t;
 t ← op2< 32 FOR 1 > ;
-R n ← Register(op2);
+R[n] ← Register(op2);
 T ← Bit(t);
 )"},
   description
@@ -7018,11 +7022,11 @@ insn { "subv\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 op2 ← op2 - op1;
 t ← INT ((op2 < (- 231)) OR (op2 ≥ 2 31));
-R n ← Register(op2);
+R[n] ← Register(op2);
 T ← Bit(t);
 )"},
   description
@@ -7109,10 +7113,10 @@ insn { "and\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
-op2 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[m]);
+op2 ← ZeroExtend<32>(R[n]);
 op2 ← op2 ∧ op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
 
   description
@@ -7158,8 +7162,8 @@ insn { "and\t#imm,R0",
 
   brief
 {R"(
-r0 ← ZeroExtend 32(R 0);
-imm ← ZeroExtend 8(i);
+r0 ← ZeroExtend<32>(R 0);
+imm ← ZeroExtend<8>(i);
 r0 ← r0 ∧ imm;
 R 0 ← Register(r0);
 )"},
@@ -7209,13 +7213,13 @@ insn { "and.b\t#imm,@(R0,GBR)",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-gbr ← SignExtend 32 (GBR);
-imm ← ZeroExtend 8(i);
-address ← ZeroExtend 32(r0 + gbr);
-value ← ZeroExtend 8 (ReadMemory 8(address));
+r0 ← SignExtend<32>(R0);
+gbr ← SignExtend<32>(GBR);
+imm ← ZeroExtend<8>(i);
+address ← ZeroExtend<32>(r0 + gbr);
+value ← ZeroExtend<8>(ReadMemory<8>(address));
 value ← value ∧ imm;
-WriteMemory 8(address, value);
+WriteMemory<8>(address, value);
 )"},
 
   description
@@ -7233,9 +7237,9 @@ the immediate value and writes the result back to the memory byte.
 {R"(
 void ANDM (long i)
 {
-  long temp = Read_8 (GBR + R[0]);
+  long temp = Read<8>(GBR + R[0]);
   temp &= 0x000000FF & (long)i;
-  Write_8 (GBR + R[0], temp);
+  Write<8>(GBR + R[0], temp);
   PC += 2;
 }
 )"},
@@ -7271,9 +7275,9 @@ insn { "not\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
+op1 ← ZeroExtend<32>(R[m]);
 op2 ← ~ op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -7319,10 +7323,10 @@ insn { "or\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
-op2 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[m]);
+op2 ← ZeroExtend<32>(R[n]);
 op2 ← op2 ∨ op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -7367,8 +7371,8 @@ insn { "or\t#imm,R0",
 
   brief
 {R"(
-r0 ← ZeroExtend 32(R 0);
-imm ← ZeroExtend 8(i);
+r0 ← ZeroExtend<32>(R 0);
+imm ← ZeroExtend<8>(i);
 r0 ← r0 ∨ imm;
 R 0 ← Register(r0);
 )"},
@@ -7417,13 +7421,13 @@ insn { "or.b\t#imm,@(R0,GBR)",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-gbr ← SignExtend 32 (GBR);
-imm ← ZeroExtend 8(i);
-address ← ZeroExtend 32(r0 + gbr);
-value ← ZeroExtend 8 (ReadMemory 8(address));
+r0 ← SignExtend<32>(R0);
+gbr ← SignExtend<32>(GBR);
+imm ← ZeroExtend<8>(i);
+address ← ZeroExtend<32>(r0 + gbr);
+value ← ZeroExtend<8>(ReadMemory<8>(address));
 value ← value ∨ imm;
-WriteMemory 8(address, value);
+WriteMemory<8>(address, value);
 )"},
   description
 {R"(
@@ -7440,9 +7444,9 @@ the immediate value and writes the result back to the memory byte.
 {R"(
 void ORM (int i)
 {
-  long temp = Read_8 (GBR + R[0]);
+  long temp = Read<8>(GBR + R[0]);
   temp |= (0x000000FF & (long)i);
-  Write_8 (GBR + R[0], temp);
+  Write<8>(GBR + R[0], temp);
   PC += 2;
 }
 )"},
@@ -7479,13 +7483,13 @@ insn { "tas.b\t@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1);
 OCBP(address)
-value ← ZeroExtend 8 (ReadMemory 8(address));
+value ← ZeroExtend<8>(ReadMemory<8>(address));
 t ← INT (value = 0);
 value ← value ∨ (1 << 7);
-WriteMemory 8(address, value);
+WriteMemory<8>(address, value);
 T ← Bit(t);
 )"},
   description
@@ -7522,7 +7526,7 @@ non-cacheable space when the cache is enabled.
 {R"(
 void TAS (int n)
 {
-  int temp = Read_8 (R[n]); // Bus Lock
+  int temp = Read<8>(R[n]); // Bus Lock
 
   if (temp == 0)
     T = 1;
@@ -7530,7 +7534,7 @@ void TAS (int n)
     T = 0;
 
   temp |= 0x00000080;
-  Write_8 (R[n], temp);  // Bus unlock
+  Write<8>(R[n], temp);  // Bus unlock
   PC += 2;
 }
 )"},
@@ -7567,8 +7571,8 @@ insn { "tst\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
 t ← INT ((op1 ∧ op2) = 0);
 T ← Bit(t);
 )"},
@@ -7622,8 +7626,8 @@ insn { "tst\t#imm,R0",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-imm ← ZeroExtend 8(i);
+r0 ← SignExtend<32>(R0);
+imm ← ZeroExtend<8>(i);
 t ← INT ((r0 ∧ imm) = 0);
 T ← Bit(t);
 )"},
@@ -7680,11 +7684,11 @@ insn { "tst.b\t#imm,@(R0,GBR)",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-gbr ← SignExtend 32 (GBR);
-imm ← ZeroExtend 8(i);
-address ← ZeroExtend 32(r0 + gbr);
-value ← ZeroExtend 8 (ReadMemory 8(address));
+r0 ← SignExtend<32>(R0);
+gbr ← SignExtend<32>(GBR);
+imm ← ZeroExtend<8>(i);
+address ← ZeroExtend<32>(r0 + gbr);
+value ← ZeroExtend<8>(ReadMemory<8>(address));
 t ← ((value ∧ imm) = 0);
 T ← Bit(t);
 )"},
@@ -7705,7 +7709,7 @@ The contents of the memory byte are not changed.
 {R"(
 void TSTM (int i)
 {
-  long temp = Read_8 (GBR + R[0]);
+  long temp = Read<8>(GBR + R[0]);
   temp &= (0x000000FF & (long)i);
 
   if (temp == 0)
@@ -7747,10 +7751,10 @@ insn { "xor\tRm,Rn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R m);
-op2 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[m]);
+op2 ← ZeroExtend<32>(R[n]);
 op2 ← op2 ⊕ op1;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -7795,8 +7799,8 @@ insn { "xor\t#imm,R0",
 
   brief
 {R"(
-r0 ← ZeroExtend 32(R 0);
-imm ← ZeroExtend 8(i);
+r0 ← ZeroExtend<32>(R 0);
+imm ← ZeroExtend<8>(i);
 r0 ← r0 ⊕ imm;
 R 0 ← Register(r0)
 )"},
@@ -7845,13 +7849,13 @@ insn { "xor.b\t#imm,@(R0,GBR)",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-gbr ← SignExtend 32 (GBR);
-imm ← ZeroExtend 8(i);
-address ← ZeroExtend 32(r0 + gbr);
-value ← ZeroExtend 8 (ReadMemory 8(address));
+r0 ← SignExtend<32>(R0);
+gbr ← SignExtend<32>(GBR);
+imm ← ZeroExtend<8>(i);
+address ← ZeroExtend<32>(r0 + gbr);
+value ← ZeroExtend<8>(ReadMemory<8>(address));
 value ← value ⊕ imm;
-WriteMemory 8(address, value);
+WriteMemory<8>(address, value);
 )"},
   description
 {R"(
@@ -7868,9 +7872,9 @@ the immediate value and writes the result back to the memory byte.
 {R"(
 void XORM (int i)
 {
-  int temp = Read_8 (GBR + R[0]);
+  int temp = Read<8>(GBR + R[0]);
   temp ^= (0x000000FF & (long)i);
-  Write_8 (GBR + R[0], temp);
+  Write<8>(GBR + R[0], temp);
   PC += 2;
 }
 )"},
@@ -7913,11 +7917,11 @@ insn { "rotcl\tRn",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-op1 ← ZeroExtend 32(R n);
+t ← ZeroExtend<1>(T);
+op1 ← ZeroExtend<32>(R[n]);
 op1 ← (op1 << 1) ∨ t;
 t ← op1< 32 FOR 1 > ;
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -7985,12 +7989,12 @@ insn { "rotcr\tRn",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-op1 ← ZeroExtend 32(R n);
+t ← ZeroExtend<1>(T);
+op1 ← ZeroExtend<32>(R[n]);
 oldt ← t;
 t ← op1< 0 FOR 1 > ;
 op1 ← (op1 >> 1) ∨ (oldt << 31);
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -8059,10 +8063,10 @@ insn { "rotl\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 t ← op1< 31 FOR 1 > ;
 op1 ← (op1 << 1) ∨ t;
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -8122,10 +8126,10 @@ insn { "rotr\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 t ← op1< 0 FOR 1 > ;
 op1 ← (op1 >> 1) ∨ (t << 31);
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -8184,18 +8188,18 @@ insn { "shad\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← SignExtend 32 (Rn);
-shift_amount ← ZeroExtend 5(op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← SignExtend<32>(R[n]);
+shift_amount ← ZeroExtend<5>(op1);
 IF (op1 ≥ 0)
-op2 ← op2 << shift_amount;
+  op2 ← op2 << shift_amount;
 ELSE IF (shift_amount ≠ 0)
-op2 ← op2 >> (32 - shift_amount);
+  op2 ← op2 >> (32 - shift_amount);
 ELSE IF (op2 < 0)
-op2 ← - 1;
+  op2 ← - 1;
 ELSE
-op2 ← 0;
-R n ← Register(op2);
+  op2 ← 0;
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -8265,10 +8269,10 @@ insn { "shal\tRn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 t ← op1< 31 FOR 1 > ;
 op1 ← op1 << 1;
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -8323,10 +8327,10 @@ insn { "shar\tRn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 t ← op1< 0 FOR 1 > ;
 op1 ← op1 >> 1;
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -8393,16 +8397,16 @@ insn { "shld\tRm,Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-op2 ← ZeroExtend 32(R n);
-shift_amount ← ZeroExtend 5(op1);
+op1 ← SignExtend<32>(R[m]);
+op2 ← ZeroExtend<32>(R[n]);
+shift_amount ← ZeroExtend<5>(op1);
 IF (op1 ≥ 0)
-op2 ← op2 << shift_amount;
+  op2 ← op2 << shift_amount;
 ELSE IF (shift_amount ≠ 0)
-op2 ← op2 >> (32 - shift_amount);
+  op2 ← op2 >> (32 - shift_amount);
 ELSE
-op2 ← 0;
-R n ← Register(op2);
+  op2 ← 0;
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -8467,10 +8471,10 @@ insn { "shll\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 t ← op1< 31 FOR 1 > ;
 op1 ← op1 << 1;
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -8524,9 +8528,9 @@ insn { "shll2\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 op1 ← op1 << 2;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -8573,9 +8577,9 @@ insn { "shll8\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 op1 ← op1 << 8;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -8622,9 +8626,9 @@ insn { "shll16\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 op1 ← op1 << 16;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -8672,10 +8676,10 @@ insn { "shlr\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 t ← op1< 0 FOR 1 > ;
 op1 ← op1 >> 1;
-R n ← Register(op1);
+R[n] ← Register(op1);
 T ← Bit(t);
 )"},
   description
@@ -8730,9 +8734,9 @@ insn { "shlr2\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 op1 ← op1 >> 2;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -8780,9 +8784,9 @@ insn { "shlr8\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 op1 ← op1 >> 8;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -8830,9 +8834,9 @@ insn { "shlr16\tRn",
 
   brief
 {R"(
-op1 ← ZeroExtend 32(R n);
+op1 ← ZeroExtend<32>(R[n]);
 op1 ← op1 >> 16;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -8886,18 +8890,18 @@ insn { "bf\tlabel",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-pc ← SignExtend 32 (PC);
-newpc ← SignExtend 32 (PC’);
-delayedpc ← SignExtend 32 (PC’’);
-label ← SignExtend 8(s) << 1;
+t ← ZeroExtend<1>(T);
+pc ← SignExtend<32>(PC);
+newpc ← SignExtend<32>(PC’);
+delayedpc ← SignExtend<32>(PC’’);
+label ← SignExtend<8>(s) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 IF (t = 0)
 {
-temp ← ZeroExtend32(pc + 4 + label);
-newpc ← temp;
-delayedpc ← temp + 2;
+  temp ← ZeroExtend<32>(pc + 4 + label);
+  newpc ← temp;
+  delayedpc ← temp + 2;
 }
 PC’ ← Register(newpc);
 PC’’ ← Register(delayedpc);
@@ -8975,18 +8979,18 @@ insn { "bf/s\tlabel",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-pc ← SignExtend 32 (PC);
-newpc ← SignExtend 32 (PC’);
-delayedpc ← SignExtend 32 (PC’’);
-label ← SignExtend 8(s) << 1;
+t ← ZeroExtend<1>(T);
+pc ← SignExtend<32>(PC);
+newpc ← SignExtend<32>(PC’);
+delayedpc ← SignExtend<32>(PC’’);
+label ← SignExtend<8>(s) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 IF (t = 0)
 {
-temp ← ZeroExtend32(pc + 4 + label);
-newpc ← temp;
-delayedpc ← temp + 2;
+  temp ← ZeroExtend<32>(pc + 4 + label);
+  newpc ← temp;
+  delayedpc ← temp + 2;
 }
 PC’ ← Register(newpc);
 PC’’ ← Register(delayedpc);
@@ -9074,18 +9078,18 @@ insn { "bt\tlabel",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-pc ← SignExtend 32 (PC);
-newpc ← SignExtend 32 (PC’);
-delayedpc ← SignExtend 32 (PC’’);
-label ← SignExtend 8(s) << 1;
+t ← ZeroExtend<1>(T);
+pc ← SignExtend<32>(PC);
+newpc ← SignExtend<32>(PC’);
+delayedpc ← SignExtend<32>(PC’’);
+label ← SignExtend<8>(s) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 IF (t = 1)
 {
-temp ← ZeroExtend32(pc + 4 + label);
-newpc ← temp;
-delayedpc ← temp + 2;
+  temp ← ZeroExtend<32>(pc + 4 + label);
+  newpc ← temp;
+  delayedpc ← temp + 2;
 }
 PC’ ← Register(newpc);
 PC’’ ← Register(delayedpc);
@@ -9163,16 +9167,16 @@ insn { "bt/s\tlabel",
 
   brief
 {R"(
-t ← ZeroExtend 1(T);
-pc ← SignExtend 32 (PC);
-delayedpc ← SignExtend 32 (PC’’);
-label ← SignExtend 8(s) << 1;
+t ← ZeroExtend<1>(T);
+pc ← SignExtend<32>(PC);
+delayedpc ← SignExtend<32>(PC’’);
+label ← SignExtend<8>(s) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 IF (t = 1)
 {
-temp ← ZeroExtend32(pc + 4 + label);
-delayedpc ← temp;
+  temp ← ZeroExtend<32>(pc + 4 + label);
+  delayedpc ← temp;
 }
 PC’’ ← Register(delayedpc);
 )"},
@@ -9255,11 +9259,11 @@ insn { "bra\tlabel",
 
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-label ← SignExtend 12(s) << 1;
+pc ← SignExtend<32>(PC);
+label ← SignExtend<12>(s) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
-temp ← ZeroExtend32(pc + 4 + label);
+  THROW ILLSLOT;
+temp ← ZeroExtend<32>(pc + 4 + label);
 delayedpc ← temp;
 PC’’ ← Register(delayedpc);
 )"},
@@ -9332,11 +9336,11 @@ insn { "braf\tRm",
 
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-op1 ← SignExtend 32 (Rn);
+pc ← SignExtend<32>(PC);
+op1 ← SignExtend<32>(R[n]);
 IF (IsDelaySlot())
-THROW ILLSLOT;
-target ← ZeroExtend32(pc + 4 + op1);
+  THROW ILLSLOT;
+target ← ZeroExtend<32>(pc + 4 + op1);
 delayedpc ← target ∧ (~ 0x1);
 PC’’ ← Register(delayedpc);
 )"},
@@ -9401,12 +9405,12 @@ insn { "bsr\tlabel",
 
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-label ← SignExtend 12(s) << 1;
+pc ← SignExtend<32>(PC);
+label ← SignExtend<12>(s) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 delayedpr ← pc + 4;
-temp ← ZeroExtend32(pc + 4 + label);
+temp ← ZeroExtend<32>(pc + 4 + label);
 delayedpc ← temp;
 PR’’ ← Register(delayedpr);
 PC’’ ← Register(delayedpc);
@@ -9487,12 +9491,12 @@ insn { "bsrf\tRm",
 
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-label ← SignExtend 12(s) << 1;
+pc ← SignExtend<32>(PC);
+label ← SignExtend<12>(s) << 1;
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 delayedpr ← pc + 4;
-temp ← ZeroExtend32(pc + 4 + label);
+temp ← ZeroExtend<32>(pc + 4 + label);
 delayedpc ← temp;
 PR’’ ← Register(delayedpr);
 PC’’ ← Register(delayedpc);
@@ -9564,9 +9568,9 @@ insn { "jmp\t@Rm",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 target ← op1;
 delayedpc ← target ∧ (~ 0x1);
 PC’’ ← Register(delayedpc);
@@ -9629,10 +9633,10 @@ insn { "jsr\t@Rm",
 
   brief
 {R"(
-pc ← SignExtend 32 (PC);
-op1 ← SignExtend 32 (Rn);
+pc ← SignExtend<32>(PC);
+op1 ← SignExtend<32>(R[n]);
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 delayedpr ← pc + 4;
 target ← op1;
 delayedpc ← target ∧ (~ 0x1);
@@ -9770,7 +9774,7 @@ void JSRNM (int d)
 {
   long disp = (0x000000FF & d);
   PR = PC + 2;
-  PC = Read_32 (TBR + (disp << 2));
+  PC = Read<32>(TBR + (disp << 2));
 }
 )"},
 
@@ -9798,9 +9802,9 @@ insn { "rts",
 
   brief
 {R"(
-pr ← SignExtend 32 (PR);
+pr ← SignExtend<32>(PR);
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 target ← pr;
 delayedpc ← target ∧ (~ 0x1);
 PC’’ ← Register(delayedpc);
@@ -9967,8 +9971,8 @@ insn { "clrmac",
 {R"(
 macl ← 0;
 mach ← 0;
-MACL ← ZeroExtend 32 (macl);
-MACH ← ZeroExtend 32 (mach);
+MACL ← ZeroExtend<32>(macl);
+MACH ← ZeroExtend<32>(mach);
 )"},
 
   description
@@ -10182,7 +10186,7 @@ differs depending on the product.
 {R"(
 void LDBANK (int m)
 {
-  R[0] = Read_Bank_32 (R[m]);
+  R[0] = Read_Bank<32>(R[m]);
   PC += 2;
 }
 )"},
@@ -10213,10 +10217,10 @@ insn { "ldc\tRm,SR",
   name { "_Loa_d to _Control Register" },
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
 sr ← op1;
 SR ← Register(sr);
 )"},
@@ -10278,14 +10282,14 @@ insn { "ldc.l\t@Rm+,SR",
   name { "_Loa_d to _Control Register" },
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-sr ← SignExtend 32(ReadMemory 32 (address));
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+sr ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 SR ← Register(sr);
 )"},
   description
@@ -10304,13 +10308,13 @@ user mode will cause an illegal instruction exception.
 void LDCMSR (int m)
 {
   #if SH1 || SH2 || SH2 || SH3
-  SR = Read_32 (R[m]) & 0x0FFF0FFF;
+  SR = Read<32>(R[m]) & 0x0FFF0FFF;
 
   #elif SH2A
-  SR = Read_32 (R[m]) & 0x000063F3;
+  SR = Read<32>(R[m]) & 0x000063F3;
 
   #elif SH4 || SH4A
-  SR = Read_32 (R[m]) & 0x700083F3;
+  SR = Read<32>(R[m]) & 0x700083F3;
 
   #endif
 
@@ -10387,7 +10391,7 @@ insn { "ldc\tRm,GBR",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
+op1 ← SignExtend<32>(R[m]);
 gbr ← op1;
 GBR ← Register(gbr)
 )"},
@@ -10433,11 +10437,11 @@ insn { "ldc.l\t@Rm+,GBR",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-gbr ← SignExtend 32 (ReadMemory 32 (address));
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+gbr ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 GBR ← Register(gbr);
 )"},
   description
@@ -10454,7 +10458,7 @@ This instruction can also be issued in user mode.
 {R"(
 void LDCMGBR (int m)
 {
-  GBR = Read_32 (R[m]);
+  GBR = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -10488,10 +10492,10 @@ insn { "ldc\tRm,VBR",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
 vbr← op1;
 VBR ← Register(vbr);
 )"},
@@ -10539,14 +10543,14 @@ insn { "ldc.l\t@Rm+,VBR",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-vbr ← SignExtend 32 (ReadMemory 32(address));
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+vbr ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 VBR ← Register(vbr);
 )"},
   description
@@ -10563,7 +10567,7 @@ Stores a source operand in control register VBR.
 {R"(
 void LDCMVBR (int m)
 {
-  VBR = Read_32 (R[m]);
+  VBR = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -10651,7 +10655,7 @@ On the SH-DSP the latency of this instruction is 3 cycles.
 {R"(
 void LDCMMOD (int m)
 {
-  MOD = Read_32 (R[m]);
+  MOD = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -10735,7 +10739,7 @@ On the SH-DSP the latency of this instruction is 3 cycles.
 {R"(
 void LDCMRE (int m)
 {
-  RE = Read_32 (R[m]);
+  RE = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -10818,7 +10822,7 @@ On the SH-DSP the latency of this instruction is 3 cycles.
 {R"(
 void LDCMRS (int m)
 {
-  RS = Read_32 (R[m]);
+  RS = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -10910,7 +10914,7 @@ manuals.
 {R"(
 void LDCMSGR (int m)
 {
-  SGR = Read_32 (R[m]);
+  SGR = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -10945,10 +10949,10 @@ insn { "ldc\tRm,SSR",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
 ssr ← op1;
 SSR ← Register(ssr);
 )"},
@@ -10996,14 +11000,14 @@ insn { "ldc.l\t@Rm+,SSR",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-ssr ← SignExtend 32(ReadMemory 32 (address));
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+ssr ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 SSR ← Register(ssr);
 )"},
   description
@@ -11020,7 +11024,7 @@ Stores a source operand in control register SSR.
 {R"(
 void LDCMSSR (int m)
 {
-  SSR = Read_32 (R[m]);
+  SSR = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -11055,10 +11059,10 @@ insn { "ldc\tRm,SPC",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
 spc ← op1;
 SPC ← Register(spc);
 )"},
@@ -11106,14 +11110,14 @@ insn { "ldc.l\t@Rm+,SPC",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-spc ← SignExtend 32 (ReadMemory 32 (address));
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+spc ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 SPC ← Register(spc);
 )"},
   description
@@ -11130,7 +11134,7 @@ Stores a source operand in control register SPC.
 {R"(
 void LDCMSPC (int m)
 {
-  SPC = Read_32 (R[m]);
+  SPC = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -11165,10 +11169,10 @@ insn { "ldc\tRm,DBR",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
 dbr← op1;
 DBR ← Register(dbr)
 )"},
@@ -11216,14 +11220,14 @@ insn { "ldc.l\t@Rm+,DBR",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-dbr ← SignExtend 32 (ReadMemory 32 (address));
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+dbr ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 DBR ← Register(dbr);
 )"},
   description
@@ -11240,7 +11244,7 @@ Stores a source operand in control register DBR.
 {R"(
 void LDCMDBR (int m)
 {
-  DBR = Read_32 (R[m]);
+  DBR = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -11275,10 +11279,10 @@ insn { "ldc\tRm,Rn_BANK",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
 rn_bank← op1;
 Rn_BANK ← Register(rn_bank);
 )"},
@@ -11328,14 +11332,14 @@ insn { "ldc.l\t@Rm+,Rn_BANK",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-rn_bank ← SignExtend 32 (ReadMemory 32 (address));
+  THROW RESINST;
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+rn_bank ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 Rn_BANK ← Register(rn_bank);
 )"},
   description
@@ -11354,7 +11358,7 @@ accessed when this bit is 0.
 {R"(
 void LDCMRn_BANK (int m)
 {
-  Rn_BANK = Read_32 (R[m]);
+  Rn_BANK = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -11528,9 +11532,9 @@ insn { "lds\tRm,MACH",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
+op1 ← SignExtend<32>(R[m]);
 mach ← op1;
-MACH ← ZeroExtend 32 (mach);
+MACH ← ZeroExtend<32>(mach);
 )"},
   description
 {R"(
@@ -11586,12 +11590,12 @@ insn { "lds.l\t@Rm+,MACH",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-mach ← SignExtend 32 (ReadMemory 32 (address));
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+mach ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
-MACH ← ZeroExtend 32 (mach);
+R[m] ← Register(op1);
+MACH ← ZeroExtend<32>(mach);
 )"},
   description
 {R"(
@@ -11609,7 +11613,7 @@ MAC.W/MAC.L, the latency of the LDS to MAC* is 1 cycle.
 {R"(
 void LDSMMACH (int m)
 {
-  MACH = Read_32 (R[m]);
+  MACH = Read<32>(R[m]);
 
   #if SH1
   if ((MACH & 0x00000200) == 0)
@@ -11650,9 +11654,9 @@ insn { "lds\tRm,MACL",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
+op1 ← SignExtend<32>(R[m]);
 macl ← op1;
-MACL ← ZeroExtend 32 (macl);
+MACL ← ZeroExtend<32>(macl);
 )"},
   description
 {R"(
@@ -11698,12 +11702,12 @@ insn { "lds.l\t@Rm+,MACL",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-macl ← SignExtend 32(ReadMemory 32(address));
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+macl ← SignExtend<32>(ReadMemory<32>(address));
 op1 ← op1 + 4;
-R m ← Register(op1);
-MACL ← ZeroExtend 32 (macl)
+R[m] ← Register(op1);
+MACL ← ZeroExtend<32>(macl)
 )"},
   description
 {R"(
@@ -11721,7 +11725,7 @@ MAC.W/MAC.L, the latency of the LDS to MAC* is 1 cycle.
 {R"(
 void LDSMMACL (int m)
 {
-  MACL = Read_32 (R[m]);
+  MACL = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -11754,7 +11758,7 @@ insn { "lds\tRm,PR",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
+op1 ← SignExtend<32>(R[m]);
 newpr ← op1;
 delayedpr ← newpr;
 PR’ ← Register(newpr);
@@ -11803,12 +11807,12 @@ insn { "lds.l\t@Rm+,PR",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rm );
-address ← ZeroExtend 32(op1);
-newpr ← SignExtend 32 (ReadMemory 32(address));
+op1 ← SignExtend<32>(R[m]);
+address ← ZeroExtend<32>(op1);
+newpr ← SignExtend<32>(ReadMemory<32>(address));
 delayedpr ← newpr;
 op1 ← op1 + 4;
-R m ← Register(op1);
+R[m] ← Register(op1);
 PR’ ← Register(newpr);
 PR’’ ← Register(delayedpr);
 )"},
@@ -11826,7 +11830,7 @@ Stores the source operand into the system register PR.
 {R"(
 void LDSMPR (int m)
 {
-  PR = Read_32 (R[m]);
+  PR = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -11958,7 +11962,7 @@ On the SH-DSP the latency of this instruction is 1 cycle.
 {R"(
 void LDSMDSR (int m)
 {
-  DSR = Read_32 (R[m]) & 0x0000000F;
+  DSR = Read<32>(R[m]) & 0x0000000F;
   R[m] += 4;
   PC += 2;
 }
@@ -12001,7 +12005,7 @@ copied into A0G.
 {R"(
 void LDSMA0 (int m)
 {
-  A0 = Read_32 (R[m]);
+  A0 = Read<32>(R[m]);
 
   if ((A0 & 0x80000000) == 0)
     A0G = 0x00;
@@ -12090,7 +12094,7 @@ Stores the source operand into the DSP register X0.
 {R"(
 void LDSMX0 (int m)
 {
-  X0 = Read_32 (R[m]);
+  X0 = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -12173,7 +12177,7 @@ Stores the source operand into the DSP register X1.
 {R"(
 void LDSMX1 (int m)
 {
-  X1 = Read_32 (R[m]);
+  X1 = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -12257,7 +12261,7 @@ Stores the source operand into the DSP register Y0.
 {R"(
 void LDSMY0 (int m)
 {
-  Y0 = Read_32 (R[m]);
+  Y0 = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -12341,7 +12345,7 @@ Stores the source operand into the DSP register Y1.
 {R"(
 void LDSMY1 (int m)
 {
-  Y1 = Read_32 (R[m]);
+  Y1 = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -12371,9 +12375,9 @@ insn { "ldtlb",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
+  THROW RESINST;
 UTLB[MMUCR.URC].ASID ← PTEH.ASID
 UTLB[MMUCR.URC].VPN ← PTEH.VPN
 UTLB[MMUCR.URC].PPN ← PTEH.PPN
@@ -12461,19 +12465,19 @@ insn { "movca.l\tR0,@Rn",
 
   brief
 {R"(
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rn);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[n]);
 IF (AddressUnavailable(op1))
-THROW WADDERR, op1;
+  THROW WADDERR, op1;
 IF (MMU() AND DataAccessMiss(op1))
-THROW WTLBMISS, op1;
+  THROW WTLBMISS, op1;
 IF (MMU() AND WriteProhibited(op1))
-THROW WRITEPROT, op1;
+  THROW WRITEPROT, op1;
 IF (MMU() AND NOT DirtyBit(op1))
-THROW FIRSTWRITE, op1
+  THROW FIRSTWRITE, op1
 ALLOCO(op1);
-address ← ZeroExtend 32(op1);
-WriteMemory 32(op1, r0);
+address ← ZeroExtend<32>(op1);
+WriteMemory<32>(op1, r0);
 )"},
   description
 {R"(
@@ -12499,7 +12503,7 @@ void MOVCAL (int n)
   if (is_write_back_memory (R[n]) && look_up_in_operand_cache (R[n]) == MISS)
     allocate_operand_cache_block (R[n]);
 
-  Write_32 (R[n], R[0]);
+  Write<32>(R[n], R[0]);
   PC += 2;
 }
 )"},
@@ -12573,15 +12577,15 @@ insn { "ocbi\t@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 IF (AddressUnavailable(op1))
-THROW WADDERR, op1;
+  THROW WADDERR, op1;
 IF (MMU() AND DataAccessMiss(op1))
-THROW WTLBMISS, op1;
+  THROW WTLBMISS, op1;
 IF (MMU() AND WriteProhibited(op1))
-THROW WRITEPROT, op1;
+  THROW WRITEPROT, op1;
 IF (MMU() AND NOT DirtyBit(op1))
-THROW FIRSTWRITE, op1
+  THROW FIRSTWRITE, op1
 OCBI(op1);
 )"},
   description
@@ -12635,13 +12639,13 @@ insn { "ocbp\t@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 IF (AddressUnavailable(op1))
-THROW RADDERR, op1;
+  THROW RADDERR, op1;
 IF (MMU() AND DataAccessMiss(op1))
-THROW RTLBMISS, op1;
+  THROW RTLBMISS, op1;
 IF (MMU() AND (ReadProhibited(op1) AND WriteProhibited(op1)))
-THROW READPROT, op1;
+  THROW READPROT, op1;
 OCBP(op1);
 )"},
   description
@@ -12698,13 +12702,13 @@ insn { "ocbwb\t@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 IF (AddressUnavailable(op1))
-THROW RADDERR, op1;
+  THROW RADDERR, op1;
 IF (MMU() AND DataAccessMiss(op1))
-THROW RTLBMISS, op1;
+  THROW RTLBMISS, op1;
 IF (MMU() AND (ReadProhibited(op1) AND WriteProhibited(op1)))
-THROW READPROT, op1;
+  THROW READPROT, op1;
 OCBWB(op1);
 )"},
   description
@@ -12760,12 +12764,12 @@ insn { "pref\t@Rn",
 
   brief
 {R"(
-op1 ← SignExtend 32 (Rn);
+op1 ← SignExtend<32>(R[n]);
 IF (AddressUnavailable(op1))
-THROW RADDERR, op1
+  THROW RADDERR, op1
 IF (NOT (MMU() AND DataAccessMiss(op1)))
-IF (NOT (MMU() AND ReadProhibited(op1)))
-PREF(op1);
+  IF (NOT (MMU() AND ReadProhibited(op1)))
+    PREF(op1);
 )"},
   description
 {R"(
@@ -12907,17 +12911,17 @@ void RESBANK (void)
   {
     for (int i = 0; i <= 14; i++)
     {
-      R[i] = Read_32 (R[15]);
+      R[i] = Read<32>(R[15]);
       R[15] += 4;
     }
 
-    PR = Read_32 (R[15]);
+    PR = Read<32>(R[15]);
     R[15] += 4;
-    GBR = Read_32 (R[15]);
+    GBR = Read<32>(R[15]);
     R[15] += 4;
-    MACH = Read_32 (R[15]);
+    MACH = Read<32>(R[15]);
     R[15] += 4;
-    MACL = Read_32 (R[15]);
+    MACL = Read<32>(R[15]);
     R[15] += 4;
   }
 
@@ -12949,13 +12953,13 @@ insn { "rte",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-ssr ← SignExtend 32(SSR);
-pc ← SignExtend32(PC)
+  THROW RESINST;
+ssr ← SignExtend<32>(SSR);
+pc ← SignExtend<32>(PC)
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 target ← pc;
 delayedpc ← target ∧ (~ 0x1);
 PC’’ ← Register(delayedpc);
@@ -12999,9 +13003,9 @@ void RTE (void)
   unsigned long temp = PC;
 
   #if SH1 || SH2 || SH2A
-  PC = Read_32 (R[15]);
+  PC = Read<32>(R[15]);
   R[15] += 4;
-  SR = Read_32 (R[15]) & 0x000063F3;
+  SR = Read<32>(R[15]) & 0x000063F3;
   R[15] += 4;
 
   #elif SH3 || SH4 || SH4A
@@ -13334,7 +13338,7 @@ differs depending on the product.
 {R"(
 void STBANK (int n)
 {
-  Write_Bank_32 (R[n], R[0])
+  Write_Bank<32>(R[n], R[0])
   PC += 2;
 }
 )"},
@@ -13363,12 +13367,12 @@ insn { "stc\tSR,Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-sr ← SignExtend 32(SR);
+  THROW RESINST;
+sr ← SignExtend<32>(SR);
 op1 ← sr
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -13416,15 +13420,15 @@ insn { "stc.l\tSR,@-Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-sr ← SignExtend 32(SR);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, sr);
+  THROW RESINST;
+sr ← SignExtend<32>(SR);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, sr);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -13442,7 +13446,7 @@ user mode will cause an illegal instruction exception.
 void STCMSR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], SR);
+  Write<32>(R[n], SR);
   PC += 2;
 }
 )"},
@@ -13520,9 +13524,9 @@ insn { "stc\tGBR,Rn",
 
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
+gbr ← SignExtend<32>(GBR);
 op1 ← gbr;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -13567,12 +13571,12 @@ insn { "stc.l\tGBR,@-Rn",
 
   brief
 {R"(
-gbr ← SignExtend 32 (GBR);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, gbr);
+gbr ← SignExtend<32>(GBR);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, gbr);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -13589,7 +13593,7 @@ This instruction can also be issued in user mode.
 void STCMGBR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], GBR);
+  Write<32>(R[n], GBR);
   PC += 2;
 }
 )"},
@@ -13623,12 +13627,12 @@ insn { "stc\tVBR,Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-vbr ← SignExtend 32 (VBR);
+  THROW RESINST;
+vbr ← SignExtend<32>(VBR);
 op1 ← vbr
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -13674,15 +13678,15 @@ insn { "stc.l\tVBR,@-Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-vbr ← SignExtend 32 (VBR);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, vbr);
+  THROW RESINST;
+vbr ← SignExtend<32>(VBR);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, vbr);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -13699,7 +13703,7 @@ Stores control register VBR in the destination.
 void STCMVBR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], VBR);
+  Write<32>(R[n], VBR);
   PC += 2;
 }
 )"},
@@ -13790,7 +13794,7 @@ On the SH-DSP the latency of this instruction is 2 cycles.
 void STCMMOD (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], MOD);
+  Write<32>(R[n], MOD);
   PC += 2;
 }
 
@@ -13876,7 +13880,7 @@ On the SH-DSP the latency of this instruction is 2 cycles.
 void STCMRE (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], RE);
+  Write<32>(R[n], RE);
   PC += 2;
 }
 )"},
@@ -13961,7 +13965,7 @@ On the SH-DSP the latency of this instruction is 2 cycles.
 void STCMRS (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], RS);
+  Write<32>(R[n], RS);
   PC += 2;
 }
 )"},
@@ -13990,12 +13994,12 @@ insn { "stc\tSGR,Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-sgr ← SignExtend 32(SGR);
+  THROW RESINST;
+sgr ← SignExtend<32>(SGR);
 op1 ← sgr
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14041,15 +14045,15 @@ insn { "stc.l\tSGR,@-Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-sgr ← SignExtend 32(SGR);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, sgr);
+  THROW RESINST;
+sgr ← SignExtend<32>(SGR);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, sgr);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14066,7 +14070,7 @@ Stores control register SGR in the destination.
 void STCMSGR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], SGR);
+  Write<32>(R[n], SGR);
   PC += 2;
 }
 )"},
@@ -14101,12 +14105,12 @@ insn { "stc\tSSR,Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-ssr ← SignExtend 32(SSR);
+  THROW RESINST;
+ssr ← SignExtend<32>(SSR);
 op1 ← ssr
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14152,15 +14156,15 @@ insn { "stc.l\tSSR,@-Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-ssr ← SignExtend 32(SSR);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, ssr);
+  THROW RESINST;
+ssr ← SignExtend<32>(SSR);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, ssr);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14177,7 +14181,7 @@ Stores control register SSR in the destination.
 void STCMSSR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], SSR);
+  Write<32>(R[n], SSR);
   PC += 2;
 }
 )"},
@@ -14212,12 +14216,12 @@ insn { "stc\tSPC,Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-spc ← SignExtend 32 (SPC);
+  THROW RESINST;
+spc ← SignExtend<32>(SPC);
 op1 ← spc
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14263,15 +14267,15 @@ insn { "stc.l\tSPC,@-Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-spc ← SignExtend 32 (SPC);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, spc);
+  THROW RESINST;
+spc ← SignExtend<32>(SPC);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, spc);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14288,7 +14292,7 @@ Stores control register SPC in the destination.
 void STCMSPC (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], SPC);
+  Write<32>(R[n], SPC);
   PC += 2;
 }
 )"},
@@ -14323,12 +14327,12 @@ insn { "stc\tDBR,Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-dbr ← SignExtend 32 (DBR);
+  THROW RESINST;
+dbr ← SignExtend<32>(DBR);
 op1 ← dbr
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14374,15 +14378,15 @@ insn { "stc.l\tDBR,@-Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-dbr ← SignExtend 32 (DBR);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, dbr);
+  THROW RESINST;
+dbr ← SignExtend<32>(DBR);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, dbr);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14399,7 +14403,7 @@ Stores control register DBR in the destination.
 void STCMDBR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], DBR);
+  Write<32>(R[n], DBR);
   PC += 2;
 }
 )"},
@@ -14434,10 +14438,10 @@ insn { "stc\tRm_BANK,Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm _BANK);
+  THROW RESINST;
+op1 ← SignExtend<32>(Rm _BANK);
 op2 ← op1;
 Rn ← Register(op2);
 )"},
@@ -14486,15 +14490,15 @@ insn { "stc.l\tRm_BANK,@-Rn",
 
   brief
 {R"(
-md ← ZeroExtend1(MD);
+md ← ZeroExtend<1>(MD);
 IF (md = 0)
-THROW RESINST;
-op1 ← SignExtend 32 (Rm_BANK);
-op2 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op2 - 4);
-WriteMemory 32(address, op1);
+  THROW RESINST;
+op1 ← SignExtend<32>(Rm_BANK);
+op2 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op2 - 4);
+WriteMemory<32>(address, op1);
 op2 ← address;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -14512,7 +14516,7 @@ the RB bit in the SR register is 1, and Rn_BANK1 is accessed when this bit is 0.
 void STCMRm_BANK (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], Rm_BANK);
+  Write<32>(R[n], Rm_BANK);
   PC += 2;
 }
 )"},
@@ -14547,9 +14551,9 @@ insn { "sts\tMACH,Rn",
 
   brief
 {R"(
-mach ← SignExtend 32 (MACH);
+mach ← SignExtend<32>(MACH);
 op1 ← mach;
-R n ← Register(op1)
+R[n] ← Register(op1)
 )"},
   description
 {R"(
@@ -14608,12 +14612,12 @@ insn { "sts.l\tMACH,@-Rn",
 
   brief
 {R"(
-mach ← SignExtend 32 (MACH);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, mach);
+mach ← SignExtend<32>(MACH);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, mach);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14637,12 +14641,12 @@ void STSMMACH (int n)
 
   #if SH1
   if ((MACH & 0x00000200) == 0)
-    Write_32 (R[n], MACH & 0x000003FF);
+    Write<32>(R[n], MACH & 0x000003FF);
   else
-    Write_32 (R[n], MACH | 0xFFFFFC00)
+    Write<32>(R[n], MACH | 0xFFFFFC00)
 
   #else
-  Write_32 (R[n], MACH);
+  Write<32>(R[n], MACH);
 
   #endif
 
@@ -14678,9 +14682,9 @@ insn { "sts\tMACL,Rn",
 
   brief
 {R"(
-macl ← SignExtend 32(MACL);
+macl ← SignExtend<32>(MACL);
 op1 ← macl;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14725,12 +14729,12 @@ insn { "sts.l\tMACL,@-Rn",
 
   brief
 {R"(
-macl ← SignExtend 32(MACL);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, macl);
+macl ← SignExtend<32>(MACL);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, macl);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14748,7 +14752,7 @@ latency of the LDS to MAC* is 4 cycles.
 void STSMMACL (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], MACL);
+  Write<32>(R[n], MACL);
   PC += 2;
 }
 )"},
@@ -14781,9 +14785,9 @@ insn { "sts\tPR,Rn",
 
   brief
 {R"(
-pr ← SignExtend 32 (PR’);
+pr ← SignExtend<32>(PR’);
 op1 ← pr;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14828,12 +14832,12 @@ insn { "sts.l\tPR,@-Rn",
 
   brief
 {R"(
-pr ← SignExtend 32 (PR’);
-op1 ← SignExtend 32 (Rn);
-address ← ZeroExtend 32(op1 - 4);
-WriteMemory 32(address, pr);
+pr ← SignExtend<32>(PR’);
+op1 ← SignExtend<32>(R[n]);
+address ← ZeroExtend<32>(op1 - 4);
+WriteMemory<32>(address, pr);
 op1 ← address;
-R n ← Register(op1);
+R[n] ← Register(op1);
 )"},
   description
 {R"(
@@ -14850,7 +14854,7 @@ Stores system register PR in the destination.
 void STSMPR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], PR);
+  Write<32>(R[n], PR);
   PC += 2;
 }
 )"},
@@ -14938,7 +14942,7 @@ Stores DSP register DSR in the destination.
 void STSMDSR (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], DSR);
+  Write<32>(R[n], DSR);
   PC += 2;
 }
 )"},
@@ -15024,7 +15028,7 @@ Stores DSP register A0 in the destination.
 void STSMA0 (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], A0);
+  Write<32>(R[n], A0);
   PC += 2;
 }
 )"},
@@ -15109,7 +15113,7 @@ Stores DSP register X0 in the destination.
 void STSMX0 (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], X0);
+  Write<32>(R[n], X0);
   PC += 2;
 }
 )"},
@@ -15194,7 +15198,7 @@ Stores DSP register X1 in the destination.
 void STSMX1 (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], X1);
+  Write<32>(R[n], X1);
   PC += 2;
 }
 )"},
@@ -15279,7 +15283,7 @@ Stores DSP register Y0 in the destination.
 void STSMY0 (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], Y0);
+  Write<32>(R[n], Y0);
   PC += 2;
 }
 )"},
@@ -15364,7 +15368,7 @@ Stores DSP register Y1 in the destination.
 void STSMY1 (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], Y1);
+  Write<32>(R[n], Y1);
   PC += 2;
 }
 )"},
@@ -15446,9 +15450,9 @@ SH3*,SH4*: PC/SR -> SPC/SSR, imm*4 -> TRA, 0x160 -> EXPEVT, VBR + 0x0100 -> PC)"
 
   brief
 {R"(
-imm ← ZeroExtend 8(i);
+imm ← ZeroExtend<8>(i);
 IF (IsDelaySlot())
-THROW ILLSLOT;
+  THROW ILLSLOT;
 THROW TRAP, imm;
 )"},
   description
@@ -15500,10 +15504,10 @@ void TRAPA (int i)
 
   #if SH1 || SH2 || SH2A
   R[15] -= 4;
-  Write_32 (R[15], SR);
+  Write<32>(R[15], SR);
   R[15] -= 4;
-  Write_32 (R[15], PC + 2);
-  PC = Read_32 (VBR + (imm << 2));
+  Write<32>(R[15], PC + 2);
+  PC = Read<32>(VBR + (imm << 2));
 
   #elif SH3 || SH4 || SH4A
   TRA = imm << 2;
@@ -15558,15 +15562,15 @@ insn { "fmov\tFRm,FRn",
   restriction { "Available only when SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2 ← op1;
-FR n ← FloatRegister 32(op2);
+FR[n] ← FloatRegister<32>(op2);
 )"},
   description
 {R"(
@@ -15611,16 +15615,16 @@ insn { "fmov.s\t@Rm,FRn",
   restriction { "Available only when SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-op2 ← ReadMemory 32 (address);
-FR 2n ← FloatRegister 32 (op2);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+op2 ← ReadMemory<32>(address);
+FR 2n ← FloatRegister<32>(op2);
 )"},
   description
 {R"(
@@ -15636,7 +15640,7 @@ Transfers contents of memory at address indicated by Rm to FRn.
 {R"(
 void FMOV_LOAD (int m, int n)
 {
-  FR[n] = Read_32 (R[m]);
+  FR[n] = Read<32>(R[m]);
   PC += 2;
 }
 )"},
@@ -15668,16 +15672,16 @@ insn { "fmov.s\tFRm,@Rn",
   restriction { "Available only when SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op2);
-WriteMemory 32(address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op2);
+WriteMemory<32>(address, op1);
 )"},
 
   description
@@ -15694,7 +15698,7 @@ Transfers FRm contents to memory at address indicated by Rn.
 {R"(
 void FMOV_STORE (int m, int n)
 {
-  Write_32 (R[n], FR[m]);
+  Write<32>(R[n], FR[m]);
   PC += 2;
 }
 )"},
@@ -15727,17 +15731,17 @@ insn { "fmov.s\t@Rm+,FRn",
   restriction { "Available only when SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-op2 ← ReadMemory 32 (address);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+op2 ← ReadMemory<32>(address);
 op1 ← op1 + 4;
-R m ← Register(op1);
-FR n ← FloatRegister 32(op2);
+R[m] ← Register(op1);
+FR[n] ← FloatRegister<32>(op2);
 )"},
   description
 {R"(
@@ -15754,7 +15758,7 @@ Rm.
 {R"(
 void FMOV_RESTORE (int m, int n)
 {
-  FR[n] = Read_32 (R[m]);
+  FR[n] = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -15787,18 +15791,18 @@ insn { "fmov.s\tFRm,@-Rn",
   restriction { "Available only when SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op2 - 4);
-WriteMemory 32(address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op2 - 4);
+WriteMemory<32>(address, op1);
 op2 ← address;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
   description
 {R"(
@@ -15815,7 +15819,7 @@ by resulting Rn value.
 {R"(
 void FMOV_SAVE (int m, int n)
 {
-  Write_32 (R[n] - 4, FR[m]);
+  Write<32>(R[n] - 4, FR[m]);
   R[n] -= 4;
   PC += 2;
 }
@@ -15849,16 +15853,16 @@ insn { "fmov.s\t@(R0,Rm),FRn",
   restriction { "Available only when SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(r0 + op1);
-op2 ← ReadMemory 32 (address);
-FR n ← FloatRegister 32(op2);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(r0 + op1);
+op2 ← ReadMemory<32>(address);
+FR[n] ← FloatRegister<32>(op2);
 )"},
   description
 {R"(
@@ -15874,7 +15878,7 @@ Transfers contents of memory at address indicated by (R0 + Rm) to FRn.
 {R"(
 void FMOV_INDEX_LOAD (int m, int n)
 {
-  FR[n] = Read_32 (R[0] + R[m]);
+  FR[n] = Read<32>(R[0] + R[m]);
   PC += 2;
 }
 )"},
@@ -15906,16 +15910,16 @@ insn { "fmov.s\tFRm,@(R0,Rn)",
   restriction { "Available only when SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-r0 ← SignExtend 32 (R0);
-op1 ← FloatValue 32 (FRm );
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+r0 ← SignExtend<32>(R0);
+op1 ← FloatValue<32>(FR[m];
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(r0 + op2);
-WriteMemory 32(address, op1)
+  THROW FPUDIS;
+address ← ZeroExtend<32>(r0 + op2);
+WriteMemory<32>(address, op1)
 )"},
   description
 {R"(
@@ -15931,7 +15935,7 @@ Transfers FRm contents to memory at address indicated by (R0 + Rn).
 {R"(
 void FMOV_INDEX_STORE (int m, int n)
 {
-  Write_32 (R[0] + R[n], FR[m]);
+  Write<32>(R[0] + R[n], FR[m]);
   PC += 2;
 }
 )"},
@@ -15976,7 +15980,7 @@ Transfers memory contents at the address indicated by (disp + Rn) to FRn.
 void FMOV_INDEX_DISP12_LOAD (int m, int n, int d)
 {
   long disp = (0x00000FFF & (long)d);
-  FR[n] = Read_32 (R[m] + (disp << 2));
+  FR[n] = Read<32>(R[m] + (disp << 2));
   PC += 4;
 }
 )"},
@@ -16017,7 +16021,7 @@ Transfers FRm contents to memory at the address indicated by (disp + Rn).
 void FMOV_INDEX_DISP12_STORE (int m, int n, int d)
 {
   long disp = (0x00000FFF & (long)d);
-  Write_32 (R[n] + (disp << 2), FR[m]);
+  Write<32>(R[n] + (disp << 2), FR[m]);
   PC += 4;
 }
 )"},
@@ -16051,14 +16055,14 @@ insn { "fmov\tDRm,DRn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← FloatValuePair32(FP 2m);
+sr ← ZeroExtend<32>(SR);
+op1 ← FloatValuePair<32>(FP 2m);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2 ← op1;
-FP2n ← FloatRegisterPair32(op2);
+FP2n ← FloatRegisterPair<32>(op2);
 )"},
 
   description
@@ -16105,14 +16109,14 @@ insn { "fmov\tDRm,XDn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← FloatValuePair32(DR2m);
+sr ← ZeroExtend<32>(SR);
+op1 ← FloatValuePair<32>(DR2m);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2 ← op1;
-XD2n ← FloatRegisterPair 32(op2);
+XD2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16158,14 +16162,14 @@ insn { "fmov\tXDm,DRn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← FloatValuePair32(DR2m);
+sr ← ZeroExtend<32>(SR);
+op1 ← FloatValuePair<32>(DR2m);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2 ← op1;
-XD2n ← FloatRegisterPair 32(op2);
+XD2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16252,15 +16256,15 @@ insn { "fmov\t@Rm,DRn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-op2 ← ReadMemoryPair 32 (address);
-FP2n ← FloatRegisterPair32(op2);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+op2 ← ReadMemoryPair<32>(address);
+FP2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16276,7 +16280,7 @@ Transfers contents of memory at address indicated by Rm to DRn.
 {R"(
 void FMOV_LOAD_DR (int m, int n)
 {
-  DR[n >> 1] = Read_64 (R[m]);
+  DR[n >> 1] = Read<64>(R[m]);
   PC += 2;
 }
 )"},
@@ -16310,16 +16314,16 @@ insn { "fmov\t@Rm,XDn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-op2 ← ReadMemoryPair 32 (address);
-XD 2n ← FloatRegisterPair 32(op2);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+op2 ← ReadMemoryPair<32>(address);
+XD 2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16335,7 +16339,7 @@ Transfers contents of memory at address indicated by Rm to XDn.
 {R"(
 void FMOV_LOAD_XD (int m, int n)
 {
-  XD[n >> 1] = Read_64 (R[m]);
+  XD[n >> 1] = Read<64>(R[m]);
   PC += 2;
 }
 )"},
@@ -16369,16 +16373,16 @@ insn { "fmov\tDRm,@Rn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValuePair32(FP 2m);
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValuePair<32>(FP 2m);
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op2);
-WriteMemoryPair 32 (address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op2);
+WriteMemoryPair<32>(address, op1);
 )"},
   description
 {R"(
@@ -16394,7 +16398,7 @@ Transfers DRm contents to memory at address indicated by Rn.
 {R"(
 void FMOV_STORE_DR (int m, int n)
 {
-  Write_64 (R[n], DR[m >> 1]);
+  Write<64>(R[n], DR[m >> 1]);
   PC += 2;
 }
 )"},
@@ -16429,16 +16433,16 @@ insn { "fmov\tXDm,@Rn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValuePair32(XD 2m);
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValuePair<32>(XD 2m);
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op2);
-WriteMemoryPair 32 (address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op2);
+WriteMemoryPair<32>(address, op1);
 )"},
   description
 {R"(
@@ -16454,7 +16458,7 @@ Transfers contents of memory at address indicated by (R0 + Rm) to XDn.
 {R"(
 void FMOV_STORE_XD (int m, int n)
 {
-  Write_64 (R[n], XD[m >> 1]);
+  Write<64>(R[n], XD[m >> 1]);
   PC += 2;
 }
 )"},
@@ -16489,18 +16493,18 @@ insn { "fmov\t@Rm+,DRn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-op2 ← ReadMemoryPair 32 (address);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+op2 ← ReadMemoryPair<32>(address);
 op1 ← op1 + 8;
-R m ← Register(op1);
-FP2n ← FloatRegisterPair32(op2);
+R[m] ← Register(op1);
+FP2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16517,7 +16521,7 @@ Rm.
 {R"(
 void FMOV_RESTORE_DR (int m, int n)
 {
-  DR[n >> 1] = Read_64 (R[m]);
+  DR[n >> 1] = Read<64>(R[m]);
   R[m] += 8;
   PC += 2;
 }
@@ -16552,18 +16556,18 @@ insn { "fmov\t@Rm+,XDn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-op2 ← ReadMemoryPair 32 (address);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+op2 ← ReadMemoryPair<32>(address);
 op1 ← op1 + 8;
-R m ← Register(op1);
-XD2n ← FloatRegisterPair 32(op2);
+R[m] ← Register(op1);
+XD2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16580,7 +16584,7 @@ Rm.
 {R"(
 void FMOV_RESTORE_XD (int m, int n)
 {
-  XD[n >> 1] = Read_64 (R[m]);
+  XD[n >> 1] = Read<64>(R[m]);
   R[m] += 8;
   PC += 2;
 }
@@ -16614,18 +16618,18 @@ insn { "fmov\tDRm,@-Rn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValuePair32(FP 2m);
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValuePair<32>(FP 2m);
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op2 - 8);
-WriteMemoryPair 32 (address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op2 - 8);
+WriteMemoryPair<32>(address, op1);
 op2 ← address;
-R n ← Register(op2);
+R[n] ← Register(op2);
 )"},
 
   description
@@ -16643,7 +16647,7 @@ by resulting Rn value.
 {R"(
 void FMOV_SAVE_DR (int m, int n)
 {
-  Write_64 (R[n] - 8, DR[m >> 1]);
+  Write<64>(R[n] - 8, DR[m >> 1]);
   R[n] -= 8;
   PC += 2;
 }
@@ -16679,19 +16683,19 @@ insn { "fmov\tXDm,@-Rn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValuePair32(XD 2m);
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValuePair<32>(XD 2m);
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op2 - 8);
-WriteMemoryPair 32 (address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op2 - 8);
+WriteMemoryPair<32>(address, op1);
 op2 ← address;
-R n ← Register(op2);
-FPSCR ← ZeroExtend 32 (fps);
+R[n] ← Register(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -16708,7 +16712,7 @@ by resulting Rn value.
 {R"(
 void FMOV_SAVE_XD (int m, int n)
 {
-  Write_64 (R[n] - 8, XD[m >> 1]);
+  Write<64>(R[n] - 8, XD[m >> 1]);
   R[n] -= 8;
   PC += 2;
 }
@@ -16743,16 +16747,16 @@ insn { "fmov\t@(R0,Rm),DRn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(r0 + op1);
-op2 ← ReadMemoryPair 32 (address);
-FP2n ← FloatRegisterPair32(op2);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(r0 + op1);
+op2 ← ReadMemoryPair<32>(address);
+FP2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16768,7 +16772,7 @@ Transfers contents of memory at address indicated by (R0 + Rm) to DRn.
 {R"(
 void FMOV_INDEX_LOAD_DR (int m, int n)
 {
-  DR[n >> 1] = Read_64 (R[0] + R[m]);
+  DR[n >> 1] = Read<64>(R[0] + R[m]);
   PC += 2;
 }
 )"},
@@ -16802,16 +16806,16 @@ insn { "fmov\t@(R0,Rm),XDn",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-r0 ← SignExtend 32 (R0);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+r0 ← SignExtend<32>(R0);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(r0 + op1);
-op2 ← ReadMemoryPair 32 (address);
-XD 2n ← FloatRegisterPair 32(op2);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(r0 + op1);
+op2 ← ReadMemoryPair<32>(address);
+XD 2n ← FloatRegisterPair<32>(op2);
 )"},
   description
 {R"(
@@ -16827,7 +16831,7 @@ Transfers contents of memory at address indicated by (R0 + Rm) to XDn.
 {R"(
 void FMOV_INDEX_LOAD_XD (int m, int n)
 {
-  XD[n >> 1] = Read_64 (R[0] + R[m]);
+  XD[n >> 1] = Read<64>(R[0] + R[m]);
   PC += 2;
 }
 )"},
@@ -16860,16 +16864,16 @@ insn { "fmov\tDRm,@(R0,Rn)",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-r0 ← SignExtend 32 (R0);
-op1 ← FloatValuePair32(FP 2m);
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+r0 ← SignExtend<32>(R0);
+op1 ← FloatValuePair<32>(FP 2m);
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(r0 + op2);
-WriteMemoryPair 32 (address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(r0 + op2);
+WriteMemoryPair<32>(address, op1);
 )"},
   description
 {R"(
@@ -16885,7 +16889,7 @@ Transfers DRm contents to memory at address indicated by (R0 + Rn).
 {R"(
 void FMOV_INDEX_STORE_DR (int m, int n)
 {
-  Write_64 (R[0] + R[n], DR[m >> 1]);
+  Write<64>(R[0] + R[n], DR[m >> 1]);
   PC += 2;
 }
 )"},
@@ -16920,16 +16924,16 @@ insn { "fmov\tXDm,@(R0,Rn)",
   restriction { "Available only when PR = 0 and SZ = 1" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-r0 ← SignExtend 32 (R0);
-op1 ← FloatValuePair32(XD 2m);
-op2 ← SignExtend 32 (Rn);
+sr ← ZeroExtend<32>(SR);
+r0 ← SignExtend<32>(R0);
+op1 ← FloatValuePair<32>(XD 2m);
+op2 ← SignExtend<32>(R[n]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(r0 + op2);
-WriteMemoryPair 32 (address, op1);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(r0 + op2);
+WriteMemoryPair<32>(address, op1);
 )"},
   description
 {R"(
@@ -16945,7 +16949,7 @@ Transfers XDm contents to memory at address indicated by (R0 + Rn).
 {R"(
 void FMOV_INDEX_STORE_XD (int m, int n)
 {
-  Write_64 (R[0] + R[n], XD[m >> 1]);
+  Write<64>(R[0] + R[n], XD[m >> 1]);
   PC += 2;
 }
 )"},
@@ -16990,7 +16994,7 @@ Transfers memory contents at the address indicated by (disp + Rn) to DRn.
 void FMOV_INDEX_DISP12_LOAD_DR (int m, int n, int d)
 {
   long disp = (0x00000FFF & (long)d);
-  DR[n >> 1] = Read_64 (R[m] + (disp << 3));
+  DR[n >> 1] = Read<64>(R[m] + (disp << 3));
   PC += 4;
 }
 )"},
@@ -17031,7 +17035,7 @@ Transfers DRm contents to memory at the address indicated by (disp + Rn).
 void FMOV_INDEX_DISP12_STORE_DR (int m, int n, int d)
 {
   long disp = (0x00000FFF & (long)d);
-  Write_64 (R[n] + (disp << 3), DR[m >> 1]);
+  Write<64>(R[n] + (disp << 3), DR[m >> 1]);
   PC += 4;
 }
 )"},
@@ -17070,13 +17074,13 @@ insn { "fldi0\tFRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
+sr ← ZeroExtend<32>(SR);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1 ← 0x00000000;
-FR n ← FloatRegister 32(op1);
+FR[n] ← FloatRegister<32>(op1);
 )"},
 
   description
@@ -17124,13 +17128,13 @@ insn { "fldi1\tFRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
+sr ← ZeroExtend<32>(SR);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1 ← 0x3F800000;
-FR n ← FloatRegister 32(op1);
+FR[n] ← FloatRegister<32>(op1);
 )"},
 
   description
@@ -17177,14 +17181,14 @@ insn { "flds\tFRm,FPUL",
 
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← FloatValue 32 (FRm );
+sr ← ZeroExtend<32>(SR);
+op1 ← FloatValue<32>(FR[m];
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 fpul ← op1;
-FPUL ← ZeroExtend 32(fpul);
+FPUL ← ZeroExtend<32>(fpul);
 )"},
 
   description
@@ -17229,14 +17233,14 @@ insn { "fsts\tFPUL,FRn",
 
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fpul ← SignExtend 32(FPUL);
+sr ← ZeroExtend<32>(SR);
+fpul ← SignExtend<32>(FPUL);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1 ← fpul;
-FR n ← FloatRegister 32(op1);
+FR[n] ← FloatRegister<32>(op1);
 )"},
   description
 {R"(
@@ -17281,14 +17285,14 @@ insn { "fabs\tFRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+op1 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1 ← FABS_S(op1);
-FR n ← FloatRegister 32(op1);
+FR[n] ← FloatRegister<32>(op1);
 )"},
 
   description
@@ -17341,15 +17345,15 @@ insn { "fneg\tFRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1 ← FNEG_S(op1);
-FR n ← FloatRegister 32(op1);
+FR[n] ← FloatRegister<32>(op1);
 )"},
   description
 {R"(
@@ -17401,23 +17405,23 @@ insn { "fadd\tFRm,FRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
-op2 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
+op2 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FADD_S(op1, op2, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-FR n ← FloatRegister 32(op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FR[n] ← FloatRegister<32>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
 
   description
@@ -17555,23 +17559,23 @@ insn { "fsub\tFRm,FRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
-op2 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
+op2 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FSUB_S(op2, op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-FR n ← FloatRegister 32(op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FR[n] ← FloatRegister<32>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -17709,23 +17713,23 @@ insn { "fmul\tFRm,FRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
-op2 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
+op2 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FMUL_S(op1, op2, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-FR n ← FloatRegister 32(op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FR[n] ← FloatRegister<32>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -17859,24 +17863,24 @@ insn { "fmac\tFR0,FRm,FRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-fr0 ← FloatValue 32 (FR0);
-op1 ← FloatValue 32 (FRm );
-op2 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+fr0 ← FloatValue<32>(FR0);
+op1 ← FloatValue<32>(FR[m];
+op2 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FMAC_S(fr0, op1, op2, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-FR n ← FloatRegister 32(op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FR[n] ← FloatRegister<32>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
 
   description
@@ -18155,25 +18159,25 @@ insn { "fdiv\tFRm,FRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
-op2 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
+op2 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FDIV_S(op2, op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuEnableZ(fps) AND FpuCauseZ(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-FR n ← FloatRegister 32(op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FR[n] ← FloatRegister<32>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
 
 
@@ -18360,22 +18364,22 @@ insn { "fsqrt\tFRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1, fps ← FSQRT_S(op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuEnableI(fps))
-THROW FPUEXC, fps;
-FR n ← FloatRegister 32(op1);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FR[n] ← FloatRegister<32>(op1);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -18495,18 +18499,18 @@ insn { "fcmp/eq\tFRm,FRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
-op2 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
+op2 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 t, fps ← FCMPEQ_D(op1, op2, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FPSCR ← ZeroExtend<32>(fps);
 T ← Bit(t);
 )"},
 
@@ -18639,18 +18643,18 @@ insn { "fcmp/gt\tFRm,FRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
-op2 ← FloatValue 32 (FRn);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
+op2 ← FloatValue<32>(FRn);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 t, fps ← FCMPGT_S(op2, op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FPSCR ← ZeroExtend<32>(fps);
 T ← Bit(t);
 )"},
 
@@ -18720,18 +18724,18 @@ insn { "float\tFPUL,FRn",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-fpul ← SignExtend 32(FPUL);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+fpul ← SignExtend<32>(FPUL);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1, fps ← FLOAT_LS(fpul, fps);
 IF (FpuEnableI(fps))
-THROW FPUEXC, fps;
-FR n ← FloatRegister 32(op1);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FR[n] ← FloatRegister<32>(op1);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -18794,18 +18798,18 @@ insn { "ftrc\tFRm,FPUL",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 32 (FRm );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<32>(FR[m];
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 fpul, fps ← FTRC_SL(op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
-FPSCR ← ZeroExtend 32 (fps);
-FPUL ← ZeroExtend 32(fpul);
+  THROW FPUEXC, fps;
+FPSCR ← ZeroExtend<32>(fps);
+FPUL ← ZeroExtend<32>(fpul);
 )"},
   description
 {R"(
@@ -19323,14 +19327,14 @@ insn { "fabs\tDRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+op1 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1 ← FABS_D(op1);
-DR 2n ← FloatRegister 64 (op1);
+DR 2n ← FloatRegister<64>(op1);
 )"},
 
   description
@@ -19383,14 +19387,14 @@ insn { "fneg\tDRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+op1 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1 ← FNEG_D(op1);
-DR 2n ← FloatRegister 64 (op1);
+DR 2n ← FloatRegister<64>(op1);
 )"},
   description
 {R"(
@@ -19442,23 +19446,23 @@ insn { "fadd\tDRm,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
-op2 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
+op2 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FADD_D(op1, op2, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-DR 2n ← FloatRegister 64 (op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+DR 2n ← FloatRegister<64>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
 
   description
@@ -19595,23 +19599,23 @@ insn { "fsub\tDRm,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
-op2 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
+op2 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FSUB_D(op2, op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-DR 2n ← FloatRegister 64 (op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+DR 2n ← FloatRegister<64>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -19747,23 +19751,23 @@ insn { "fmul\tDRm,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
-op2 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
+op2 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FMUL_D(op1, op2, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-DR 2n ← FloatRegister 64 (op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+DR 2n ← FloatRegister<64>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -19892,25 +19896,25 @@ insn { "fdiv\tDRm,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
-op2 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
+op2 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op2, fps ← FDIV_D(op2, op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuEnableZ(fps) AND FpuCauseZ(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-DR 2n ← FloatRegister 64 (op2);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+DR 2n ← FloatRegister<64>(op2);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
 
 
@@ -20100,22 +20104,22 @@ insn { "fsqrt\tDRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1, fps ← FSQRT_D(op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuEnableI(fps))
-THROW FPUEXC, fps;
-DR 2n ← FloatRegister 64 (op1);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+DR 2n ← FloatRegister<64>(op1);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -20238,18 +20242,18 @@ insn { "fcmp/eq\tDRm,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
-op2 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
+op2 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 t, fps ← FCMPEQ_D(op1, op2, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FPSCR ← ZeroExtend<32>(fps);
 T ← Bit(t);
 )"},
 
@@ -20376,18 +20380,18 @@ insn { "fcmp/gt\tDRm,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
-op2 ← FloatValue 64 (DR2n );
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
+op2 ← FloatValue<64>(DR2n );
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 t, fps ← FCMPGT_D(op2, op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FPSCR ← ZeroExtend<32>(fps);
 T ← Bit(t);
 )"},
 
@@ -20456,15 +20460,15 @@ insn { "float\tFPUL,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-fpul ← SignExtend 32(FPUL);
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
+fpul ← SignExtend<32>(FPUL);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1, fps ← FLOAT_LD(fpul, fps);
-DR 2n ← FloatRegister 64 (op1);
+DR 2n ← FloatRegister<64>(op1);
 )"},
 
   description
@@ -20519,18 +20523,18 @@ insn { "ftrc\tDRm,FPUL",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 fpul, fps ← FTRC_DL(op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
-FPUL ← ZeroExtend 32(fpul);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+FPUL ← ZeroExtend<32>(fpul);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
 {R"(
@@ -20630,22 +20634,22 @@ insn { "fcnvds\tDRm,FPUL",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-op1 ← FloatValue 64 (DR2m);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+op1 ← FloatValue<64>(DR2m);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 fpul, fps ← FCNV_DS(op1, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
-THROW FPUEXC, fps;
-FPSCR ← ZeroExtend 32 (fps);
-FPUL ← ZeroExtend 32(fpul);
+  THROW FPUEXC, fps;
+FPSCR ← ZeroExtend<32>(fps);
+FPUL ← ZeroExtend<32>(fpul);
 )"},
 
 
@@ -20785,20 +20789,20 @@ insn { "fcnvsd\tFPUL,DRn",
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fps ← ZeroExtend 32 (FPSCR);
-fpul ← SignExtend 32(FPUL);
+sr ← ZeroExtend<32>(SR);
+fps ← ZeroExtend<32>(FPSCR);
+fpul ← SignExtend<32>(FPUL);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 op1, fps ← FCNV_SD(fpul, fps);
 IF (FpuEnableV(fps) AND FpuCauseV(fps))
-THROW FPUEXC, fps;
+  THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
-THROW FPUEXC, fps;
-DR 2n ← FloatRegister 64 (op1);
-FPSCR ← ZeroExtend 32 (fps);
+  THROW FPUEXC, fps;
+DR 2n ← FloatRegister<64>(op1);
+FPSCR ← ZeroExtend<32>(fps);
 )"},
 
 
@@ -20910,14 +20914,14 @@ insn { "lds\tRm,FPSCR",
 
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 fps, pr, sz, fr ← UnpackFPSCR(op1);
-FPSCR ← ZeroExtend 32 (fps);
+FPSCR ← ZeroExtend<32>(fps);
 SR.PR ← Bit(pr);
 SR.SZ ← Bit(sz);
 SR.FR ← Bit(fr);
@@ -21020,18 +21024,18 @@ insn { "lds.l\t@Rm+,FPSCR",
 
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-value ← ReadMemory 32(address);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+value ← ReadMemory<32>(address);
 fps, pr, sz, fr ← UnpackFPSCR(value);
 op1 ← op1 + 4;
-R m ← Register(op1);
-FPSCR ← ZeroExtend 32 (fps);
+R[m] ← Register(op1);
+FPSCR ← ZeroExtend<32>(fps);
 SR.PR ← Bit(pr);
 SR.SZ ← Bit(sz);
 SR.FR ← Bit(fr);
@@ -21051,10 +21055,10 @@ Loads the source operand into FPU system register FPSCR.
 void LDSMFPSCR (int m)
 {
   #if SH2E || SH3E
-  FPSCR = Read_32 (R[m]) & 0x00018C60;
+  FPSCR = Read<32>(R[m]) & 0x00018C60;
 
   #elif SH4 || SH4A || SH2A_FPU
-  FPSCR = Read_32 (R[m]) & 0x003FFFFF;
+  FPSCR = Read<32>(R[m]) & 0x003FFFFF;
 
   #endif
 
@@ -21106,10 +21110,10 @@ void STSMFPSCR (int n)
   R[n] -= 4;
 
   #if SH2E || SH3E
-  Write_32 (R[n], FPSCR);
+  Write<32>(R[n], FPSCR);
 
   #elif SH4 || SH4A || SH2A_FPU
-  Write_32 (R[n], FPSCR & 0x003FFFFF);
+  Write<32>(R[n], FPSCR & 0x003FFFFF);
 
   #endif
 
@@ -21145,14 +21149,14 @@ insn { "lds\tRm,FPUL",
   name { "_Loa_d to FPU _System Register" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 fpul ← op1;
-FPUL ← ZeroExtend 32(fpul);
+FPUL ← ZeroExtend<32>(fpul);
 )"},
   description
 {R"(
@@ -21241,17 +21245,17 @@ insn { "lds.l\t@Rm+,FPUL",
   name { "_Loa_d to FPU _System Register" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-op1 ← SignExtend 32 (Rm );
+sr ← ZeroExtend<32>(SR);
+op1 ← SignExtend<32>(R[m]);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
-address ← ZeroExtend 32(op1);
-fpul ← ReadMemory 32 (address);
+  THROW FPUDIS;
+address ← ZeroExtend<32>(op1);
+fpul ← ReadMemory<32>(address);
 op1 ← op1 + 4;
-R m ← Register(op1);
-FPUL ← ZeroExtend 32(fpul);
+R[m] ← Register(op1);
+FPUL ← ZeroExtend<32>(fpul);
 )"},
   description
 {R"(
@@ -21267,7 +21271,7 @@ FPUL ← ZeroExtend 32(fpul);
 {R"(
 void LDSMFPUL (int m)
 {
-  FPUL = Read_32 (R[m]);
+  FPUL = Read<32>(R[m]);
   R[m] += 4;
   PC += 2;
 }
@@ -21313,7 +21317,7 @@ Stores FPU system register FPUL in the destination.
 void STSMFPUL (int n)
 {
   R[n] -= 4;
-  Write_32 (R[n], FPUL);
+  Write<32>(R[n], FPUL);
   PC += 2;
 }
 )"},
@@ -21346,12 +21350,12 @@ insn { "frchg",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-fr ← ZeroExtend 1 (SR.FR);
+sr ← ZeroExtend<32>(SR);
+fr ← ZeroExtend<1>(SR.FR);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 fr ← fr ⊕ 1;
 SR.FR ← Bit(fr);
 )"},
@@ -21409,12 +21413,12 @@ insn { "fschg",
   restriction { "Available only when PR = 0" },
   brief
 {R"(
-sr ← ZeroExtend 32 (SR);
-sz ← ZeroExtend1 (SR.SZ);
+sr ← ZeroExtend<32>(SR);
+sz ← ZeroExtend<1>(SR.SZ);
 IF (FpuIsDisabled(sr) AND IsDelaySlot())
-THROW SLOTFPUDIS;
+  THROW SLOTFPUDIS;
 IF (FpuIsDisabled(sr))
-THROW FPUDIS;
+  THROW FPUDIS;
 sz ← sz ⊕ 1;
 SR.SZ ← Bit(sz);
 )"},
