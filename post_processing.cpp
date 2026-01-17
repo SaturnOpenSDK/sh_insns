@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <string>
 #include <string_view>
+#include <cassert>
 
 using namespace std::literals;
 using namespace std::string_view_literals;
@@ -16,6 +17,48 @@ using namespace std::literals::string_literals;
 
 constexpr bool operator ==(const environment_t& a, const environment_t& b)
   { return a.instruction_sets == b.instruction_sets && a.property == b.property; }
+
+
+static std::string to_string(isa flags)
+{
+  if(!static_cast<uint16_t>(flags))
+    return "None";
+
+  std::string s;
+
+  if(flags & SH1)
+    s += "SH1 ";
+  if(flags & SH1_DSP)
+    s += "SH1_DSP ";
+  if(flags & SH2)
+    s += "SH2 ";
+  if(flags & SH2_DSP)
+    s += "SH2_DSP ";
+
+  if(flags & SH2E)
+    s += "SH2E ";
+  if(flags & SH2A)
+    s += "SH2A ";
+  if(flags & SH2A_FPU)
+    s += "SH2A_FPU";
+
+  if(flags & SH3)
+    s += "SH2A ";
+  if(flags & SH3_FPU)
+    s += "SH2A_FPU ";
+  if(flags & SH3_DSP)
+    s += "SH3_DSP ";
+
+  if(flags & SH4)
+    s += "SH4 ";
+  if(flags & SH4A)
+    s += "SHA ";
+
+  assert(!s.empty());
+  s.pop_back();
+  return s;
+}
+
 
 
 static const std::array<std::pair<std::string_view, std::string_view>, 26> unicode_symbols =
@@ -735,31 +778,54 @@ void post_processing(std::list<insns>& insn_blocks)
   auto fix_images = [](std::string& data, const std::string& title)
     { replace_string(data, "<img src=", "<img alt=\""s + title + "\" class=\"image_filter\" src="s); };
 
+  std::cerr << "instructions with missing issue and/or latency information:" << std::endl;
+
+  auto missing_data = [](bool found,
+                         isa id,
+                         const isa_property& prop1,
+                         const isa_property& prop2)
+  {
+    return (found && prop1[id].empty()) ||
+           (found && prop2[id].empty());
+  };
+
+  auto extra_data = [](bool found,
+                       isa id,
+                       const isa_property& prop1,
+                       const isa_property& prop2)
+  {
+    return (!found && !prop1[id].empty()) ||
+           (!found && !prop2[id].empty());
+  };
+
+  std::cerr << std::boolalpha;
   for(insns& block : insn_blocks)
   {
     for(insn& instruction : block)
     {
-      for(std::size_t pos = 0; pos < 8; ++pos)
+      for(isa pos = SH1; pos <= SH4A; pos = pos << 1)
       {
-        isa current_isa = isa(1 << pos);
-        isa i_set = instruction.data<isa>();
-        const isa_property& i = instruction.data<issue>();
-        const isa_property& l = instruction.data<latency>();
-        if(uint16_t(i_set) & uint16_t(current_isa) ||
-           !i.operator[](current_isa).empty() ||
-           !l.operator[](current_isa).empty())
+        const isa_property& issu = instruction.data<issue>();
+        const isa_property& late = instruction.data<latency>();
+        if(missing_data(instruction.has_isa(pos), pos, issu, late))
         {
-          if(! ((uint16_t(i_set) & uint16_t(current_isa))) ||
-             i.operator[](current_isa).empty() ||
-             l.operator[](current_isa).empty())
-          {
-            std::cerr << instruction.data<opcode>()
-                      << " - current isa: " << std::hex << std::setw(3) << current_isa
-                      << " - isa: " << std::hex << std::setw(3) << (i_set & current_isa)
-                      << " - issue: '" << i.operator[](current_isa) << "'"
-                      << " - latency: '" << l.operator[](current_isa) << "'"
-                      << std::endl;
-          }
+          std::cerr << "missing: " << instruction.data<opcode>()
+                    << " | isa: " << std::setw(8) << to_string(pos)
+                    << " | have: " << std::setw(5) << instruction.has_isa(pos)
+                    << " | issue: '" << issu[pos] << "'"
+                    << " | latency: '" << late[pos] << "'"
+                    << std::endl;
+          std::cerr.flush();
+        }
+        if(extra_data(instruction.has_isa(pos), pos, issu, late))
+        {
+          std::cerr << "extra:   " << instruction.data<opcode>()
+                    << " | isa: " << std::setw(8) << to_string(pos)
+                    << " | have: " << std::setw(5) << instruction.has_isa(pos)
+                    << " | issue: '" << issu[pos] << "'"
+                    << " | latency: '" << late[pos] << "'"
+                    << std::endl;
+          std::cerr.flush();
         }
       }
 

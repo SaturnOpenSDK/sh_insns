@@ -136,11 +136,11 @@ std::string build_isa_list (const insn& i)
   };
   std::string r;
   for(std::size_t pos = 0; pos < list.size(); ++pos)
-    r += func(i.for_isa(list[pos]), names[list[pos]]);
+    r += func(i.has_isa(list[pos]), names[list[pos]]);
   return r;
 }
 
-std::string build_isa_tagged_property_list (const insn& i, const isa_property& p)
+std::string build_isa_tagged_property_list (const insn& ins, const isa_property& p)
 {
   constexpr static const std::array<isa, 9> list = {
                                                      SH1, SH2,
@@ -156,7 +156,7 @@ std::string build_isa_tagged_property_list (const insn& i, const isa_property& p
   };
   std::string r;
   for(std::size_t pos = 0; pos < list.size(); ++pos)
-    r += func(i.for_isa(list[pos]), p[list[pos]]);
+    r += func(ins.has_isa(list[pos]), p[list[pos]]);
   return r;
 }
 
@@ -320,8 +320,8 @@ input[id^="cb_" ]::after { content:attr(name); }
 #cb_SH3:checked  ~ label.SH3,
 #cb_SH3E:checked ~ label.SH3_FPU,
 #cb_DSP:checked  ~ label.SH1_DSP,
-#cb_DSP:checked  ~ label.SH1_DSP,
 #cb_DSP:checked  ~ label.SH2_DSP,
+#cb_DSP:checked  ~ label.SH3_DSP,
 #cb_SH4:checked  ~ label.SH4,
 #cb_SH4A:checked ~ label.SH4A
 { display: inline-grid; }
@@ -623,7 +623,11 @@ var[title="add"]::before { content: "+"; }
   {
     std::list<insns> insn_blocks;
     build_insn_blocks(insn_blocks);
+    std::cerr << "Starting post processing" << std::endl;
+    std::cerr.flush();
     post_processing(insn_blocks);
+    std::cerr << "End of post processing" << std::endl;
+    std::cerr.flush();
 
     int id = 0;
     for (const auto& block : insn_blocks)

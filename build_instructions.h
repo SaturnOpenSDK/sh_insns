@@ -42,8 +42,37 @@ enum isa : uint16_t
 };
 constexpr const int isa_count = 12;
 
+// enumeration manipulators
 constexpr isa operator |(isa a, isa b)
-  { return isa(uint16_t(a) | uint16_t(b)); }
+  { return static_cast<isa>(static_cast<uint16_t>(a) | static_cast<uint16_t>(b)); }
+
+constexpr isa operator &(isa a, isa b)
+  { return static_cast<isa>(static_cast<uint16_t>(a) & static_cast<uint16_t>(b)); }
+
+constexpr bool operator ==(isa a, isa b)
+  { return static_cast<uint16_t>(a) == static_cast<uint16_t>(b); }
+
+constexpr bool operator !=(isa a, isa b)
+  { return static_cast<uint16_t>(a) != static_cast<uint16_t>(b); }
+
+constexpr bool operator <(isa a, isa b)
+  { return static_cast<uint16_t>(a) < static_cast<uint16_t>(b); }
+
+constexpr bool operator >(isa a, isa b)
+  { return static_cast<uint16_t>(a) > static_cast<uint16_t>(b); }
+
+constexpr bool operator <=(isa a, isa b)
+  { return static_cast<uint16_t>(a) <= static_cast<uint16_t>(b); }
+
+constexpr bool operator >=(isa a, isa b)
+  { return static_cast<uint16_t>(a) >= static_cast<uint16_t>(b); }
+
+constexpr isa operator <<(isa a, int pos)
+  { return static_cast<isa>(static_cast<uint16_t>(a) << pos); }
+
+constexpr isa operator >>(isa a, int pos)
+  { return static_cast<isa>(static_cast<uint16_t>(a) << pos); }
+
 
 struct isa_property : std::array<std::string, isa_count>
 {
@@ -252,7 +281,7 @@ struct insn
   template <typename T>
   T& data(void) { return std::get<T>(details); }
 
-  bool for_isa (isa i) const { return std::get<isa>(details) & i; }
+  bool has_isa (isa i) const { return std::get<isa>(details) & i; }
 
   std::tuple<format, abstract, name, classification, brief, restriction, mnemonic, mnemonic_origin,
              citations, opcode, description, note, operation, example, exceptions,
