@@ -7,13 +7,16 @@
 #include <array>
 
 #if __cplusplus < 202002L
-template< class T >
-constexpr int countr_zero( T x ) noexcept
+namespace std
 {
-  for(std::size_t i = 0; i < sizeof(T) * 8; ++i)
-    if(x & (1 << i))
-      return i;
-  return sizeof (T) * 8;
+  template< class T >
+  constexpr int countr_zero( T x ) noexcept
+  {
+    for(std::size_t i = 0; i < sizeof(T) * 8; ++i)
+      if(x & (1 << i))
+        return i;
+    return sizeof (T) * 8;
+  }
 }
 #else
 # include <bit>
@@ -65,7 +68,7 @@ struct isa_property : std::array<std::string, isa_count>
       case SH2E: case SH2A: case SH2A_FPU:
       case SH3: case SH3_FPU: case SH3_DSP:
       case SH4: case SH4A:
-        return parent::operator[](countr_zero(i));
+        return parent::operator[](std::countr_zero(i));
 
       case SH1_DSP | SH2_DSP | SH3_DSP:
         if(!operator[](SH1_DSP).empty())

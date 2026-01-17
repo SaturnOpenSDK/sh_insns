@@ -523,14 +523,13 @@ span[title="list"] > var
 }
 
 input[id="radio_math"]:checked ~ var[title="for all"]::before { content: "∀"; }
-
 input[id="radio_math"]:checked ~ .summary var[title="greater than or equal"]::before { content: "≤"; }
 input[id="radio_math"]:checked ~ .summary var[title="less than or equal"]::before { content: "≥"; }
 input[id="radio_math"]:checked ~ .summary var[title="equality"]::before { content: "="; }
 input[id="radio_math"]:checked ~ .summary var[title="shift bits left"]::before { content: "«"; }
 input[id="radio_math"]:checked ~ .summary var[title="shift bits right"]::before { content: "»"; }
-input[id="radio_math"]:checked ~ .summary var[title="binary or"]::before { content: "∨"; }
-input[id="radio_math"]:checked ~ .summary var[title="binary and"]::before { content: "∧"; }
+input[id="radio_math"]:checked ~ .summary var[title="binary or"]::before { content: "∪"; }
+input[id="radio_math"]:checked ~ .summary var[title="binary and"]::before { content: "∩"; }
 input[id="radio_math"]:checked ~ .summary var[title="binary xor"]::before { content: "⊕"; }
 input[id="radio_math"]:checked ~ .summary var[title="binary not"]::before { content: "¬"; }
 input[id="radio_math"]:checked ~ .summary var[title="double prime"]::after { content: "″"; }
