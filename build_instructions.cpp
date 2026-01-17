@@ -10205,7 +10205,7 @@ void LDBANK (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,SR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
   abstract { "Rm -> SR" },
   opcode { "0100mmmm00001110" },
   flags { "LSB -> T" },
@@ -10270,7 +10270,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,SR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
   abstract { "(Rm) -> SR, Rm+4 -> Rm" },
   opcode { "0100mmmm00000111" },
   flags { "LSB -> T" },
@@ -10382,6 +10382,7 @@ void LDCTBR (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,GBR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
+  environments { { { SH3, "Privileged" } } },
   abstract { "Rm -> GBR" },
   opcode { "0100mmmm00011110" },
 
@@ -10428,6 +10429,7 @@ void LDCGBR (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,GBR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
+  environments { { { SH3, "Privileged" } } },
   abstract { "(Rm) -> GBR, Rm+4 -> Rm" },
   opcode { "0100mmmm00010111" },
 
@@ -10482,7 +10484,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,VBR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
   abstract { "Rm -> VBR" },
   opcode { "0100mmmm00101110" },
 
@@ -10533,7 +10535,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,VBR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
   abstract { "(Rm) -> VBR, Rm+4 -> Rm" },
   opcode { "0100mmmm00100111" },
 
@@ -10592,6 +10594,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,MOD",
   SH1_DSP | SH2_DSP | SH3_DSP,
+  environments { { { SH3_DSP, "Privileged" } } },
   abstract { "Rm -> MOD" },
   opcode { "0100mmmm01011110" },
 
@@ -10633,6 +10636,7 @@ void LDCMOD (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,MOD",
   SH1_DSP | SH2_DSP | SH3_DSP,
+  environments { { { SH3_DSP, "Privileged" } } },
   abstract { "(Rm) -> MOD, Rm+4 -> Rm" },
   opcode { "0100mmmm01010111" },
 
@@ -10676,6 +10680,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,RE",
   SH1_DSP | SH2_DSP | SH3_DSP,
+  environments { { { SH3_DSP, "Privileged" } } },
   abstract { "Rm -> RE" },
   opcode { "0100mmmm01111110" },
 
@@ -10717,6 +10722,7 @@ void LDCRE (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,RE",
   SH1_DSP | SH2_DSP | SH3_DSP,
+  environments { { { SH3_DSP, "Privileged" } } },
   abstract { "(Rm) -> RE, Rm+4 -> Rm" },
   opcode { "0100mmmm01110111" },
 
@@ -10759,6 +10765,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,RS",
   SH1_DSP | SH2_DSP | SH3_DSP,
+  environments { { { SH3_DSP, "Privileged" } } },
   abstract { "Rm -> RS" },
   opcode { "0100mmmm01101110" },
 
@@ -10800,6 +10807,7 @@ void LDCRS (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,RS",
   SH1_DSP | SH2_DSP | SH3_DSP,
+  environments { { { SH3_DSP, "Privileged" } } },
   abstract { "(Rm) -> RS, Rm+4 -> Rm" },
   opcode { "0100mmmm01100111" },
 
@@ -10939,7 +10947,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,SSR",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" },  } },
   abstract { "Rm -> SSR" },
   opcode { "0100mmmm00111110" },
 
@@ -10970,7 +10978,14 @@ Stores a source operand in control register SSR.
 {R"(
 void LDCSSR (int m)
 {
-  SSR = R[m],
+#if SH3
+  SSR=R[m]&0x700003F3;
+
+#elif SH4 || SH4A
+  SSR = R[m];
+
+#endif
+
   PC += 2;
 }
 )"},
@@ -10990,7 +11005,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,SSR",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" },  } },
   abstract { "(Rm) -> SSR, Rm+4 -> Rm" },
   opcode { "0100mmmm00110111" },
 
@@ -11049,7 +11064,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,SPC",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" },  } },
   abstract { "Rm -> SPC" },
   opcode { "0100mmmm01001110" },
 
@@ -11100,7 +11115,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc.l\t@Rm+,SPC",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" },  } },
   abstract { "(Rm) -> SPC, Rm+4 -> Rm" },
   opcode { "0100mmmm01000111" },
 
@@ -11269,7 +11284,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldc\tRm,Rn_BANK",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" } } },
   abstract { "Rm -> Rn_BANK (n = 0-7)" },
   opcode { "0100mmmm1nnn1110" },
 
@@ -12365,7 +12380,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "ldtlb",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" },  } },
   abstract { "PTEH/PTEL -> TLB" },
   opcode { "0000000000111000" },
 
@@ -12943,7 +12958,7 @@ void RESBANK (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "rte",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" }, { SH_ALL, "Delayed Branch" } } },
   abstract { "Delayed branch\nSH1*,SH2*: stack area -> PC/SR\nSH3*,SH4*: SSR/SPC -> SR/PC" },
   opcode { "0000000000101011" },
 
@@ -13250,7 +13265,7 @@ SETT ;Before execution: T = 0
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sleep",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" },  } },
   abstract { "Sleep or standby" },
   opcode { "0000000000011011" },
 
@@ -13357,7 +13372,7 @@ void STBANK (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc\tSR,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
   abstract { "SR -> Rn" },
   opcode { "0000nnnn00000010" },
 
@@ -13410,7 +13425,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l\tSR,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" } } },
   abstract { "Rn-4 -> Rn, SR -> (Rn)" },
   opcode { "0100nnnn00000011" },
 
@@ -13617,7 +13632,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc\tVBR,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
   abstract { "VBR -> Rn" },
   opcode { "0000nnnn00100010" },
 
@@ -13668,7 +13683,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l\tVBR,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH4A, "Privileged" } } },
+  environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" } } },
   abstract { "Rn-4 -> Rn, VBR -> (Rn)" },
   opcode { "0100nnnn00100011" },
 
@@ -14095,7 +14110,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc\tSSR,Rn",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" } } },
   abstract { "SSR -> Rn" },
   opcode { "0000nnnn00110010" },
 
@@ -14146,7 +14161,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l\tSSR,@-Rn",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" } } },
   abstract { "Rn-4 -> Rn, SSR -> (Rn)" },
   opcode { "0100nnnn00110011" },
 
@@ -14206,7 +14221,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc\tSPC,Rn",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" } } },
   abstract { "SPC -> Rn" },
   opcode { "0000nnnn01000010" },
 
@@ -14257,13 +14272,13 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "stc.l\tSPC,@-Rn",
   SH3 | SH4 | SH4A,
-  environments { { { SH4A, "Privileged" } } },
+  environments { { { SH3 | SH4A, "Privileged" },  } },
   abstract { "Rn-4 -> Rn, SPC -> (Rn)" },
   opcode { "0100nnnn01000011" },
 
   group { SH4A, "LS", SH4, "CO" },
   issue { SH4A, "1", SH4, "2" },
-  latency { SH4A, "1", SH4, "2/2" },
+  latency { SH3, "1/2", SH4A, "1", SH4, "2/2" },
 
   brief
 {R"(
@@ -17858,7 +17873,7 @@ insn { "fmac\tFR0,FRm,FRn",
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A, "1" },
-  latency { SH2E | SH3_FPU | SH4A, "1", SH2A, "3", SH4, "3/4" },
+  latency { SH2E | SH3_FPU | SH4A, "1", SH2A_FPU, "3", SH4, "3/4" },
 
   restriction { "Available only when PR = 0" },
   brief
@@ -18154,7 +18169,7 @@ insn { "fdiv\tFRm,FRn",
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A, "1" },
-  latency { SH2E, "13", SH3_FPU, "13", SH4A, "14", SH2A, "12", SH4, "12/13" },
+  latency { SH2E, "13", SH3_FPU, "13", SH4A, "14", SH2A_FPU, "12", SH4, "12/13" },
 
   restriction { "Available only when PR = 0" },
   brief
@@ -18494,7 +18509,7 @@ insn { "fcmp/eq\tFRm,FRn",
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A, "1" },
-  latency { SH2E | SH3_FPU | SH4A, "1", SH2A, "2", SH4, "2/4" },
+  latency { SH2E | SH3_FPU | SH4A, "1", SH2A_FPU, "2", SH4, "2/4" },
 
   restriction { "Available only when PR = 1 and SZ = 0" },
   brief
@@ -18638,7 +18653,7 @@ insn { "fcmp/gt\tFRm,FRn",
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A, "1" },
-  latency { SH2E | SH3_FPU | SH4A, "1", SH2A, "2", SH4, "2/4" },
+  latency { SH2E | SH3_FPU | SH4A, "1", SH2A_FPU, "2", SH4, "2/4" },
 
   restriction { "Available only when PR = 0" },
   brief
@@ -18719,7 +18734,7 @@ insn { "float\tFPUL,FRn",
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A, "1" },
-  latency { SH2E | SH3_FPU | SH4A, "1", SH2A, "3", SH4, "3/4" },
+  latency { SH2E | SH3_FPU | SH4A, "1", SH2A_FPU, "3", SH4, "3/4" },
 
   restriction { "Available only when PR = 0" },
   brief
@@ -18793,7 +18808,7 @@ insn { "ftrc\tFRm,FPUL",
 
   group { SH4A, "FE", SH4, "FE" },
   issue { SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A, "1" },
-  latency { SH2E | SH3_FPU | SH4A, "1", SH2A, "3", SH4, "3/4" },
+  latency { SH2E | SH3_FPU | SH4A, "1", SH2A_FPU, "3", SH4, "3/4" },
 
   restriction { "Available only when PR = 0" },
   brief
