@@ -8,7 +8,7 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov\tRm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := Rm" },
+  abstract { "Rm -> Rn" },
   opcode { "0110nnnnmmmm0011" },
 
   group { SH4, "MT", SH4A, "MT" },
@@ -55,7 +55,7 @@ MOV R0,R1 ;Before execution: R0 = H'FFFFFFFF, R1 = H'00000000
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov\t#imm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext( imm )" },
+  abstract { "signext( imm ) -> Rn" },
   opcode { "1110nnnniiiiiiii" },
 
   group { SH4, "EX", SH4A, "MT" },
@@ -118,7 +118,7 @@ void MOVI (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movi20\t#imm20,Rn",
   SH2A,
-  abstract { "Rn := signext( imm )" },
+  abstract { "signext( imm ) -> Rn" },
   opcode { "0000nnnniiii0000iiiiiiiiiiiiiiii" },
 
   issue { SH2A, "1" },
@@ -164,7 +164,7 @@ void MOVI20 (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movi20s\t#imm20,Rn",
   SH2A,
-  abstract { "Rn := signext( imm << 8 )" },
+  abstract { "signext( imm << 8 ) -> Rn" },
   opcode { "0000nnnniiii0001iiiiiiiiiiiiiiii" },
 
   issue { SH2A, "1" },
@@ -212,7 +212,7 @@ void MOVI20S (int i, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mova\t@(disp,PC),R0",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "R0 := (disp * 4) + (PC & 0xFFFFFFFC) + 4" },
+  abstract { "(disp * 4) + (PC & 0xFFFFFFFC) + 4 -> R0" },
   opcode { "11000111dddddddd" },
 
   group { SH4, "EX", SH4A, "LS" },
@@ -226,7 +226,7 @@ disp ← ZeroExtend<8>(i) << 2;
 IF (IsDelaySlot())
   THROW ILLSLOT;
 r0 ← disp + ((pc + 4) ∧ (~ 0x3));
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
   description
 {R"(
@@ -283,7 +283,7 @@ Slot illegal instruction
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(disp,PC),Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext( disp * 2 + PC + 4)" },
+  abstract { "signext( disp * 2 + PC + 4) -> Rn" },
   opcode { "1001nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -348,7 +348,7 @@ Data TLB protection violation exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(disp,PC),Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext (disp * 4 + (PC & 0xFFFFFFFC) + 4)" },
+  abstract { "signext (disp * 4 + (PC & 0xFFFFFFFC) + 4) -> Rn" },
   opcode { "1101nnnndddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -409,7 +409,7 @@ Data TLB protection violation exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@Rm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext( $(Rm) )" },
+  abstract { "signext( $(Rm) ) -> Rn" },
   opcode { "0110nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -467,7 +467,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@Rm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext( $(Rm) )" },
+  abstract { "signext( $(Rm) ) -> Rn" },
   opcode { "0110nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -524,7 +524,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@Rm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := $(Rm)" },
+  abstract { "(Rm) -> Rn" },
   opcode { "0110nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -574,7 +574,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tRm,@Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(Rn) := Rm" },
+  abstract { "Rm -> $(Rn)" },
   opcode { "0010nnnnmmmm0000" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -625,7 +625,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tRm,@Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(Rn) := Rm" },
+  abstract { "Rm -> $(Rn)" },
   opcode { "0010nnnnmmmm0001" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -677,7 +677,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(Rn) := Rm" },
+  abstract { "Rm -> $(Rn)" },
   opcode { "0010nnnnmmmm0010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -728,7 +728,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@Rm+,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext( $(Rm) ), Rm := Rm+1" },
+  abstract { "signext( $(Rm) ) -> Rn, Rm + 1 -> Rm" },
   opcode { "0110nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -795,7 +795,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@Rm+,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext( $(Rm) ), Rm := Rm+2" },
+  abstract { "signext( $(Rm) ) -> Rn, Rm + 2 -> Rm" },
   opcode { "0110nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -862,7 +862,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@Rm+,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := $(Rm), Rm := Rm+4" },
+  abstract { "$(Rm) -> Rn, Rm + 4 -> Rm" },
   opcode { "0110nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -925,7 +925,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tRm,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := Rn-1, $(Rn) := Rm" },
+  abstract { "Rn - 1 -> Rn, Rm -> $(Rn)" },
   opcode { "0010nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -979,7 +979,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tRm,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := Rn-2, $(Rn) := Rm" },
+  abstract { "Rn - 2 -> Rn, Rm -> $(Rn)" },
   opcode { "0010nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1034,7 +1034,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := Rn-4, $(Rn) := Rm" },
+  abstract { "Rn - 4 -> Rn, Rm -> $(Rn)" },
   opcode { "0010nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1088,7 +1088,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@-Rm,R0",
   SH2A,
-  abstract { "Rm := Rm-1, R0 := signext( $(Rm) )" },
+  abstract { "Rm - 1 -> Rm, signext( $(Rm) ) -> R0" },
   opcode { "0100mmmm11001011" },
 
   issue { SH2A, "1" },
@@ -1137,7 +1137,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@-Rm,R0",
   SH2A,
-  abstract { "Rm := Rm-2, R0 := signext( $(Rm) )" },
+  abstract { "Rm - 2 -> Rm, signext( $(Rm) ) -> R0" },
   opcode { "0100mmmm11011011" },
 
   issue { SH2A, "1" },
@@ -1186,7 +1186,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@-Rm,R0",
   SH2A,
-  abstract { "Rm := Rm-4, R0 := $(Rm)" },
+  abstract { "Rm - 4 -> Rm, $(Rm) -> R0" },
   opcode { "0100mmmm11101011" },
 
   issue { SH2A, "1" },
@@ -1227,7 +1227,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tR0,@Rn+",
   SH2A,
-  abstract { "$(Rn) := R0, Rn := Rn+1" },
+  abstract { "R0 -> $(Rn), Rn + 1 -> Rn" },
   opcode { "0100nnnn10001011" },
 
   issue { SH2A, "1" },
@@ -1268,7 +1268,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tR0,@Rn+",
   SH2A,
-  abstract { "$(Rn) := R0, Rn := Rn+2" },
+  abstract { "R0 -> $(Rn), Rn + 2 -> Rn" },
   opcode { "0100nnnn10011011" },
 
   issue { SH2A, "1" },
@@ -1309,7 +1309,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tR0,@Rn+",
   SH2A,
-  abstract { "$(Rn) := R0, Rn := Rn+4" },
+  abstract { "R0 -> $(Rn), Rn + 4 -> Rn" },
   opcode { "0100nnnn10101011" },
 
   issue { SH2A, "1" },
@@ -1350,7 +1350,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(disp,Rm),R0",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "R0 := signext( disp + R[m]" },
+  abstract { "signext( disp + Rm ) -> R0" },
   opcode { "10000100mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1364,7 +1364,7 @@ disp ← ZeroExtend<4>(i);
 op2 ← SignExtend<32>(R[m]);
 address ← ZeroExtend<32>(disp + op2);
 r0 ← SignExtend<8>(ReadMemory<8>(address));
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
   description
 {R"(
@@ -1414,7 +1414,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "Rn := signext (disp + Rm)" },
+  abstract { "signext (disp + Rm) -> Rn" },
   opcode { "0011nnnnmmmm00010100dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1465,7 +1465,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movu.b\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "Rn := zeroext (disp + Rm)" },
+  abstract { "zeroext (disp + Rm) -> Rn" },
   opcode { "0011nnnnmmmm00011000dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1510,7 +1510,7 @@ void MOVBUL12 (int d, int m, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(disp,Rm),R0",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "R0 := signext (disp * 2 + Rm)" },
+  abstract { "signext (disp * 2 + Rm) -> R0" },
   opcode { "10000101mmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1524,7 +1524,7 @@ disp ← ZeroExtend<4>(i) << 1;
 op2 ← SignExtend<32>(R[m]);
 address ← ZeroExtend<32>(disp + op2);
 r0 ← SignExtend<16>(ReadMemory<16>(address));
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
   description
 {R"(
@@ -1574,7 +1574,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "Rn := signext (disp * 2 + Rm)" },
+  abstract { "signext (disp * 2 + Rm) -> Rn" },
   opcode { "0011nnnnmmmm00010101dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1624,7 +1624,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movu.w\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "Rn := zeroext (disp * 2 + Rm)" },
+  abstract { "zeroext (disp * 2 + Rm) -> Rn" },
   opcode { "0011nnnnmmmm00011001dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1669,7 +1669,7 @@ void MOVWUL12 (int d, int m, int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(disp,Rm),Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := (disp * 4 + Rm)" },
+  abstract { "(disp * 4 + Rm) -> Rn" },
   opcode { "0101nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1726,7 +1726,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(disp12,Rm),Rn",
   SH2A,
-  abstract { "Rn := (disp * 4 + Rm)" },
+  abstract { "(disp * 4 + Rm) -> Rn" },
   opcode { "0011nnnnmmmm00010110dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1768,7 +1768,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tR0,@(disp,Rn)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(disp + Rn) := R0" },
+  abstract { "R0 -> (disp + Rn)" },
   opcode { "10000000nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1825,7 +1825,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tRm,@(disp12,Rn)",
   SH2A,
-  abstract { "$(disp + Rn) := Rn" },
+  abstract { "Rn -> (disp + Rn)" },
   opcode { "0011nnnnmmmm00010000dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1868,7 +1868,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tR0,@(disp,Rn)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(disp * 2 + Rn) := R0" },
+  abstract { "R0 -> (disp * 2 + Rn)" },
   opcode { "10000001nnnndddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -1925,7 +1925,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tRm,@(disp12,Rn)",
   SH2A,
-  abstract { "$(disp * 2 + Rn) := Rm" },
+  abstract { "Rm -> (disp * 2 + Rn)" },
   opcode { "0011nnnnmmmm00010001dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -1967,7 +1967,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@(disp,Rn)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(disp * 4 + Rn) := Rm" },
+  abstract { "Rm -> (disp * 4 + Rn)" },
   opcode { "0001nnnnmmmmdddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2025,7 +2025,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@(disp12,Rn)",
   SH2A,
-  abstract { "$(disp * 4 + Rn) := Rm" },
+  abstract { "Rm -> (disp * 4 + Rn)" },
   opcode { "0011nnnnmmmm00010010dddddddddddd" },
 
   issue { SH2A, "1" },
@@ -2067,7 +2067,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(R0,Rm),Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext($(R0 + Rm) )" },
+  abstract { "signext( $(R0 + Rm) ) -> Rn" },
   opcode { "0000nnnnmmmm1100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2125,7 +2125,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(R0,Rm),Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := signext( $(R0 + Rm) )" },
+  abstract { "signext( $(R0 + Rm) ) -> Rn" },
   opcode { "0000nnnnmmmm1101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2185,7 +2185,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(R0,Rm),Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := $(R0 + Rm)" },
+  abstract { "$(R0 + Rm) -> Rn" },
   opcode { "0000nnnnmmmm1110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2237,7 +2237,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tRm,@(R0,Rn)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(R0 + Rn) := Rm" },
+  abstract { "Rm -> (R0 + Rn)" },
   opcode { "0000nnnnmmmm0100" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2290,7 +2290,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tRm,@(R0,Rn)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(R0 + Rn) := Rm" },
+  abstract { "Rm -> (R0 + Rn)" },
   opcode { "0000nnnnmmmm0101" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2342,7 +2342,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tRm,@(R0,Rn)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(R0 + Rn) := Rm" },
+  abstract { "Rm -> (R0 + Rn)" },
   opcode { "0000nnnnmmmm0110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2394,7 +2394,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\t@(disp,GBR),R0",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "R0 := signext( $(disp + GBR) )" },
+  abstract { "signext( $(disp + GBR) ) -> R0" },
   opcode { "11000100dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2408,7 +2408,7 @@ gbr ← SignExtend<32>(GBR);
 disp ← ZeroExtend<8>(i);
 address ← ZeroExtend<32>(disp + gbr);
 r0 ← SignExtend<8>(ReadMemory<8>(address));
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
   description
 {R"(
@@ -2457,7 +2457,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\t@(disp,GBR),R0",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "R0 := signext( $(disp * 2 + GBR) )" },
+  abstract { "signext( $(disp * 2 + GBR) ) -> R0" },
   opcode { "11000101dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2471,7 +2471,7 @@ gbr ← SignExtend<32>(GBR);
 disp ← ZeroExtend<8>(i) << 1;
 address ← ZeroExtend<32>(disp + gbr);
 r0 ← SignExtend<16>(ReadMemory<16>(address));
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
   description
 {R"(
@@ -2520,7 +2520,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\t@(disp,GBR),R0",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "R0 := $(disp * 4 + GBR)" },
+  abstract { "(disp * 4 + GBR) -> R0" },
   opcode { "11000110dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2534,7 +2534,7 @@ gbr ← SignExtend<32>(GBR);
 disp ← ZeroExtend<8>(i) << 2;
 address ← ZeroExtend<32>(disp + gbr);
 r0 ← SignExtend<32>(ReadMemory<32>(address));
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
   description
 {R"(
@@ -2575,7 +2575,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.b\tR0,@(disp,GBR)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(disp + GBR) := R0" },
+  abstract { "R0 -> (disp + GBR)" },
   opcode { "11000000dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2631,7 +2631,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.w\tR0,@(disp,GBR)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(disp * 2 + GBR) := R0" },
+  abstract { "R0 -> (disp * 2 + GBR)" },
   opcode { "11000001dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2687,7 +2687,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mov.l\tR0,@(disp,GBR)",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "$(disp * 4 + GBR) := R0" },
+  abstract { "R0 -> (disp * 4 + GBR)" },
   opcode { "11000010dddddddd" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -2743,7 +2743,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movco.l\tR0,@Rn",
   SH4A,
-  abstract { "T := LDST\nIf T = 1: Rn := R0\nLDST := 0" },
+  abstract { "LDST -> T\nIf T = 1: R0 -> Rn\n0 -> LDST" },
   opcode { "0000nnnn01110011" },
   flags { "LDST -> T" },
 
@@ -2799,7 +2799,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movli.l\t@Rm,R0",
   SH4A,
-  abstract { "LDST := 1\nR0 := $(Rm)\nWhen interrupt/exception occured: LDST := 0" },
+  abstract { "1 -> LDST\(Rm) -> nR0\nWhen interrupt/exception occured: 0 -> LDST" },
   opcode { "0000mmmm01100011" },
 
   group { SH4A, "CO" },
@@ -2852,7 +2852,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movua.l\t@Rm,R0",
   SH4A,
-  abstract { "R0 := $(Rm)\nLoad non-boundary alignment data" },
+  abstract { "(Rm) -> R0\nLoad non-boundary alignment data" },
   opcode { "0100mmmm10101001" },
 
   group { SH4A, "LS" },
@@ -2902,7 +2902,7 @@ Data address error (when the privileged area is accessed from user mode)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movua.l\t@Rm+,R0",
   SH4A,
-  abstract { "R0 := $(Rm), Rm := Rm + 4\nLoad non-boundary alignment data" },
+  abstract { "(Rm) -> R0, Rm + 4 -> Rm\nLoad non-boundary alignment data" },
   opcode { "0100mmmm11101001" },
 
   group { SH4A, "LS" },
@@ -2957,11 +2957,11 @@ Data address error (when the privileged area is accessed from user mode)
 insn { "movml.l\tRm,@-R15",
   SH2A,
   abstract
-{ R"(R15 := R15−4, $(R15) := Rm,
-R15 := R15−4, $(R15) := Rm − 1,
+{ R"(R15 − 4 -> R15, Rm -> $(R15),
+R15 − 4 -> R15, Rm -> $(R15) − 1,
 ...
 ...
-R15 = R15 − 4, $(R15) := R0
+R15 = R15 − 4, R0 -> $(R15)
 Note: When Rm = R15, read Rm as PR)"},
 
   opcode { "0100mmmm11110001" },
@@ -3019,11 +3019,11 @@ Data address error
 insn { "movml.l\t@R15+,Rn",
   SH2A,
   abstract
-{R"(R0 := $(R15), R15 := R15 + 4,
-R1 := $(R15), R15 := R15 + 4,
+{R"((R15) -> R0, R15 + 4 -> R15,
+(R15) -> R1, R15 + 4 -> R15,
 ...
 ...
-Rn = $(R15)
+(R15) -> Rn
 Note: When Rn = R15, read Rn as PR)"},
 
   opcode { "0100nnnn11110101" },
@@ -3081,11 +3081,11 @@ Data address error
 insn { "movmu.l\tRm,@-R15",
   SH2A,
   abstract
-{R"(R15 := R15 - 4, $(R15) := PR,
-R15 := R15 - 45, $(R15) := R14,
+{R"(R15 - 4 -> R15, PR -> $(R15),
+R15 - 45 -> R15, R14 -> $(R15),
 ...
 ...
-R15 := R15 - 4, $(R15) := Rm
+R15 - 4 -> R15, Rm -> $(R15)
 Note: When Rm = R15, read Rm as PR)"},
 
   opcode { "0100mmmm11110000" },
@@ -3140,12 +3140,12 @@ Data address error
 insn { "movmu.l\t@R15+,Rn",
   SH2A,
   abstract
-{R"(Rn := $(R15), R15 := R15 + 4,
-Rn + 1 := $(R15), R15 := R15 + 4,
+{R"((R15) -> Rn, R15 + 4 -> R15,
+Rn + $(R15) -> 1 -> Rn + 1, R15 + 4 -> R15,
 ...
 ...
-R14 := $(R15), R15 := R15 + 4,
-PR := $(R15)
+(R15) -> R14, R15 + 4 -> R15,
+(R15) -> PR
 Note: When Rn = R15, read Rn as PR)"},
 
   opcode { "0100nnnn11110100" },
@@ -3244,7 +3244,7 @@ void MOVRT (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movt\tRn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := T" },
+  abstract { "T -> Rn" },
   opcode { "0000nnnn00101001" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3298,7 +3298,7 @@ MOVT R1 ;R1 = 0
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "nott",
   SH2A,
-  abstract { "T := ~T" },
+  abstract { "~T -> T" },
   opcode { "0000000001101000" },
   flags { "~T -> T" },
 
@@ -3344,7 +3344,7 @@ void NOTT (void)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.b\tRm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn = swap lower 2 bytes ( R[m]" },
+  abstract { "swap lower 2 bytes (R[m]) -> Rn" },
   opcode { "0110nnnnmmmm1000" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3354,7 +3354,7 @@ insn { "swap.b\tRm,Rn",
   brief
 {R"(
 op1 ← ZeroExtend<32>(R[m]);
-op2 ← ((op1 < 16 FOR 16 > << 16) ∨ (op1 < 0 FOR 8 > << 8)) ∨ op1< 8 FOR 8 > ;
+op2 ← ((op1<sub>[16:16]</sub> << 16) ∨ (op1<sub>[0:8]</sub> << 8)) ∨ op1<sub>[8:8]</sub> ;
 R[n] ← Register(op2);
 )"},
   description
@@ -3399,7 +3399,7 @@ SWAP.B R0,R1 ;Before execution: R0 = H'12345678
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "swap.w\tRm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := swap upper/lower words( R[m]" },
+  abstract { "swap upper/lower words(R[m]) -> Rn" },
   opcode { "0110nnnnmmmm1001" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3409,7 +3409,7 @@ insn { "swap.w\tRm,Rn",
   brief
 {R"(
 op1 ← ZeroExtend<32>(R[m]);
-op2 ← (op1 < 0 FOR 16 > << 16) ∨ op1< 16 FOR 16 > ;
+op2 ← (op1<sub>[0:16]</sub> << 16) ∨ op1<sub>[16:16]</sub> ;
 R[n] ← Register(op2);
 )"},
   description
@@ -3452,7 +3452,7 @@ SWAP.W R0,R1 ;Before execution: R0 = H'12345678
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "xtrct\tRm,Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn := Rm:Rn middle 32 bits" },
+  abstract { "Rm:Rn middle 32 bits -> Rn" },
   opcode { "0010nnnnmmmm1101" },
 
   group { SH4, "EX", SH4A, "EX" },
@@ -3463,7 +3463,7 @@ insn { "xtrct\tRm,Rn",
 {R"(
 op1 ← ZeroExtend<32>(R[m]);
 op2 ← ZeroExtend<32>(R[n]);
-op2 ← op2 < 16 FOR 16 > ∨ (op1 < 0 FOR 16 > << 16);
+op2 ← op2<sub>[16:16]</sub> ∨ (op1<sub>[0:16]</sub> << 16);
 R[n] ← Register(op2);
 )"},
   description
@@ -3510,7 +3510,7 @@ insn_blocks.push_back
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "band.b\t#imm3,@disp12,Rn",
   SH2A,
-  abstract { "T := $(imm of (disp+Rn)) & T" },
+  abstract { "(imm of (disp+Rn)) & T -> T" },
   opcode { "0011nnnn0iii10010100dddddddddddd" },
   flags { "Result -> T" },
 
@@ -4370,7 +4370,7 @@ t ← ZeroExtend<1>(T);
 op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
 op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 op2 ← (op2 + op1) + t;
-t ← op2< 32 FOR 1 > ;
+t ← op2<sub>[32:1]</sub> ;
 R[n] ← Register(op2);
 T ← Bit(t);
 )"},
@@ -4972,10 +4972,10 @@ insn { "cmp/str\tRm,Rn",
 op1 ← SignExtend<32>(R[m]);
 op2 ← SignExtend<32>(R[n]);
 temp ← op1 ⊕ op2;
-t ← INT (temp < 0 FOR 8 > = 0);
-t ← (INT (temp < 8 FOR 8 > = 0)) ∨ t;
-t ← (INT (temp < 16 FOR 8 > = 0)) ∨ t;
-t ← (INT (temp < 24 FOR 8 > = 0)) ∨ t;
+t ← INT (temp<sub>[0:8]</sub> = 0);
+t ← (INT (temp<sub>[8:8]</sub> = 0)) ∨ t;
+t ← (INT (temp<sub>[16:8]</sub> = 0)) ∨ t;
+t ← (INT (temp<sub>[24:8]</sub> = 0)) ∨ t;
 T ← Bit(t);
 )"},
 
@@ -5259,8 +5259,8 @@ insn { "div0s\tRm,Rn",
 {R"(
 op1 ← SignExtend<32>(R[m]);
 op2 ← SignExtend<32>(R[n]);
-q ← op2< 31 FOR 1 > ;
-m ← op1 < 31 FOR 1 > ;
+q ← op2<sub>[31:1]</sub> ;
+m ← op1<sub>[31:1]</sub> ;
 t ← m ⊕ q;
 Q ← Bit(q);
 M ← Bit(m);
@@ -5385,13 +5385,13 @@ t ← ZeroExtend<1>(T);
 op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
 op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 oldq ← q;
-q ← op2< 31 FOR 1 > ;
+q ← op2<sub>[31:1]</sub> ;
 op2 ← ZeroExtend<32>(op2 << 1) ∨ t;
 IF (oldq = m)
   op2 ← op2 - op1;
 ELSE
   op2 ← op2 + op1;
-q ← (q ⊕ m) ⊕ op2< 32 FOR 1 > ;
+q ← (q ⊕ m) ⊕ op2<sub>[32:1]</sub> ;
 t ← 1 - (q ⊕ m);
 R[n] ← Register(op2);
 Q ← Bit(q);
@@ -5905,7 +5905,7 @@ STS MACL,R0 ;Operation result (bottom
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "dt\tRn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Rn-1 -> Rn\nIf Rn = 0: 1 -> T\nElse: 0 -> T" },
+  abstract { "Rn - 1 -> Rn\nIf Rn = 0: 1 -> T\nElse: 0 -> T" },
   opcode { "0100nnnn00010000" },
 
   group { SH4A, "EX", SH4, "EX" },
@@ -6176,7 +6176,7 @@ EXTU.W R0,R1 ;Before execution: R0 = H'FFFF8000
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mac.l\t@Rm+,@Rn+",
   SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Signed, (Rn) * (Rm) + MAC -> MAC\n32 * 32 + 64 -> 64 bits" },
+  abstract { "Signed, $(Rn) * $(Rm) + MAC -> MAC\n32 * 32 + 64 -> 64 bits" },
   opcode { "0000nnnnmmmm1111" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -6206,9 +6206,9 @@ mac ← (mach << 32) + macl;
 result ← mac + mul;
 IF (s = 1)
 {
-  IF (((result ⊕ mac) ∧ (result ⊕ mul)) < 63 FOR 1 > = 1)
+  IF (((result ⊕ mac) ∧ (result ⊕ mul))<sub>[63:1]</sub> = 1)
   {
-    IF (mac < 63 FOR 1 > = 0)
+    IF (mac<sub>[63:1]</sub> = 0)
       result ← 247 - 1;
     ELSE
       result ← - 247 ;
@@ -6371,7 +6371,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "mac.w\t@Rm+,@Rn+",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "Signed, (Rn) * (Rm) + MAC -> MAC\nSH1: 16 * 16 + 42 -> 42 bits\nOther: 16 * 16 + 64 -> 64 bits" },
+  abstract { "Signed, $(Rn) * $(Rm) + MAC -> MAC\nSH1: 16 * 16 + 42 -> 42 bits\nOther: 16 * 16 + 64 -> 64 bits" },
   opcode { "0100nnnnmmmm1111" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -6811,7 +6811,7 @@ insn { "negc\tRm,Rn",
 t ← ZeroExtend<1>(T);
 op1 ← ZeroExtend<32>(R[m]);
 op2 ← (- op1) - t;
-t ← op2< 32 FOR 1 > ;
+t ← op2<sub>[32:1]</sub> ;
 R[n] ← Register(op2);
 T ← Bit(t);
 )"},
@@ -6944,7 +6944,7 @@ t ← ZeroExtend<1>(T);
 op1 ← ZeroExtend<32>(SignExtend<32>(R[m]));
 op2 ← ZeroExtend<32>(SignExtend<32>(R[n]));
 op2 ← (op2 - op1) - t;
-t ← op2< 32 FOR 1 > ;
+t ← op2<sub>[32:1]</sub> ;
 R[n] ← Register(op2);
 T ← Bit(t);
 )"},
@@ -7162,10 +7162,10 @@ insn { "and\t#imm,R0",
 
   brief
 {R"(
-r0 ← ZeroExtend<32>(R 0);
+r0 ← ZeroExtend<32>(R[0]);
 imm ← ZeroExtend<8>(i);
 r0 ← r0 ∧ imm;
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
 
   description
@@ -7371,10 +7371,10 @@ insn { "or\t#imm,R0",
 
   brief
 {R"(
-r0 ← ZeroExtend<32>(R 0);
+r0 ← ZeroExtend<32>(R[0]);
 imm ← ZeroExtend<8>(i);
 r0 ← r0 ∨ imm;
-R 0 ← Register(r0);
+R[0] ← Register(r0);
 )"},
   description
 {R"(
@@ -7473,7 +7473,7 @@ and a byte store.
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "tas.b\t@Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "If (Rn) = 0: 1 -> T\nElse: 0 -> T\n1 -> MSB of (Rn)" },
+  abstract { "If $(Rn) = 0: 1 -> T\nElse: 0 -> T\n1 -> MSB of $(Rn)" },
   opcode { "0100nnnn00011011" },
   flags { "Result -> T" },
 
@@ -7799,10 +7799,10 @@ insn { "xor\t#imm,R0",
 
   brief
 {R"(
-r0 ← ZeroExtend<32>(R 0);
+r0 ← ZeroExtend<32>(R[0]);
 imm ← ZeroExtend<8>(i);
 r0 ← r0 ⊕ imm;
-R 0 ← Register(r0)
+R[0] ← Register(r0)
 )"},
   description
 {R"(
@@ -7920,7 +7920,7 @@ insn { "rotcl\tRn",
 t ← ZeroExtend<1>(T);
 op1 ← ZeroExtend<32>(R[n]);
 op1 ← (op1 << 1) ∨ t;
-t ← op1< 32 FOR 1 > ;
+t ← op1<sub>[32:1]</sub> ;
 R[n] ← Register(op1);
 T ← Bit(t);
 )"},
@@ -7992,7 +7992,7 @@ insn { "rotcr\tRn",
 t ← ZeroExtend<1>(T);
 op1 ← ZeroExtend<32>(R[n]);
 oldt ← t;
-t ← op1< 0 FOR 1 > ;
+t ← op1<sub>[0:1]</sub> ;
 op1 ← (op1 >> 1) ∨ (oldt << 31);
 R[n] ← Register(op1);
 T ← Bit(t);
@@ -8064,7 +8064,7 @@ insn { "rotl\tRn",
   brief
 {R"(
 op1 ← ZeroExtend<32>(R[n]);
-t ← op1< 31 FOR 1 > ;
+t ← op1<sub>[31:1]</sub> ;
 op1 ← (op1 << 1) ∨ t;
 R[n] ← Register(op1);
 T ← Bit(t);
@@ -8127,7 +8127,7 @@ insn { "rotr\tRn",
   brief
 {R"(
 op1 ← ZeroExtend<32>(R[n]);
-t ← op1< 0 FOR 1 > ;
+t ← op1<sub>[0:1]</sub> ;
 op1 ← (op1 >> 1) ∨ (t << 31);
 R[n] ← Register(op1);
 T ← Bit(t);
@@ -8270,7 +8270,7 @@ insn { "shal\tRn",
   brief
 {R"(
 op1 ← SignExtend<32>(R[n]);
-t ← op1< 31 FOR 1 > ;
+t ← op1<sub>[31:1]</sub> ;
 op1 ← op1 << 1;
 R[n] ← Register(op1);
 T ← Bit(t);
@@ -8328,7 +8328,7 @@ insn { "shar\tRn",
   brief
 {R"(
 op1 ← SignExtend<32>(R[n]);
-t ← op1< 0 FOR 1 > ;
+t ← op1<sub>[0:1]</sub> ;
 op1 ← op1 >> 1;
 R[n] ← Register(op1);
 T ← Bit(t);
@@ -8472,7 +8472,7 @@ insn { "shll\tRn",
   brief
 {R"(
 op1 ← ZeroExtend<32>(R[n]);
-t ← op1< 31 FOR 1 > ;
+t ← op1<sub>[31:1]</sub> ;
 op1 ← op1 << 1;
 R[n] ← Register(op1);
 T ← Bit(t);
@@ -8677,7 +8677,7 @@ insn { "shlr\tRn",
   brief
 {R"(
 op1 ← ZeroExtend<32>(R[n]);
-t ← op1< 0 FOR 1 > ;
+t ← op1<sub>[0:1]</sub> ;
 op1 ← op1 >> 1;
 R[n] ← Register(op1);
 T ← Bit(t);
@@ -10271,7 +10271,7 @@ Slot illegal instruction exception
 insn { "ldc.l\t@Rm+,SR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
-  abstract { "(Rm) -> SR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> SR, Rm + 4 -> Rm" },
   opcode { "0100mmmm00000111" },
   flags { "LSB -> T" },
 
@@ -10430,7 +10430,7 @@ void LDCGBR (int m)
 insn { "ldc.l\t@Rm+,GBR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH3, "Privileged" } } },
-  abstract { "(Rm) -> GBR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> GBR, Rm + 4 -> Rm" },
   opcode { "0100mmmm00010111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -10536,7 +10536,7 @@ Slot illegal instruction exception
 insn { "ldc.l\t@Rm+,VBR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" },  } },
-  abstract { "(Rm) -> VBR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> VBR, Rm + 4 -> Rm" },
   opcode { "0100mmmm00100111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -10637,7 +10637,7 @@ void LDCMOD (int m)
 insn { "ldc.l\t@Rm+,MOD",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH3_DSP, "Privileged" } } },
-  abstract { "(Rm) -> MOD, Rm+4 -> Rm" },
+  abstract { "(Rm) -> MOD, Rm + 4 -> Rm" },
   opcode { "0100mmmm01010111" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -10723,7 +10723,7 @@ void LDCRE (int m)
 insn { "ldc.l\t@Rm+,RE",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH3_DSP, "Privileged" } } },
-  abstract { "(Rm) -> RE, Rm+4 -> Rm" },
+  abstract { "(Rm) -> RE, Rm + 4 -> Rm" },
   opcode { "0100mmmm01110111" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -10808,7 +10808,7 @@ void LDCRS (int m)
 insn { "ldc.l\t@Rm+,RS",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH3_DSP, "Privileged" } } },
-  abstract { "(Rm) -> RS, Rm+4 -> Rm" },
+  abstract { "(Rm) -> RS, Rm + 4 -> Rm" },
   opcode { "0100mmmm01100111" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -10897,7 +10897,7 @@ Slot illegal instruction exception
 insn { "ldc.l\t@Rm+,SGR",
   SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) -> SGR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> SGR, Rm + 4 -> Rm" },
   opcode { "0100mmmm00110110" },
 
   group { SH4A, "CO" },
@@ -11006,7 +11006,7 @@ Slot illegal instruction exception
 insn { "ldc.l\t@Rm+,SSR",
   SH3 | SH4 | SH4A,
   environments { { { SH3 | SH4A, "Privileged" },  } },
-  abstract { "(Rm) -> SSR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> SSR, Rm + 4 -> Rm" },
   opcode { "0100mmmm00110111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11116,7 +11116,7 @@ Slot illegal instruction exception
 insn { "ldc.l\t@Rm+,SPC",
   SH3 | SH4 | SH4A,
   environments { { { SH3 | SH4A, "Privileged" },  } },
-  abstract { "(Rm) -> SPC, Rm+4 -> Rm" },
+  abstract { "(Rm) -> SPC, Rm + 4 -> Rm" },
   opcode { "0100mmmm01000111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11226,7 +11226,7 @@ Slot illegal instruction exception
 insn { "ldc.l\t@Rm+,DBR",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) -> DBR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> DBR, Rm + 4 -> Rm" },
   opcode { "0100mmmm11110110" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -11338,7 +11338,7 @@ Slot illegal instruction exception
 insn { "ldc.l\t@Rm+,Rn_BANK",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "(Rm) -> Rn_BANK, Rm+4 -> Rm" },
+  abstract { "(Rm) -> Rn_BANK, Rm + 4 -> Rm" },
   opcode { "0100mmmm1nnn0111" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11596,7 +11596,7 @@ void LDSMACH (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,MACH",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "(Rm) -> MACH, Rm+4 -> Rm" },
+  abstract { "(Rm) -> MACH, Rm + 4 -> Rm" },
   opcode { "0100mmmm00000110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11708,7 +11708,7 @@ void LDSMACL (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,MACL",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "(Rm) -> MACL, Rm+4 -> Rm" },
+  abstract { "(Rm) -> MACL, Rm + 4 -> Rm" },
   opcode { "0100mmmm00010110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11813,7 +11813,7 @@ LDS R0,PR ;Before execution: R0 = H'12345678, PR = H'00000000
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,PR",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
-  abstract { "(Rm) -> PR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> PR, Rm + 4 -> Rm" },
   opcode { "0100mmmm00100110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -11956,7 +11956,7 @@ void LDSA0 (long m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,DSR",
   SH1_DSP | SH2_DSP | SH3_DSP,
-  abstract { "(Rm) -> DSR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> DSR, Rm + 4 -> Rm" },
   opcode { "0100mmmm01100110" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -11997,7 +11997,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,A0",
   SH1_DSP | SH2_DSP | SH3_DSP,
-  abstract { "(Rm) -> A0, Rm+4 -> Rm" },
+  abstract { "(Rm) -> A0, Rm + 4 -> Rm" },
   opcode { "0100mmmm01110110" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -12087,7 +12087,7 @@ void LDSX0 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,X0",
   SH1_DSP | SH2_DSP | SH3_DSP,
-  abstract { "(Rm) -> X0, Rm+4 -> Rm" },
+  abstract { "(Rm) -> X0, Rm + 4 -> Rm" },
   opcode { "0100nnnn10000110" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -12170,7 +12170,7 @@ void LDSX1 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,X1",
   SH1_DSP | SH2_DSP | SH3_DSP,
-  abstract { "(Rm) -> X1, Rm+4 -> Rm" },
+  abstract { "(Rm) -> X1, Rm + 4 -> Rm" },
   opcode { "0100nnnn10010110" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -12254,7 +12254,7 @@ void LDSY0 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,Y0",
   SH1_DSP | SH2_DSP | SH3_DSP,
-  abstract { "(Rm) -> Y0, Rm+4 -> Rm" },
+  abstract { "(Rm) -> Y0, Rm + 4 -> Rm" },
   opcode { "0100nnnn10100110" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -12338,7 +12338,7 @@ void LDSY1 (int m)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,Y1",
   SH1_DSP | SH2_DSP | SH3_DSP,
-  abstract { "(Rm) -> Y1, Rm+4 -> Rm" },
+  abstract { "(Rm) -> Y1, Rm + 4 -> Rm" },
   opcode { "0100nnnn10110110" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -12471,7 +12471,7 @@ Slot illegal instruction exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "movca.l\tR0,@Rn",
   SH4 | SH4A,
-  abstract { "$(Rn) := R0 (without fetching cache block)" },
+  abstract { "R0 -> $(Rn) (without fetching cache block)" },
   opcode { "0000nnnn11000011" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -12990,7 +12990,7 @@ accessed by the instruction in the RTE delay slot is the value restored from SSR
 by the RTE instruction. The SR and MD values defined prior to RTE execution are
 used to fetch the instruction in the RTE delay slot.
 <br /><br />
-On SH1, SH2 and SH2A the PC and SR values are from the stack (R15).
+On SH1, SH2 and SH2A the PC and SR values are from the stack $(R15).
 )"},
 
   note
@@ -13426,7 +13426,7 @@ Slot illegal instruction exception
 insn { "stc.l\tSR,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" } } },
-  abstract { "Rn-4 -> Rn, SR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, SR -> $(Rn)" },
   opcode { "0100nnnn00000011" },
 
   group { SH4A, "CO", SH4, "CO" },
@@ -13577,7 +13577,7 @@ STCGBR (int n)
 insn { "stc.l\tGBR,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, GBR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, GBR -> $(Rn)" },
   opcode { "0100nnnn00010011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -13684,7 +13684,7 @@ Slot illegal instruction exception
 insn { "stc.l\tVBR,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" }, { SH3 | SH4A, "Privileged" } } },
-  abstract { "Rn-4 -> Rn, VBR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, VBR -> $(Rn)" },
   opcode { "0100nnnn00100011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -13786,7 +13786,7 @@ void STCMOD (int n)
 insn { "stc.l\tMOD,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, MOD -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, MOD -> $(Rn)" },
   opcode { "0100nnnn01010011" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -13872,7 +13872,7 @@ void STCRE (int n)
 insn { "stc.l\tRE,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, RE -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, RE -> $(Rn)" },
   opcode { "0100nnnn01110011" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -13957,7 +13957,7 @@ void STCRS (int n)
 insn { "stc.l\tRS,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, RS -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, RS -> $(Rn)" },
   opcode { "0100nnnn01100011" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -14051,7 +14051,7 @@ Slot illegal instruction exception
 insn { "stc.l\tSGR,@-Rn",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 -> Rn, SGR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, SGR -> $(Rn)" },
   opcode { "0100nnnn00110010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14162,7 +14162,7 @@ Slot illegal instruction exception
 insn { "stc.l\tSSR,@-Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH3 | SH4A, "Privileged" } } },
-  abstract { "Rn-4 -> Rn, SSR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, SSR -> $(Rn)" },
   opcode { "0100nnnn00110011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14273,7 +14273,7 @@ Slot illegal instruction exception
 insn { "stc.l\tSPC,@-Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH3 | SH4A, "Privileged" },  } },
-  abstract { "Rn-4 -> Rn, SPC -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, SPC -> $(Rn)" },
   opcode { "0100nnnn01000011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14384,7 +14384,7 @@ Slot illegal instruction exception
 insn { "stc.l\tDBR,@-Rn",
   SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 -> Rn, DBR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, DBR -> $(Rn)" },
   opcode { "0100nnnn11110010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14496,7 +14496,7 @@ Slot illegal instruction exception
 insn { "stc.l\tRm_BANK,@-Rn",
   SH3 | SH4 | SH4A,
   environments { { { SH4A, "Privileged" } } },
-  abstract { "Rn-4 -> Rn, Rm_BANK -> (Rn) (m = 0-7)" },
+  abstract { "Rn - 4 -> Rn, Rm_BANK -> $(Rn) (m = 0-7)" },
   opcode { "0100nnnn1mmm0011" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14618,7 +14618,7 @@ STS MACH,R0 ;Before execution: R0 = H'FFFFFFFF, MACH = H'00000000
 insn { "sts.l\tMACH,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, MACH -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, MACH -> $(Rn)" },
   opcode { "0100nnnn00000010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14735,7 +14735,7 @@ void STSMACL (int n)
 insn { "sts.l\tMACL,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, MACL -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, MACL -> $(Rn)" },
   opcode { "0100nnnn00010010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14838,7 +14838,7 @@ void STSPR (int n)
 insn { "sts.l\tPR,@-Rn",
   SH1 | SH2 | SH2E | SH2A | SH3 | SH4 | SH4A,
   environments { { { SH1 | SH2 | SH2E | SH2A, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, PR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, PR -> $(Rn)" },
   opcode { "0100nnnn00100010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -14935,7 +14935,7 @@ void STSDSR (int n)
 insn { "sts.l\tDSR,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, DSR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, DSR -> $(Rn)" },
   opcode { "0100nnnn01100010" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -15020,7 +15020,7 @@ void STSA0 (int n)
 insn { "sts.l\tA0,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, A0 -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, A0 -> $(Rn)" },
   opcode { "0100nnnn01110010" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -15105,7 +15105,7 @@ void STSX0 (int n)
 insn { "sts.l\tX0,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, X0 -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, X0 -> $(Rn)" },
   opcode { "0100nnnn10000010" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -15190,7 +15190,7 @@ void STSX1 (int n)
 insn { "sts.l\tX1,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, X1 -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, X1 -> $(Rn)" },
   opcode { "0100nnnn10010010" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -15275,7 +15275,7 @@ void STSY0 (int n)
 insn { "sts.l\tY0,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, Y0 -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, Y0 -> $(Rn)" },
   opcode { "0100nnnn10100010" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -15360,7 +15360,7 @@ void STSY1 (int n)
 insn { "sts.l\tY1,@-Rn",
   SH1_DSP | SH2_DSP | SH3_DSP,
   environments { { { SH1_DSP | SH2_DSP | SH3_DSP, "Interrupt Disabled" } } },
-  abstract { "Rn-4 -> Rn, Y1 -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, Y1 -> $(Rn)" },
   opcode { "0100nnnn10110010" },
 
   issue { SH1_DSP | SH2_DSP | SH3_DSP, "1" },
@@ -15639,7 +15639,7 @@ IF (FpuIsDisabled(sr))
   THROW FPUDIS;
 address ← ZeroExtend<32>(op1);
 op2 ← ReadMemory<32>(address);
-FR 2n ← FloatRegister<32>(op2);
+FR[n] ← FloatRegister<32>(op2);
 )"},
   description
 {R"(
@@ -15677,7 +15677,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s\tFRm,@Rn",
   SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A,
-  abstract { "FRm -> (Rn)" },
+  abstract { "FRm -> $(Rn)" },
   opcode { "1111nnnnmmmm1010" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -15736,7 +15736,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s\t@Rm+,FRn",
   SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A,
-  abstract { "(Rm) -> FRn, Rm+4 -> Rm" },
+  abstract { "(Rm) -> FRn, Rm + 4 -> Rm" },
   opcode { "1111nnnnmmmm1001" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -15796,7 +15796,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov.s\tFRm,@-Rn",
   SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A,
-  abstract { "Rn-4 -> Rn, FRm -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, FRm -> $(Rn)" },
   opcode { "1111nnnnmmmm1011" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -16376,7 +16376,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov\tDRm,@Rn",
   SH4 | SH4A | SH2A,
-  abstract { "DRm -> (Rn)" },
+  abstract { "DRm -> $(Rn)" },
   opcode { "1111nnnnmmm01010" },
   mnemonic { "FMOV.D?" },
 
@@ -16436,7 +16436,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov\tXDm,@Rn",
   SH4 | SH4A,
-  abstract { "XDm -> (Rn)" },
+  abstract { "XDm -> $(Rn)" },
   opcode { "1111nnnnmmm11010" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16622,7 +16622,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov\tDRm,@-Rn",
   SH4 | SH4A | SH2A,
-  abstract { "Rn-8 -> Rn, DRm -> (Rn)" },
+  abstract { "Rn - 8 -> Rn, DRm -> $(Rn)" },
   opcode { "1111nnnnmmm01011" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -16686,7 +16686,7 @@ Initial page write exception
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "fmov\tXDm,@-Rn",
   SH4 | SH4A,
-  abstract { "Rn-8 -> Rn, (Rn) -> XDm" },
+  abstract { "Rn - 8 -> Rn, $(Rn) -> XDm" },
   opcode { "1111nnnnmmm11011" },
   mnemonic { "FMOV.D" }, // ??
 
@@ -19349,7 +19349,7 @@ IF (FpuIsDisabled(sr) AND IsDelaySlot())
 IF (FpuIsDisabled(sr))
   THROW FPUDIS;
 op1 ← FABS_D(op1);
-DR 2n ← FloatRegister<64>(op1);
+DR[n] ← FloatRegister<64>(op1);
 )"},
 
   description
@@ -19409,7 +19409,7 @@ IF (FpuIsDisabled(sr) AND IsDelaySlot())
 IF (FpuIsDisabled(sr))
   THROW FPUDIS;
 op1 ← FNEG_D(op1);
-DR 2n ← FloatRegister<64>(op1);
+DR[n] ← FloatRegister<64>(op1);
 )"},
   description
 {R"(
@@ -19476,7 +19476,7 @@ IF (FpuCauseE(fps))
   THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
   THROW FPUEXC, fps;
-DR 2n ← FloatRegister<64>(op2);
+DR[n] ← FloatRegister<64>(op2);
 FPSCR ← ZeroExtend<32>(fps);
 )"},
 
@@ -19629,7 +19629,7 @@ IF (FpuCauseE(fps))
   THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
   THROW FPUEXC, fps;
-DR 2n ← FloatRegister<64>(op2);
+DR[n] ← FloatRegister<64>(op2);
 FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
@@ -19781,7 +19781,7 @@ IF (FpuCauseE(fps))
   THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
   THROW FPUEXC, fps;
-DR 2n ← FloatRegister<64>(op2);
+DR[n] ← FloatRegister<64>(op2);
 FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
@@ -19928,7 +19928,7 @@ IF (FpuCauseE(fps))
   THROW FPUEXC, fps;
 IF ((FpuEnableI(fps) OR FpuEnableO(fps)) OR FpuEnableU(fps))
   THROW FPUEXC, fps;
-DR 2n ← FloatRegister<64>(op2);
+DR[n] ← FloatRegister<64>(op2);
 FPSCR ← ZeroExtend<32>(fps);
 )"},
 
@@ -20133,7 +20133,7 @@ IF (FpuCauseE(fps))
   THROW FPUEXC, fps;
 IF (FpuEnableI(fps))
   THROW FPUEXC, fps;
-DR 2n ← FloatRegister<64>(op1);
+DR[n] ← FloatRegister<64>(op1);
 FPSCR ← ZeroExtend<32>(fps);
 )"},
   description
@@ -20483,7 +20483,7 @@ IF (FpuIsDisabled(sr) AND IsDelaySlot())
 IF (FpuIsDisabled(sr))
   THROW FPUDIS;
 op1, fps ← FLOAT_LD(fpul, fps);
-DR 2n ← FloatRegister<64>(op1);
+DR[n] ← FloatRegister<64>(op1);
 )"},
 
   description
@@ -20816,7 +20816,7 @@ IF (FpuEnableV(fps) AND FpuCauseV(fps))
   THROW FPUEXC, fps;
 IF (FpuCauseE(fps))
   THROW FPUEXC, fps;
-DR 2n ← FloatRegister<64>(op1);
+DR[n] ← FloatRegister<64>(op1);
 FPSCR ← ZeroExtend<32>(fps);
 )"},
 
@@ -21030,7 +21030,7 @@ void STSFPSCR (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,FPSCR",
   SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A,
-  abstract { "(Rm) -> FPSCR, Rm+4 -> Rm" },
+  abstract { "(Rm) -> FPSCR, Rm + 4 -> Rm" },
   opcode { "0100mmmm01100110" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -21099,7 +21099,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l\tFPSCR,@-Rn",
   SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A,
-  abstract { "Rn-4 -> Rn, FPSCR -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, FPSCR -> $(Rn)" },
   opcode { "0100nnnn01100010" },
 
   group { SH4A, "LS", SH4, "CO" },
@@ -21250,7 +21250,7 @@ void STSFPUL (int n)
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "lds.l\t@Rm+,FPUL",
   SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A,
-  abstract { "(Rm) -> FPUL, Rm+4 -> Rm" },
+  abstract { "(Rm) -> FPUL, Rm + 4 -> Rm" },
   opcode { "0100mmmm01010110" },
 
   group { SH4A, "LS", SH4, "LS" },
@@ -21309,7 +21309,7 @@ Data address error
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 insn { "sts.l\tFPUL,@-Rn",
   SH2E | SH2A_FPU | SH3_FPU | SH4 | SH4A,
-  abstract { "Rn-4 -> Rn, FPUL -> (Rn)" },
+  abstract { "Rn - 4 -> Rn, FPUL -> $(Rn)" },
   opcode { "0100nnnn01010010" },
 
   group { SH4A, "LS", SH4, "CO" },
